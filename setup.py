@@ -18,6 +18,6 @@ setup(
         'pytest',
         'tqdm',
         'joblib',
-        'yaml'
+        'PyYAML'
     ],
 )
