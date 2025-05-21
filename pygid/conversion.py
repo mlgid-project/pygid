@@ -16,7 +16,7 @@ from tqdm.notebook import tqdm as log_progress
 from matplotlib.ticker import LogLocator
 from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as ticker
-
+import warnings
 
 # from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
@@ -82,6 +82,13 @@ class Conversion:
         Calls data loader if imgage if not provided. Applies flipping of raw image, calls q- and angular
         ranges calculation. Calculates correction maps and applies corrections. Activates batch analysis.
         """
+        # print("instance created")
+
+        if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
+            self.matrix_to_save = self.matrix
+            self.matrix = self.matrix.sub_matrices
+        self.matrix = [self.matrix] if not isinstance(self.matrix, list) else self.matrix
+        self.params = self.matrix[0].params
 
         if self.img_raw is not None:
             if self.img_raw.ndim == 2:
@@ -103,12 +110,6 @@ class Conversion:
                 self.img_raw = loaded_data.img_raw
             del loaded_data
 
-        if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
-            self.matrix_to_save = self.matrix
-            self.matrix = self.matrix.sub_matrices
-        self.matrix = [self.matrix] if not isinstance(self.matrix, list) else self.matrix
-
-        self.params = self.matrix[0].params
 
         self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
                                                self.params.transp, self.roi_range, self.params.count_range) for
@@ -116,7 +117,8 @@ class Conversion:
 
         self.update_conversion()
 
-    def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None, overwrite_file=True):
+    def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None, overwrite_file=True,
+              save_result = True, plot_result = False, return_result = False):
         """
         Devidea raw images in batches and process them separately. There are two cases: either path amount
         or frames number in a single h5-file can be bigger than batch size.
@@ -139,50 +141,172 @@ class Conversion:
             rest = self.batch_size % self.number_to_average
             if rest != 0:
                 self.batch_size -= rest
-
         if isinstance(self.path, list):  # many paths
             self.path_batches = [self.path[i:i + self.batch_size] for i in range(0, len(self.path), self.batch_size)]
-            for path_batch in log_progress(self.path_batches, desc='Progress'):
-                # for path_batch in self.path_batches:
-                attrs = self.__dict__.copy()
-                del attrs['img_raw'], attrs['number_of_frames']
-                attrs["path"] = path_batch
-                attrs["batch_activated"] = False
-                sub_class = Conversion(**attrs)
+            if self.average_all:
+                averaged_image = []
+                for path_batch in log_progress(self.path_batches, desc='Progress'):
+                    self.img_raw = DataLoader(
+                        path=path_batch,
+                        frame_num=self.frame_num,
+                        dataset=self.dataset,
+                        roi_range=self.roi_range,
+                        batch_size=self.batch_size,
+                        multiprocessing=self.multiprocessing,
+                        build_image_P03=self.build_image_P03
+                    ).img_raw
+                    averaged_image.append(np.mean(self.img_raw, axis=0, keepdims=False))
 
-                remap = getattr(sub_class, remap_func, None)
-                # remap_func = getattr(sub_class, self.remap_func, None)
-                if callable(remap):
-                    if exp_metadata is None:
-                        exp_metadata = ExpMetadata(filename=path_batch)
-                    remap(plot_result=False, return_result=False, multiprocessing=True, save_result=True,
-                          overwrite_file=overwrite_file, exp_metadata = exp_metadata, smpl_metadata = smpl_metadata,
-                          path_to_save=path_to_save, h5_group=h5_group)
+                self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
+                                                       self.params.transp, self.roi_range, self.params.count_range) for
+                                         img in averaged_image])
+                self.update_conversion()
+                remap = getattr(self, remap_func, None)
+                self.batch_activated = False
+
+                res = remap(
+                    plot_result=plot_result,
+                    return_result=return_result,
+                    multiprocessing=False,
+                    save_result=save_result,
+                    overwrite_file=overwrite_file,
+                    exp_metadata=exp_metadata,
+                    smpl_metadata=smpl_metadata,
+                    path_to_save=path_to_save,
+                    h5_group=h5_group
+                )
+                return (res[0], res[1], res[2][0])
+
+
+
+
+            else:
+                for path_batch in log_progress(self.path_batches, desc='Progress'):
+                    self.process_batch(
+                        path_batch=path_batch,
+                        frame_num=self.frame_num,
+                        remap_func=remap_func,
+                        overwrite_file=overwrite_file,
+                        exp_metadata=exp_metadata,
+                        smpl_metadata=smpl_metadata,
+                        path_to_save=path_to_save,
+                        h5_group=h5_group
+                    )
                     overwrite_file = False
                     exp_metadata = None
-                else:
-                    print(f"Function '{remap}' is not found")
-                del sub_class
+                    smpl_metadata = None
+                if plot_result or return_result:
+                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.", category=UserWarning)
+
         else:  # many frames in a file
             self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
                                   for i in range(0, self.number_of_frames, self.batch_size)]
-            for frame_num in log_progress(self.frame_batches, desc='Progress'):
-                # for frame_num in self.frame_batches:
-                attrs = self.__dict__.copy()
-                del attrs['img_raw'], attrs['number_of_frames']
-                attrs["frame_num"] = frame_num
-                attrs["batch_activated"] = False
-                sub_class = Conversion(**attrs)
-                remap = getattr(sub_class, remap_func, None)
-                if callable(remap):
-                    remap(plot_result=False, return_result=False, multiprocessing=True, save_result=True,
-                          overwrite_file=overwrite_file, exp_metadata = exp_metadata, smpl_metadata = smpl_metadata,
-                          path_to_save=path_to_save, h5_group=h5_group)
+            if self.average_all:
+                averaged_image = []
+                for frame_num in log_progress(self.frame_batches, desc='Progress'):
+                    self.img_raw = DataLoader(
+                        path=self.path,
+                        frame_num=frame_num,
+                        dataset=self.dataset,
+                        roi_range=self.roi_range,
+                        batch_size=self.batch_size,
+                        multiprocessing=self.multiprocessing,
+                        build_image_P03=self.build_image_P03
+                    ).img_raw
+                    averaged_image.append(np.mean(self.img_raw, axis=0, keepdims=False))
+
+                self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
+                                                       self.params.transp, self.roi_range, self.params.count_range) for
+                                         img in averaged_image])
+                self.update_conversion()
+                remap = getattr(self, remap_func, None)
+                self.batch_activated = False
+
+                remap(
+                    plot_result=plot_result,
+                    return_result=return_result,
+                    multiprocessing=False,
+                    save_result=save_result,
+                    overwrite_file=overwrite_file,
+                    exp_metadata=exp_metadata,
+                    smpl_metadata=smpl_metadata,
+                    path_to_save=path_to_save,
+                    h5_group=h5_group
+                )
+            else:
+                for frame_num in log_progress(self.frame_batches, desc='Progress'):
+                    self.process_batch(
+                        path_batch=self.path,
+                        frame_num=frame_num,
+                        remap_func=remap_func,
+                        overwrite_file=overwrite_file,
+                        exp_metadata=exp_metadata,
+                        smpl_metadata=smpl_metadata,
+                        path_to_save=path_to_save,
+                        h5_group=h5_group
+                    )
                     overwrite_file = False
                     exp_metadata = None
-                else:
-                    print(f"Function '{remap_func}' is not found")
-                del sub_class
+                    smpl_metadata = None
+                if plot_result or return_result:
+                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.", category=UserWarning)
+
+    def process_batch(
+            self, path_batch, frame_num, remap_func, overwrite_file,
+            exp_metadata, smpl_metadata, path_to_save, h5_group
+    ):
+        self.img_raw = DataLoader(
+            path=path_batch,
+            frame_num=frame_num,
+            dataset=self.dataset,
+            roi_range=self.roi_range,
+            batch_size=self.batch_size,
+            multiprocessing=self.multiprocessing,
+            build_image_P03=self.build_image_P03
+        ).img_raw
+
+        self.batch_activated = False
+
+        self.img_raw = np.array([
+            process_image(
+                img, self.params.mask,
+                self.params.flipud, self.params.fliplr,
+                self.params.transp, self.roi_range,
+                self.params.count_range
+            )
+            for img in self.img_raw
+        ])
+
+        self.update_conversion()
+
+
+        remap = getattr(self, remap_func, None)
+        if exp_metadata is None:
+            exp_metadata = ExpMetadata(filename=path_batch)
+        else:
+            exp_metadata.filename = path_batch
+
+        remap(
+            plot_result=False,
+            return_result=False,
+            multiprocessing=True,
+            save_result=True,
+            overwrite_file=overwrite_file,
+            exp_metadata=exp_metadata,
+            smpl_metadata=smpl_metadata,
+            path_to_save=path_to_save,
+            h5_group=h5_group
+        )
+
+        self.img_raw = None
+        for attr in [
+            "img_gid_q", "img_q", "img_gid_pol", "img_pol",
+            "img_gid_pseudopol", "img_pseudopol",
+            "rad_cut", "azim_cut", "horiz_cut"
+        ]:
+            if hasattr(self, attr):
+                delattr(self, attr)
+
 
     def update_conversion(self):
 
@@ -191,7 +315,6 @@ class Conversion:
         maps update and application of corrections.
 
         """
-
         if self.average_all:
             self.img_raw = np.mean(self.img_raw, axis=0, keepdims=True)
         elif self.number_to_average is not None and self.number_to_average > 1:
@@ -302,9 +425,10 @@ class Conversion:
 
         """
         corr_matrices = self.matrix[0].corr_matrices.__dict__
-        if hasattr(corr_matrices, 'dark_current'):
-            self.img_raw -= corr_matrices['dark_current']
-            print("dark_current")
+        if corr_matrices['dark_current'] is not None:
+            for i in range(len(self.img_raw)):
+                self.img_raw[i] -= corr_matrices['dark_current']
+            print("dark_current is subtracted")
         for corr_matrix in corr_matrices:
             if corr_matrix != 'dark_current' and corr_matrices[corr_matrix] is not None:
                 if corr_matrix == 'absorpton_corr_matrix' or corr_matrix == 'lorentz_corr_matrix':
@@ -326,7 +450,7 @@ class Conversion:
         return
 
     def plot_raw_image(self, return_result=False, frame_num=None, plot_result=True,
-                       clims=(1e1, 4e4), xlim=None, ylim=None, save_fig=False, path_to_save_fig="img.png",
+                       clims=(1e1, 4e4), xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
                        fontsize=14, labelsize=18):
         """
         Plots the raw image from the detector with optional display, return and saving.
@@ -363,10 +487,13 @@ class Conversion:
 
         if self.img_raw is not None:
 
-            if xlim is None:
-                xlim = [np.nanmin(self.x), np.nanmax(self.x)]
-            if ylim is None:
-                ylim = [np.nanmin(self.y), np.nanmax(self.y)]
+            def fill_limits(lim, data):
+                return [np.nanmin(data) if lim[0] is None else lim[0],
+                        np.nanmax(data) if lim[1] is None else lim[1]]
+
+            xlim = fill_limits(xlim, self.x)
+            ylim = fill_limits(ylim, self.y)
+
 
             fig, ax = plt.subplots(figsize=(6.4, 4.8))
             plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
@@ -493,14 +620,13 @@ class Conversion:
                 return getattr(mat, kwargs["x_key"]), getattr(mat, kwargs["y_key"]), result_img
 
     def det2q_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                  q_xy_range=None, q_z_range=None,
+                  q_xy_range=None, q_z_range=None, dq = None,
                   plot_result=False, clims=(1e1, 4e4),
                   xlim=(None, None), ylim=(None, None),
                   save_fig=False, path_to_save_fig="img.png",
                   save_result=False,
                   path_to_save='result.h5',
                   h5_group=None,
-                  recalc=False,
                   overwrite_file=True,
                   exp_metadata=None,
                   smpl_metadata=None,
@@ -558,12 +684,20 @@ class Conversion:
             """
 
         if self.batch_activated:
-            self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
+
+
+        recalc = (determine_recalc_key(q_xy_range, self.matrix[0].q_xy_range, self.matrix[0].q_xy, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_xy") else True) or (determine_recalc_key(q_z_range, self.matrix[0].q_z_range,
+                                                                                  self.matrix[0].q_z, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_z") else True)
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
 
         self.calc_matrices("p_y_gid", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_xy_range=q_xy_range,
-                           q_z_range=q_z_range)
+                           q_z_range=q_z_range, dq = dq)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_gid",
@@ -590,7 +724,7 @@ class Conversion:
             return x, y, img
 
     def det2q(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-              q_x_range=None, q_y_range=None,
+              q_x_range=None, q_y_range=None, dq = None,
               plot_result=False, clims=(1e1, 4e4),
               xlim=(None, None), ylim=(None, None),
               save_fig=False, path_to_save_fig="img.png",
@@ -653,11 +787,20 @@ class Conversion:
                 Font size for tick labels. Default is 18.
             """
         if self.batch_activated:
-            self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
 
-        self.calc_matrices("p_y_ewald", multiprocessing=multiprocessing or self.multiprocessing,
-                           q_x_range=q_x_range, q_y_range=q_y_range)
+
+        recalc = (determine_recalc_key(q_x_range, self.matrix[0].q_x_range, self.matrix[0].q_x, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_x") else True) or (determine_recalc_key(q_y_range, self.matrix[0].q_y_range,
+                                                                                  self.matrix[0].q_y, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_y") else True)
+
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
+
+        self.calc_matrices("p_y_ewald", recalc, multiprocessing=multiprocessing or self.multiprocessing,
+                           q_x_range=q_x_range, q_y_range=q_y_range, dq = dq)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_ewald",
@@ -691,7 +834,6 @@ class Conversion:
                 save_result=False,
                 path_to_save='result.h5',
                 h5_group=None,
-                recalc=False,
                 overwrite_file=True,
                 exp_metadata=None,
                 smpl_metadata=None,
@@ -749,8 +891,20 @@ class Conversion:
          """
 
         if self.batch_activated:
-            self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
+
+
+        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+                                        self.matrix[0].ang_pol, self.matrix[0].dang) \
+            if hasattr(self.matrix[0], "ang_pol") else True) or
+                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                                        self.matrix[0].q_pol, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_pol") else True))
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
+        if dang is not None:
+            recalc = True if dang != self.matrix[0].dang else recalc
 
         self.calc_matrices("p_y_lab_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
@@ -790,7 +944,6 @@ class Conversion:
                     save_result=False,
                     path_to_save='result.h5',
                     h5_group=None,
-                    recalc=False,
                     overwrite_file=True,
                     exp_metadata=None,
                     smpl_metadata=None,
@@ -847,8 +1000,21 @@ class Conversion:
              Font size for tick labels. Default is 18.
          """
         if self.batch_activated:
-            self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
+
+
+        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+                                        self.matrix[0].ang_gid_pol, self.matrix[0].dang) \
+            if hasattr(self.matrix[0], "ang_gid_pol") else True) or
+                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                                        self.matrix[0].q_gid_pol, self.matrix[0].dq) \
+            if hasattr(self.matrix[0], "q_gid_pol") else True))
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
+        if dang is not None:
+            recalc = True if dang != self.matrix[0].dang else recalc
+
 
         self.calc_matrices("p_y_smpl_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
@@ -882,6 +1048,7 @@ class Conversion:
             return x, y, img
 
     def det2pseudopol(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
+                      q_azimuth_range=None, q_rad_range=None, dang=None, dq=None,
                       plot_result=False, clims=(1e1, 4e4),
                       xlim=(None, None), ylim=(None, None),
                       save_fig=False, path_to_save_fig="img.png",
@@ -926,8 +1093,6 @@ class Conversion:
             Path to save the result if save_result is True. Default is 'result.h5'.
         h5_group : str or None, optional
             HDF5 group under which to save data.
-        recalc : bool, optional
-            Whether to force recalculation even if coodinate map exists. Default is False.
         overwrite_file : bool, optional
             Whether to overwrite existing file. Default is True.
         metadata : dict or None, optional
@@ -941,14 +1106,32 @@ class Conversion:
         """
 
         if self.batch_activated:
-            self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
 
-        for matrix in self.matrix:
-            if not hasattr(matrix, "p_y_lab_pseudopol") or not hasattr(matrix, "p_x_lab_pseudopol"):
-                matrix._calc_pseudopol_ewald_()
 
-        self.calc_matrices("p_y_lab_pseudopol", multiprocessing=multiprocessing or self.multiprocessing)
+        recalc = False
+        if hasattr(self.matrix[0] , "q_rad"):
+            if q_rad_range is None:
+                recalc = False
+            else:
+                recalc = False if (np.isclose(q_rad_range[0], np.nanmin(self.matrix[0].q_rad), rtol=0.01) and
+                np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_rad), atol=0.01)) else True
+
+        if hasattr(self.matrix[0] , "q_azimuth"):
+            if q_azimuth_range is not None:
+                recalc = recalc or (False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_azimuth), rtol=0.01) and
+                                  np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_azimuth), atol=0.01)) else True)
+
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
+        if dang is not None:
+            recalc = True if dang != self.matrix[0].dang else recalc
+
+        self.calc_matrices("p_y_lab_pseudopol",recalc, multiprocessing=multiprocessing or self.multiprocessing,
+                           q_rad_range=q_rad_range,
+                           q_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
+
 
         x, y, img = self._remap_general_(
             frame_num,
@@ -976,6 +1159,7 @@ class Conversion:
             return x, y, img
 
     def det2pseudopol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
+                          q_rad_range = None, q_azimuth_range = None, dang=None, dq=None,
                           plot_result=False, clims=(1e1, 4e4),
                           xlim=(None, None), ylim=(None, None),
                           save_fig=False, path_to_save_fig="img.png",
@@ -1020,8 +1204,6 @@ class Conversion:
             Path to save the result if save_result is True. Default is 'result.h5'.
         h5_group : str or None, optional
             HDF5 group under which to save data.
-        recalc : bool, optional
-            Whether to force recalculation even if coodinate map exists. Default is False.
         overwrite_file : bool, optional
             Whether to overwrite existing file. Default is True.
         metadata : dict or None, optional
@@ -1035,10 +1217,32 @@ class Conversion:
         """
 
         if self.batch_activated:
-            self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file)
-            return
+            return self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
 
-        self.calc_matrices("p_y_smpl_pseudopol", multiprocessing=multiprocessing or self.multiprocessing)
+
+
+        recalc = False
+        if hasattr(self.matrix[0] , "q_gid_rad"):
+            if q_rad_range is None:
+                recalc = False
+            else:
+                recalc = False if (np.isclose(q_rad_range[0], np.nanmin(self.matrix[0].q_gid_rad), rtol=0.01) and
+                np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_gid_rad), atol=0.01)) else True
+
+        if hasattr(self.matrix[0] , "q_gid_azimuth"):
+            if q_azimuth_range is not None:
+                recalc = recalc or (False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_gid_azimuth), rtol=0.01) and
+                                  np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_gid_azimuth), atol=0.01)) else True)
+
+        if dq is not None:
+            recalc = True if dq != self.matrix[0].dq else recalc
+        if dang is not None:
+            recalc = True if dang != self.matrix[0].dang else recalc
+
+        self.calc_matrices("p_y_smpl_pseudopol",recalc, multiprocessing=multiprocessing or self.multiprocessing,
+                           q_gid_rad_range=q_rad_range,
+                           q_gid_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
 
         x, y, img = self._remap_general_(
             frame_num,
@@ -1086,7 +1290,7 @@ class Conversion:
         """
         method = self.det2pol_gid if key == "gid" else self.det2pol
         return method(return_result=True, plot_result=False, frame_num=frame_num,
-                      radial_range=radial_range, angular_range=angular_range, recalc=True, dang=dang, dq=dq)
+                      radial_range=radial_range, angular_range=angular_range, dang=dang, dq=dq)
 
     def _plot_profile(self, x_values, profiles, xlabel, shift, tick_size, fontsize, xlim, ylim, plot_result,
                       save_fig, path_to_save_fig):
@@ -1306,7 +1510,7 @@ class Conversion:
             return (phi_abs_values, azim_profile[0]) if azim_profile.shape[0] == 1 else (
                 phi_abs_values, azim_profile)
 
-    def _get_q_data(self, frame_num, q_xy_range=None, q_z_range=None):
+    def _get_q_data(self, frame_num, q_xy_range=None, q_z_range=None, dq = None):
 
         """
         Calls GID remapping of detector data.
@@ -1323,9 +1527,9 @@ class Conversion:
 
         method = self.det2q_gid
         return method(return_result=True, plot_result=False, frame_num=frame_num,
-                      q_xy_range=q_xy_range, q_z_range=q_z_range, recalc=True)
+                      q_xy_range=q_xy_range, q_z_range=q_z_range, dq = dq)
 
-    def horiz_profile(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], multiprocessing=None,
+    def horiz_profile(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq = None, multiprocessing=None,
                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',
                       plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
                       path_to_save='result.h5',
@@ -1382,7 +1586,7 @@ class Conversion:
             Optional metadata to include when saving results.
         """
 
-        q_hor_values, _, img_q = self._get_q_data(frame_num, q_xy_range, q_z_range)
+        q_hor_values, _, img_q = self._get_q_data(frame_num, q_xy_range, q_z_range, dq)
         img_q = np.array(img_q)
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         horiz_profile = np.nanmean(img_q, axis=1)
@@ -1520,7 +1724,7 @@ class Conversion:
             from pygidsim.experiment import ExpParameters
             from pygidsim.giwaxs_sim import GIWAXSFromCif
         except:
-            raise ValueError("numpy_giwaxs_simul is not installed.")
+            raise ValueError("pygidsim is not installed.")
 
         q_xy_max = self.matrix[0].q_xy_range[1]
         q_z_max = self.matrix[0].q_z_range[1]
@@ -1624,6 +1828,7 @@ class Conversion:
                 return simulated_data
 
 
+
 def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, text_color, plot_mi, max_shift):
     q, intensity, mi = dataset
     vmin = max(vmin, 1e-10)
@@ -1668,6 +1873,7 @@ def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, tex
     return norm
 
 
+
 def adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None, max_shift=3):
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
@@ -1688,6 +1894,20 @@ def adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None
     text_y = np.clip(text_y, ylim[0] + text_height, ylim[1] - text_height)
 
     return text_x, text_y
+
+def determine_recalc_key(current_range, global_range, array, step):
+    recalc = (determine_recalc_key_index(current_range, global_range, array, step, np.nanargmin(array), 0) or
+              determine_recalc_key_index(current_range, global_range, array, step, np.nanargmax(array), -1))
+    return recalc
+
+def determine_recalc_key_index(current_range, global_range, array, step, arr_index, index):
+    if current_range is None:
+        recalc = False if np.isclose(global_range[index],
+                                     array[arr_index], atol=step) else True
+    else:
+        recalc = False if np.isclose(current_range[index],
+                                     array[arr_index], atol=step) else True
+    return recalc
 
 
 def simul_single_data(path_to_cif, orientation, simul_params, min_int):

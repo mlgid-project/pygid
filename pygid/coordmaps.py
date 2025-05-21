@@ -36,6 +36,7 @@ class Corr_matrices:
        """
 
     flat_field: Optional[np.array] = None
+    dark_current: Optional[np.array] = None
     pol_corr_matrix: Optional[np.array] = None
     solid_angle_corr_matrix: Optional[np.array] = None
     air_attenuation_corr_matrix: Optional[np.array] = None
@@ -258,6 +259,7 @@ class CoordMaps:
                 self.q_min = q_min
             if self.q_max is None:
                 self.q_max = q_max
+            self.radial_range = [self.q_min, self.q_max]
 
     def _find_ang_ranges_(self):
         if self.ang_max is None or self.ang_min is None:
@@ -279,6 +281,8 @@ class CoordMaps:
             if self.vert_positive:
                 self.ang_min = max(self.ang_min, 0)
                 self.ang_max = min(self.ang_max, 180)
+
+            self.angular_range = [ang_max, ang_min]
 
     def _find_ang_(self):
 
@@ -434,11 +438,14 @@ class CoordMaps:
                     self.corr_matrices.lorentz_corr_matrix = calc_lorentz_corr_matrix(self.kf, self.ai,
                                                                                       self.powder_dim)
 
-    def _calc_recip_giwaxs_(self, q_xy_range=None, q_z_range=None):
+    def _calc_recip_giwaxs_(self, q_xy_range=None, q_z_range=None, dq = None):
+        # print("matrix recalculation")
         if q_xy_range is None:
             q_xy_range = self.q_xy_range
         if q_z_range is None:
             q_z_range = self.q_z_range
+        dq = self.dq if dq is None else dq
+        self.dq = dq
 
         self.p_x_gid, self.p_y_gid = self._q_lab_to_p_(
             self._q_smpl_to_q_lab_(
@@ -451,15 +458,14 @@ class CoordMaps:
         )
 
     def _calc_pol_giwaxs_(self, radial_range=None, angular_range=None, dang = None, dq = None):
+        # print("matrix recalculation")
+        radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
+        angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        dang = self.dang if dang is None else dang
+        self.dang = dang
+        dq = self.dq if dq is None else dq
+        self.dq = dq
 
-        if radial_range is None:
-            radial_range = (self.q_min, self.q_max)
-        if angular_range is None:
-            angular_range = (self.ang_min, self.ang_max)
-        if dang is None:
-            dang = self.dang
-        if dq is None:
-            dq = self.dq
         self.p_x_smpl_pol, self.p_y_smpl_pol = self._q_lab_to_p_(
             self._q_smpl_to_q_lab_(
                 self._q_giwaxs_to_q_smpl_(
@@ -471,19 +477,30 @@ class CoordMaps:
             )
         )
 
-    def _calc_pseudopol_giwaxs_(self):
+    def _calc_pseudopol_giwaxs_(self, q_gid_rad_range=None, q_gid_azimuth_range = None, dang = None, dq = None):
+        # print("matrix recalculation")
+
+        # q_gid_azimuth = self.q_gid_azimuth if q_gid_azimuth is None else q_gid_azimuth
+        #
+        # radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
+        # angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        dang = self.dang if dang is None else dang
+        self.dang = dang
+        dq = self.dq if dq is None else dq
+        self.dq = dq
+
         self.p_x_smpl_pseudopol, self.p_y_smpl_pseudopol = self._q_lab_to_p_(
             self._q_smpl_to_q_lab_(
                 self._q_giwaxs_to_q_smpl_(
-                    *self._make_q_giwaxs_pseudopolar_grid_([self.ang_min, self.ang_max], self.dq, self.dang),
+                    *self._make_q_giwaxs_pseudopolar_grid_(q_gid_rad_range, q_gid_azimuth_range, self.dq, self.dang),
                     ai=self.ai
                 ),
                 ai=self.ai
             )
         )
 
-    def _calc_recip_ewald_(self, q_x_range=None, q_y_range=None):
-
+    def _calc_recip_ewald_(self, q_x_range=None, q_y_range=None, dq = None):
+        # print("matrix recalculation")
         if not hasattr(self, 'q_lab_from_p'):
             self.q_lab_from_p = self._p_to_q_lab_(calc_type="corner")
 
@@ -497,32 +514,41 @@ class CoordMaps:
             self.q_x_range[0] = self.q_x_range[0] if not self.hor_positive else 0
             self.q_y_range[0] = self.q_y_range[0] if not self.vert_positive else 0
 
-        if q_x_range is None:
-            q_x_range = self.q_x_range
-        if q_y_range is None:
-            q_y_range = self.q_y_range
+
+        q_x_range = self.q_x_range if q_x_range is None else q_x_range
+        q_y_range = self.q_y_range if q_y_range is None else q_y_range
+        dq = self.dq if dq is None else dq
+        self.dq = dq
 
         self.p_x_ewald, self.p_y_ewald = self._q_lab_to_p_(
             self._make_q_ewald_cart_grid_(q_x_range, q_y_range, self.dq)
         )
 
     def _calc_pol_ewald_(self, radial_range=None, angular_range=None, dang = None, dq = None):
-        if radial_range is None:
-            radial_range = (self.q_min, self.q_max)
-        if angular_range is None:
-            angular_range = (self.ang_min, self.ang_max)
-        if dang is None:
-            dang = self.dang
-        if dq is None:
-            dq = self.dq
+        # print("matrix recalculation")
+        radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
+        angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        dang = self.dang if dang is None else dang
+        self.dang = dang
+        dq = self.dq if dq is None else dq
+        self.dq = dq
+
         self.p_x_lab_pol, self.p_y_lab_pol = self._q_lab_to_p_(
             self._make_q_ewald_polar_grid_(radial_range, dq, angular_range,
                                            dang)
         )
 
-    def _calc_pseudopol_ewald_(self):
+    def _calc_pseudopol_ewald_(self,  q_rad_range=None, q_azimuth_range = None, dang = None, dq = None):
+        # print("matrix recalculation")
+        # radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
+        # angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        dang = self.dang if dang is None else dang
+        self.dang = dang
+        dq = self.dq if dq is None else dq
+        self.dq = dq
+
         self.p_x_lab_pseudopol, self.p_y_lab_pseudopol = self._q_lab_to_p_(
-            self._make_q_ewald_pseudopolar_grid_([self.ang_min, self.ang_max], self.dq, self.dang)
+            self._make_q_ewald_pseudopolar_grid_(q_rad_range, q_azimuth_range, self.dq, self.dang)
         )
 
     def _q_lab_to_q_smpl_(self, q_lab, ai=0):
@@ -662,8 +688,11 @@ class CoordMaps:
         q_lab = np.stack([Q_x, Q_y, Q_z], axis=-1)
         return q_lab
 
-    def _make_q_giwaxs_pseudopolar_grid_(self, ang_range=[0, 90], dq=0.01, dang=0.01):
+    def _make_q_giwaxs_pseudopolar_grid_(self, q_gid_rad_range = None, q_gid_azimuth_range = None, dq=0.01, dang=0.01):
+
         q_rad = np.arange(self.q_min, self.q_max, dq)
+        ang_range = [self.ang_min, self.ang_max]
+        # q_rad = np.arange(radial_range[0], radial_range[1], dq)
         # if len(self.q) == 8 or len(self.q) == 4:
         #     self._p_to_q_lab_(calc_type="frame")
         if not hasattr(self,'phi'):
@@ -672,44 +701,67 @@ class CoordMaps:
         q = self.q
         q_abs = np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2 + q[..., 2] ** 2)
         phi = np.arctan2(q[..., 2], np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2) * np.sign(-q[..., 1]))
-        phi[phi > np.radians(ang_range[1])] = np.nan
+        phi[phi > np.radians(self.ang_max)] = np.nan
+        phi[phi < np.radians(self.ang_min)] = np.nan
         self.q_rad, self.phi = q_rad, phi
         q_phi = q_abs * phi
         # self.q_phi = q_phi
         # q_azimuth = np.linspace(0, q_abs[np.argmax(phi)]*np.nanmax(phi), int((ang_range[1]-ang_range[0])/dang))
-        q_azimuth = np.linspace(0, np.nanmax(q_phi), int((ang_range[1] - ang_range[0]) / dang))
+        if q_gid_rad_range is not None:
+            q_rad = np.arange(q_gid_rad_range[0], q_gid_rad_range[1], dq)
+
+        if q_gid_azimuth_range is not None:
+            q_azimuth = np.linspace(q_gid_azimuth_range[0], q_gid_azimuth_range[1], int((ang_range[1] - ang_range[0]) / dang))
+        else:
+            q_azimuth = np.linspace(0, np.nanmax(q_phi), int((ang_range[1] - ang_range[0]) / dang))
+
+
         self.q_gid_azimuth = q_azimuth
         self.q_gid_rad = q_rad
 
         Q_rad, Q_azimuth = np.meshgrid(q_rad, q_azimuth)
         ANG = ne.evaluate("Q_azimuth / Q_rad")
-        Q_rad[ANG > np.radians(ang_range[1])] = np.NaN
-        Q_rad[ANG < np.radians(ang_range[0])] = np.NaN
+        Q_rad[ANG > np.radians(ang_range[1])] = np.nan
+        Q_rad[ANG < np.radians(ang_range[0])] = np.nan
 
         Q_xy, Q_z = Q_rad * np.cos(ANG), Q_rad * np.sin(ANG)
         return Q_xy, Q_z
 
-    def _make_q_ewald_pseudopolar_grid_(self, ang_range=[0, 90], dq=0.01, dang=0.01):
+    def _make_q_ewald_pseudopolar_grid_(self, q_rad_range = [0, 4], q_azimuth_range=[0, 90], dq=0.01, dang=0.01):
         if len(self.q) in [4,6,8]:
             self._p_to_q_lab_(calc_type="frame")
 
         q = self.q
         # q_abs = np.sqrt(q[..., 1] ** 2 + q[..., 2] ** 2)
         q_abs = np.linalg.norm(q, axis=-1)
-        q_rad = np.arange(0, self.q_max, dq)
+        # q_rad = np.arange(radial_range[0], radial_range[1], dq)
+        q_rad = np.arange(self.q_min, self.q_max, dq)
+        ang_range = [self.ang_min, self.ang_max]
+        # q_rad = np.arange(0, self.q_max, dq)
 
         phi = np.arctan2(q[..., 2], -q[..., 1])
         # phi[phi>np.radians(min(ang_range[1], 90))] = np.nan
         phi[phi > np.radians(ang_range[1])] = np.nan
+        phi[phi < np.radians(ang_range[0])] = np.nan
+
+        self.phi = phi
         q_phi = q_abs * phi
-        q_azimuth = np.linspace(0, np.nanmax(q_phi), int((ang_range[1] - ang_range[0]) / dang))
+
+        if q_rad_range is not None:
+            q_rad = np.arange(q_rad_range[0], q_rad_range[1], dq)
+
+        if q_azimuth_range is not None:
+            q_azimuth = np.linspace(q_azimuth_range[0], q_azimuth_range[1], int((ang_range[1] - ang_range[0]) / dang))
+        else:
+            q_azimuth = np.linspace(0, np.nanmax(q_phi), int((ang_range[1] - ang_range[0]) / dang))
+
         self.q_azimuth = q_azimuth
         self.q_rad = q_rad
 
         Q_rad, Q_azimuth = np.meshgrid(q_rad, q_azimuth)
         ANG = ne.evaluate("Q_azimuth / Q_rad")
-        Q_rad[ANG > np.radians(ang_range[1])] = np.NaN
-        Q_rad[ANG < np.radians(ang_range[0])] = np.NaN
+        Q_rad[ANG > np.radians(ang_range[1])] = np.nan
+        Q_rad[ANG < np.radians(ang_range[0])] = np.nan
 
         k = self.params.k
         Q_x = -Q_rad * Q_rad / (2 * k)
