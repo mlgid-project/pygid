@@ -1,7 +1,7 @@
 # pyGID documentation
 The package converts raw detector images into GI, Ewald, polar, and pseudopolar coordinates and saves the result as a NXsas file.
 ## Installation
-In unzipped package folder:
+In unzipped package folder (local):
 ```
 pip install .
 ```
@@ -162,7 +162,7 @@ matrix = pygid.CoordMaps(params,                                                
                         q_xy_range = None, q_z_range = None, dq = 0.003,            # q-range and resolution (in A-1)
                         ang_min = 0, ang_max = 90, dang = 0.1,                      # angle range and resolution (in degrees)
                         hor_positive = False,  vert_positive = False,               # flags for only positive values of q in h
-                        make_polar_corr= True,                                      # Flag to calculate polar correction matrix
+                        make_pol_corr= True,                                        # Flag to calculate polarization correction matrix
                         make_solid_angle_corr = True,                               # Flag to calculate solid angle correction matrix
                         make_air_attenuation_corr = False,                          # Flag to calculate air attenuation correction matrix
                         air_attenuation_coeff = 1,                                  # Linear coefficient for air attenuation correction (in 1/m)
@@ -231,6 +231,8 @@ analysis.det2q_gid(clims = (50, 8000),                      # colormap limits
                    return_result = False,                   # flag to return the result
                    save_fig = False,                        # flag to save the results as a picture
                    path_to_save_fig = "graph.tiff",          # path to save the image
+                   radial_range = None,                    # radial range (in angstroms)
+                   angular_range = (0,90),                # angular range (in degrees)
                    save_result = True,                      # flag to save the result as a NXsas (.h5) file
                    path_to_save = "result.h5",              # path to save the result with experimental params.
                    h5_group = "entry",                        # dataset name in the h5-file
