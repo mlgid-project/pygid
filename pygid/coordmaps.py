@@ -5,7 +5,9 @@ from typing import Optional, Any
 from dataclasses import dataclass
 import pickle
 import joblib, os, re
-
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 @dataclass
 class Corr_matrices:
@@ -171,7 +173,8 @@ class CoordMaps:
             self.__dict__.update(loaded_attrs)
             del loaded_attrs
             return
-
+        if self.params is None:
+            raise AttributeError('No ExpParams class instance provided.')
         if self.ai is None:
             self.ai = self.params.ai
 

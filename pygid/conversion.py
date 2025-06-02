@@ -17,7 +17,8 @@ from matplotlib.ticker import LogLocator
 from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as ticker
 import warnings
-
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 # from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 
@@ -164,7 +165,7 @@ class Conversion:
                 remap = getattr(self, remap_func, None)
                 self.batch_activated = False
 
-                res = remap(
+                return remap(
                     plot_result=plot_result,
                     return_result=return_result,
                     multiprocessing=False,
@@ -175,7 +176,7 @@ class Conversion:
                     path_to_save=path_to_save,
                     h5_group=h5_group
                 )
-                return (res[0], res[1], res[2][0])
+                # return (res[0], res[1], res[2][0])
 
 
 
@@ -222,7 +223,7 @@ class Conversion:
                 remap = getattr(self, remap_func, None)
                 self.batch_activated = False
 
-                remap(
+                return remap(
                     plot_result=plot_result,
                     return_result=return_result,
                     multiprocessing=False,
@@ -483,7 +484,7 @@ class Conversion:
             if self.img_raw.shape[0] != 1:
                 print("frame_num is not defined, frame_num = 0 was plotted")
             frame_num = 0
-        img = self.img_raw[frame_num]
+        img = np.array(self.img_raw[frame_num])
 
         if self.img_raw is not None:
 
@@ -1408,6 +1409,10 @@ class Conversion:
             Optional metadata to include when saving results.
         """
 
+        if self.batch_activated:
+            return self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
+
         q_abs_values, _, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
 
@@ -1487,6 +1492,11 @@ class Conversion:
         metadata : dict or None, optional
             Optional metadata to include when saving results.
         """
+
+        if self.batch_activated:
+            return self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
+
 
         _, phi_abs_values, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
@@ -1585,6 +1595,9 @@ class Conversion:
         metadata : dict or None, optional
             Optional metadata to include when saving results.
         """
+        if self.batch_activated:
+            return self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                       save_result, plot_result, return_result)
 
         q_hor_values, _, img_q = self._get_q_data(frame_num, q_xy_range, q_z_range, dq)
         img_q = np.array(img_q)
@@ -1633,6 +1646,7 @@ class Conversion:
 
         remap_image = fast_pixel_remap(img_raw, p_y, p_x, use_gpu=self.use_gpu, interp_type=interp_type,
                                        multiprocessing=multiprocessing)
+        # remap_image[remap_image <= 0] = np.nan
         return remap_image
 
     def _plot_single_image(self, img, x, y, clims, xlim, ylim, x_label, y_label, aspect, plot_result, save_fig,
@@ -2084,9 +2098,9 @@ def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_
         img = img.astype(float)
         mask = mask[roi_range[0]:roi_range[1], roi_range[2]:roi_range[3]]
         img[mask] = np.nan
-        if count_range is not None:
-            dynamic_mask = np.logical_or(img < count_range[0], img > count_range[1])
-            img[dynamic_mask] = np.nan
+    if count_range is not None:
+        dynamic_mask = np.logical_or(img < count_range[0], img > count_range[1])
+        img[dynamic_mask] = np.nan
     if transp:
         img = img.T
     if flipud:

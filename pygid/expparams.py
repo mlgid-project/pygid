@@ -4,6 +4,8 @@ import os
 import collections
 from dataclasses import dataclass
 import fabio
+import warnings
+
 from . import pixel_dict
 
 
@@ -77,8 +79,8 @@ class ExpParams:
     n: Any = None
     SDD: float = None
     wavelength: float = None
-    rot1: float = 0
-    rot2: float = 0
+    rot1: float = None
+    rot2: float = None
     rot3: float = 0
     poni1: float = None
     poni2: float = None
@@ -86,7 +88,7 @@ class ExpParams:
     centerY: float = None
     k: float = None
     count_range: list = None
-    ai: float = 0
+    ai: float = None
     scan: str = None
 
     def __post_init__(self):
@@ -116,8 +118,32 @@ class ExpParams:
             self.read_from_file(self.poni_path)
         if self.img_dim is not None:
             self._exp_params_update_()
+
+        self.check_params()
+
+
+    def check_params(self):
+        """
+                Checks if all necessary parameters are provided
+        """
         if self.px_size is None:
-            raise ValueError('px_size is not set since Detector was not recognized. Please provide.')
+            raise ValueError('px_size is not set and Detector was not recognized. Please provide.')
+        if (self.centerX is None or self.centerY is None) and (self.poni1 is None or self.poni2 is None):
+            raise ValueError('Center position and PONI are not set.')
+        if self.wavelength is None:
+            raise ValueError('wavelength is not provided.')
+        if self.SDD is None:
+            raise ValueError('SDD is not provided.')
+        if self.rot1 is None:
+            warnings.warn("rot1 is not provided. rot1 = 0 will be used",
+                          category=UserWarning)
+            self.rot1 = 0
+        if self.rot2 is None:
+            warnings.warn("rot2 is not provided. rot2 = 0 will be used", category=UserWarning)
+            self.rot2 = 0
+        if self.ai is None:
+            warnings.warn("Angle of incidence (ai) and scan are not provided. ai = 0 will be used", category=UserWarning)
+            self.ai = 0
 
     def read_from_file(self, filename):
         """

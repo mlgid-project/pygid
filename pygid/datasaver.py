@@ -170,22 +170,26 @@ class DataSaver:
             if self.h5_group not in root:
                 _make_groups_(root, self.h5_group)
                 save_single_data(root['/' + self.h5_group], 'definition', 'NXsas')
+                save_single_data(root['/' + self.h5_group], 'title', 'self.h5_group')
                 # save_single_data(root['/' + self.h5_group + '/data'], 'filename', self.original_path)
                 save_single_data(root['/' + self.h5_group + '/instrument/detector'], 'angle_of_incidence', self.ai_list)
 
                 save_expparams(root, self.h5_group, self.params)
-                make_analysis_fields(root, self.h5_group)
 
             if self.exp_metadata is not None:
                 save_exp_metadata(root, self.exp_metadata, self.h5_group)
             if self.smpl_metadata is not None:
                 save_smpl_metadata(root, self.smpl_metadata, self.h5_group)
 
+            self.img_number_to_add = 0
             for name, data in images.items():
                 if data is not None:
+                    self.img_number_to_add = max(self.img_number_to_add, len(data))
                     create_dataset(root, self.h5_group, name, data)
             save_matrix(root, self.h5_group, self.matrix)
+            make_analysis_groups(root, self.h5_group, self.img_number_to_add)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
+            # print("img_number_to_add", self.img_number_to_add)
         return
 
 
@@ -365,6 +369,11 @@ def _make_groups_(root, h5_group="entry"):
     root.attrs["default"] = h5_group
     h5_group = "/" + h5_group
     root.create_group(f'/{h5_group}').attrs.update({"NX_class": "NXentry", "EX_required": "true", "default": "data"})
+    # attributes = list(root[h5_group].attrs.keys())
+    # print(attributes)
+    # for attr in attributes:
+    #     print(f"{attr}: {root[h5_group].attrs[attr]}")
+
     ensure_group_exists(root, h5_group + '/instrument', {'NX_class': 'NXinstrument', 'EX_required': 'true'})
     ensure_group_exists(root, h5_group + '/instrument/source', {'NX_class': 'NXsource', 'EX_required': 'true'})
     ensure_group_exists(root, h5_group + '/instrument/monochromator',
@@ -372,7 +381,9 @@ def _make_groups_(root, h5_group="entry"):
     ensure_group_exists(root, h5_group + '/instrument/detector',
                         {'NX_class': 'NXdetector', 'EX_required': 'true'})
     ensure_group_exists(root, h5_group + '/sample', {'NX_class': 'NXsample', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/data', {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q', 'axes': [".", ".", "."] })
+    # ensure_group_exists(root, h5_group + '/data', {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q', 'axes': [".", ".", "."] })
+    ensure_group_exists(root, h5_group + '/data',
+                        {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
     ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
 
 
@@ -458,7 +469,7 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
             # dtype = h5py.string_dtype(encoding='utf-8')
             root.create_dataset(
                 name=dataset_name, data=data, maxshape=None, #dtype=dtype
-            ).attrs.update({'NX_class': nx_type,
+            ).attrs.update({#'NX_class': nx_type,
                             'EX_required': 'true'})
 
 
@@ -549,7 +560,7 @@ def save_expparams(root, h5_group, params):
     save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_y', params.centerY)
 
 
-def make_analysis_fields(root, h5_group):
+def make_analysis_groups(root, h5_group, img_number_to_add):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -565,13 +576,32 @@ def make_analysis_fields(root, h5_group):
         """
 
     h5_group = "/" + h5_group
-    vlen_int_dtype = h5py.special_dtype(vlen=np.float32)
+    group = root[h5_group+'/data/analysis']
+    subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
+    img_number_current = len(subgroups)
+    # print("img_number_current",img_number_current)
+    for i in range(img_number_current, img_number_current+img_number_to_add):
+        group_name = h5_group+'/data/analysis/'+str(i).zfill(5)
+        root.create_group(group_name)
+        root[group_name].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+        root.create_group(group_name+"/detected_peaks")
+        root[group_name+"/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+        root.create_group(group_name + "/fitted_peaks")
+        root[group_name + "/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+
+    # ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
+
+
+    # str(10).zfill(5)
+
+
+    # vlen_int_dtype = h5py.special_dtype(vlen=np.float32)
     # save_single_data(root[h5_group + '/data/analysis'], 'r_range', [])
     # save_single_data(root[h5_group + '/data/analysis'], 'x_range', [])
-    save_single_data(root[h5_group + '/data/analysis'], 'angle', np.array([np.array([1, 2, 3]), np.array([4, 5]), np.array([6, 7, 8, 9])], dtype=vlen_int_dtype), 'NXparameters')
-    save_single_data(root[h5_group + '/data/analysis'], 'angle_std', np.array([np.array([1.5, 0.2, 2.3]), np.array([4.5, 5.7]), np.array([6.6, 7.5, 8.6, 9.8])], dtype=vlen_int_dtype), 'NXparameters')
-    save_single_data(root[h5_group + '/data/analysis'], 'radius', np.array([np.array([1, 20, 35]), np.array([4, 5]), np.array([6, 7, 89, 9])], dtype=vlen_int_dtype), 'NXparameters')
-    save_single_data(root[h5_group + '/data/analysis'], 'width', np.array([np.array([1, 2, 33]), np.array([4, 59]), np.array([64, 79, 8, 90])], dtype=vlen_int_dtype), 'NXparameters')
+    # save_single_data(root[h5_group + '/data/analysis'], 'angle', np.array([np.array([1, 2, 3]), np.array([4, 5]), np.array([6, 7, 8, 9])], dtype=vlen_int_dtype), 'NXparameters')
+    # save_single_data(root[h5_group + '/data/analysis'], 'angle_std', np.array([np.array([1.5, 0.2, 2.3]), np.array([4.5, 5.7]), np.array([6.6, 7.5, 8.6, 9.8])], dtype=vlen_int_dtype), 'NXparameters')
+    # save_single_data(root[h5_group + '/data/analysis'], 'radius', np.array([np.array([1, 20, 35]), np.array([4, 5]), np.array([6, 7, 89, 9])], dtype=vlen_int_dtype), 'NXparameters')
+    # save_single_data(root[h5_group + '/data/analysis'], 'width', np.array([np.array([1, 2, 33]), np.array([4, 59]), np.array([64, 79, 8, 90])], dtype=vlen_int_dtype), 'NXparameters')
     # save_single_data(root[h5_group + '/data/analysis'], 'peak height', [])
     # save_single_data(root[h5_group + '/data/analysis'], 'background (level)', [])
     # save_single_data(root[h5_group + '/data/analysis'], 'background (slope)', [])
