@@ -1,15 +1,32 @@
-# pyGID documentation
+# _pygid_
+## Fast preprocessing of Grazing Incidence Diffraction Data
+
+<p align="center">
+  <img src="images/pygid-logo.png" width="400" alt="pygid">
+</p>
+
 The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the result as a NXsas file.
+
 ## Installation
-In unzipped package folder (local):
+
+### Install from source
+
+First, clone the repository:
+```bash
+git clone https://github.com/mlgid-project/pygid.git
 ```
-pip install .
+
+Then, to install all required modules, navigate to the cloned directory and execute:
+```bash
+cd pygid
+pip install -e .
 ```
 
 ## How to use
 
-Below is a short example of how to use the package:
-```
+Below is a short example of how to use the package.
+
+```python
 import pygid
 
 # loading of poni-file and mask 
@@ -78,14 +95,14 @@ analysis.det2pseudopol_gid(clims = (50, 800), plot_result = True, return_result 
 
 
 1. Import pygid
-```
+```python
 import pygid
 ```
 
 2. Create an instance of ExpParams class operating with experimental parameters. Load poni-file and mask.edf(/.npy/.tiff) (optional).
 Use the fliplr and flipud keys to flip the raw image vertically and horizontally, respectively. Use the rot key to transpose the image relative to the left bottom corner.
 
-```
+```python
 # loading of poni-file and mask (optional)
 params = pygid.ExpParams(poni_path = 'LaB6.poni',                            # poni file location
                         mask_path = 'mask.npy',                              # mask file location (edf/tiff/npy)
@@ -94,7 +111,7 @@ params = pygid.ExpParams(poni_path = 'LaB6.poni',                            # p
                         ai = [0, 0.05, 0.1])                                 # angle of incidence in GID experiments (in degrees) or list of angles
 ```
 It is also possible to manually add experimental parameters. You should provide values for (poni1 and poni2) in meters or for beam positions (centerX and centerY) in pixels (relative to the bottom left corner). 
-```
+```python
 params = pygid.ExpParams(
     fliplr = True,                      # Flag for horizontal flipping (left-right)
     flipud = True,                      # Flag for vertical flipping (up-down)
@@ -119,7 +136,7 @@ In case of angular scan, it is possible to load not only a single ai but also a 
 scan key as: scan = "ascan om 0.0400 0.1000 12 3" or "0.0400 0.1000 12". The ai list will be calculated automatically based on the scan string.
 3. Create  ExpMetadata and SampleMetadata class element with a description of the experiment and the samples that you want to save with converted images in an NXsas format. All fields as well as the class element are optional.
 All fields are optional. 
-```
+```python
 exp_metadata = pygid.ExpMetadata(
           start_time = r"2021-03-29T15:51:41.343788", 
           source_type = "synchrotron",
@@ -157,7 +174,7 @@ smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
 4. Create CoordMaps instance (or list of CoordMaps using _make_CoordMaps_list_) based on ExperimentalParameters and incident angle ai (0 for transmission experiments). 
 It is enough to calculate the coordinates only once for each incident angle.
 
-```
+```python
 matrix = pygid.CoordMaps(params,                                                    # experimental parameters
                         q_xy_range = None, q_z_range = None, dq = 0.003,            # q-range and resolution (in A-1)
                         ang_min = 0, ang_max = 90, dang = 0.1,                      # angle range and resolution (in degrees)
@@ -183,7 +200,7 @@ matrix = pygid.CoordMaps(params,                                                
 ```
 One can save the coordinate matrices as pkl-file using path_to_save and load them path_to_load. However, the saving-loading time is comparable with the calculation time 
 
-```
+```python
 matrix = pygid.CoordMaps(path_to_load = 'matrix.pkl') 
 ```
 
@@ -214,7 +231,7 @@ analysis = pygid.Conversion(matrix = matrix,                     # coordinate ma
 ```
 
 5. Raw image plotting
-```
+```python
 analysis.plot_raw_image(clims = (0.1, 100),                      # colormap limits
                         frame_num = 0,                           # number of frame to plot
                         xlim=(None, None), ylim=(None, None)     # X and Y image limits
@@ -224,7 +241,7 @@ analysis.plot_raw_image(clims = (0.1, 100),                      # colormap limi
 
 6. Remapping to reciprocal/polar/pseudopolar coordinates in reflection (GIWAXS) geometry 
 
-```
+```python
 analysis.det2q_gid(clims = (50, 8000),                      # colormap limits 
                    frame_num = [0,1,2],                      # frame number or list of numbers to convert. If None, will convet all loaded frames   
                    plot_result = True,                      # flag to plot the result
@@ -249,7 +266,7 @@ analysis.det2pseudopol_gid(clims = (50, 800), plot_result = True, return_result 
 
 Remapping to reciprocal/polar/pseudopolar coordinates in transmission geometry 
 
-```
+```python
 analysis.det2q(clims = clims,  frame_num = 0, plot_result = False)
 analysis.det2pol(clims = clims,  frame_num = 0, plot_result = False)
 analysis.det2pseudopol(clims = clims,  frame_num = 0, plot_result = False)
@@ -274,7 +291,7 @@ Table 1. Conversion functions with description
 
 7. Saving of NXsas (h5) file with all converted data. Not necessary if you used save_result = True.
 
-```
+```python
 analysis.save_nxs(path_to_save  = "result.h5",    # location with the name (.h5) to save, or the key_to_change of the raw image path otherwise it will be saved to the same directory 
                   overwrite_file = False,               # the existing file will be overwritten if True
                   exp_metadata = exp_metadata, smpl_metadata = smpl_metadata)                    # Metadata class element
@@ -286,7 +303,7 @@ If you want to process more than batch_size (32 default), the Batch() function a
 If one will use convertion functions, the raw data paths will be divided into batches and processed one-by-one. In this case, the functionality of the code is limited,
 converted images will not be plotted, result cannot be returned, only saving is possible.
 
-```
+```python
 analysis = pygid.Conversion(matrix = matrix, path = data_path, img_loc_hdf5 = '1.1/measurement/eiger4m',
                       batch_size = 32,                                                                       # maximum size of the batch (32 default)
                      )
@@ -331,7 +348,7 @@ Table 1. Conversion line profile functions
 This part is based on pygidSIM package that simulates GIWAXS patterns based on cif-file with crystal structure.   
 pygid.Conversion.make_simulation plots the simulated data and converted image.
 
-```                        
+```python
 result = analysis.make_simulation(
                                  frame_num=0,             # Frame number to plot   
                                  clims=(30, 8000),        # Intensity range for the color scale of experimental data 
