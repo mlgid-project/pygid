@@ -1,8 +1,8 @@
 # _pygid_
-## Fast preprocessing of Grazing Incidence Diffraction Data
+## Fast Preprocessing of Grazing Incidence Diffraction Data (GID)
 
 <p align="center">
-  <img src="images/pygid-logo.png" width="400" alt="pygid">
+  <img src="image/pygid-logo.png" width="400" alt="pygid">
 </p>
 
 The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the result as a NXsas file.
@@ -209,7 +209,7 @@ In the case of h5 files, add dataset key like  'measurement/eiger4m' which is a 
 The key frame_num can be None/list of int/int and corresponds to the frames that will be loaded from the h5 file. 
 Conversion takes matrix as a parameter. In case of angular scans, number of ai in experimental parameters should be equal to number of loaded images.
 
-```
+```python
 data_path = "LaB6_0001.h5"
 
 analysis = pygid.Conversion(matrix = matrix,                                        # coordinate map
