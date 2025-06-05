@@ -1,5 +1,5 @@
 # pyGID documentation
-The package converts raw detector images into GI, Ewald, polar, and pseudopolar coordinates and saves the result as a NXsas file.
+The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the result as a NXsas file.
 ## Installation
 In unzipped package folder (local):
 ```
