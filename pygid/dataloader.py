@@ -49,6 +49,7 @@ class DataLoader:
 
 
 
+
     def _process_path_(self):
         """
         Handles the input path, distinguishing whether it is a string (single file) or a list (multiple files).
@@ -109,7 +110,7 @@ class DataLoader:
             img_raw = self._load_with_h5py(path, frame_num, dataset, roi)
         else:
             try:
-                img_raw = fabio.open(path).data[roi[0], roi[1]].astype('float64')
+                img_raw = fabio.open(path).data[roi[0], roi[1]].astype('float32')
             except:
                 raise FileNotFoundError(
                     "Invalid format. Only 'h5', 'nxs','tiff', 'cbf' and 'edf' are supported.")
@@ -153,7 +154,7 @@ class DataLoader:
                     self.number_of_frames = number_of_frames
                     return
 
-                return root[dataset][:, roi[0], roi[1]].astype('float64') if len(dataset_shape) == 3 else root[dataset][roi[0], roi[1]].astype('float64')
+                return root[dataset][:, roi[0], roi[1]].astype('float32') if len(dataset_shape) == 3 else root[dataset][roi[0], roi[1]].astype('float32')
 
             elif isinstance(frame_num, list):
                 if len(frame_num) > self.batch_size:
@@ -163,9 +164,9 @@ class DataLoader:
                     self.number_of_frames = len(frame_num)
                     return
                 return np.array(
-                    [np.array(root[dataset][frame][roi[0], roi[1]]).astype('float64') for frame in frame_num])
+                    [np.array(root[dataset][frame][roi[0], roi[1]]).astype('float32') for frame in frame_num])
             else:
-                return np.array(root[dataset][frame_num][roi]).astype('float64')
+                return np.array(root[dataset][frame_num][roi]).astype('float32')
 
     # def change_dim(self):
     #     if self.img_raw.ndim == 2:

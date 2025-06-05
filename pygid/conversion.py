@@ -11,7 +11,7 @@ from matplotlib import colors
 from matplotlib.cm import ScalarMappable
 import cv2
 from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm.notebook import tqdm as log_progress
 from matplotlib.ticker import LogLocator
 from matplotlib.ticker import MaxNLocator
@@ -290,7 +290,7 @@ class Conversion:
         remap(
             plot_result=False,
             return_result=False,
-            multiprocessing=True,
+            multiprocessing=self.multiprocessing,
             save_result=True,
             overwrite_file=overwrite_file,
             exp_metadata=exp_metadata,
@@ -585,14 +585,24 @@ class Conversion:
             kwargs_copy["return_result"] = True
             kwargs_copy["save_result"] = False
             if kwargs["multiprocessing"]:
-                # print('multiprocessing')
                 with ThreadPoolExecutor() as executor:
                     result_img = list(
                         executor.map(lambda frame: self._remap_general_(frame, **kwargs_copy)[2], frame_num))
+
+                # with ThreadPoolExecutor() as executor:
+                #     results = list(executor.map(
+                #         lambda frame: (frame, self._remap_general_(frame, **kwargs_copy)[2]),
+                #         frame_num
+                #     ))
+                #
+                # processed_indices = [frame for frame, _ in results]
+                # result_img = [img for _, img in results]
+
             else:
                 for frame in frame_num:
                     result_img.append(self._remap_general_(frame, **kwargs_copy)[2])
             if kwargs["save_result"]:
+                self.img_raw = result_img
                 self.save_nxs(path_to_save=kwargs["path_to_save"],
                               h5_group=kwargs["h5_group"],
                               overwrite_file=kwargs["overwrite_file"],
@@ -604,6 +614,7 @@ class Conversion:
                 matrix_y = getattr(self.matrix[0], kwargs["y_key"])
                 return matrix_x, matrix_y, result_img
         else:
+            # print("frame_num", frame_num)
             img = self.img_raw[frame_num]
             mat = matrix or self.matrix[frame_num]
             result_img = process_frame(img, mat, frame_num)
@@ -685,8 +696,10 @@ class Conversion:
             """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         recalc = (determine_recalc_key(q_xy_range, self.matrix[0].q_xy_range, self.matrix[0].q_xy, self.matrix[0].dq) \
@@ -788,8 +801,10 @@ class Conversion:
                 Font size for tick labels. Default is 18.
             """
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =   self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         recalc = (determine_recalc_key(q_x_range, self.matrix[0].q_x_range, self.matrix[0].q_x, self.matrix[0].dq) \
@@ -892,8 +907,10 @@ class Conversion:
          """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =   self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
@@ -1001,8 +1018,10 @@ class Conversion:
              Font size for tick labels. Default is 18.
          """
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res = self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
@@ -1107,8 +1126,10 @@ class Conversion:
         """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         recalc = False
@@ -1218,8 +1239,10 @@ class Conversion:
         """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
 
@@ -1410,8 +1433,10 @@ class Conversion:
         """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
         q_abs_values, _, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
@@ -1494,8 +1519,10 @@ class Conversion:
         """
 
         if self.batch_activated:
-            return self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
 
         _, phi_abs_values, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
@@ -1596,8 +1623,10 @@ class Conversion:
             Optional metadata to include when saving results.
         """
         if self.batch_activated:
-            return self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            res =  self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                        save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
 
         q_hor_values, _, img_q = self._get_q_data(frame_num, q_xy_range, q_z_range, dq)
         img_q = np.array(img_q)
@@ -2024,28 +2053,28 @@ def fast_pixel_remap_cpu(original_image, new_coords_x, new_coords_y, interp_meth
         # return cv2.remap(original_image.T, new_coords_x, new_coords_y, cv2.INTER_LINEAR,
         #                  borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
 
-    elif original_image.ndim == 3:
-        if multiprocessing:
-            with ThreadPoolExecutor() as executor:
-                # original_image = np.transpose(original_image, axes=(0, 2, 1))
-                remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
-
-                # Use map to apply remap_worker for each image slice in parallel
-                remapped_image[:] = list(executor.map(remap_worker, range(original_image.shape[0]),
-                                                      [original_image] * original_image.shape[0],
-                                                      [new_coords_y] * original_image.shape[0],
-                                                      [new_coords_x] * original_image.shape[0],
-                                                      [interp_method] * original_image.shape[0]))
-
-        else:
-            # original_image = np.transpose(original_image, axes=(0, 2, 1))
-            remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
-            for i in range(original_image.shape[0]):
-                remapped_image[i] = cv2.remap(original_image[i].T, new_coords_x, new_coords_y, interp_method,
-                                              borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
+    # elif original_image.ndim == 3:
+    #     if multiprocessing:
+    #         with ThreadPoolExecutor() as executor:
+    #             # original_image = np.transpose(original_image, axes=(0, 2, 1))
+    #             remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
+    #
+    #             # Use map to apply remap_worker for each image slice in parallel
+    #             remapped_image[:] = list(executor.map(remap_worker, range(original_image.shape[0]),
+    #                                                   [original_image] * original_image.shape[0],
+    #                                                   [new_coords_y] * original_image.shape[0],
+    #                                                   [new_coords_x] * original_image.shape[0],
+    #                                                   [interp_method] * original_image.shape[0]))
+    #
+    #     else:
+    #         # original_image = np.transpose(original_image, axes=(0, 2, 1))
+    #         remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
+    #         for i in range(original_image.shape[0]):
+    #             remapped_image[i] = cv2.remap(original_image[i].T, new_coords_x, new_coords_y, interp_method,
+    #                                           borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
         return remapped_image
     else:
-        raise ValueError("Input image must be 2D or 3D")
+        raise ValueError("Input image must be 2D")
 
 
 def remap_worker(i, original_image, new_coords_x, new_coords_y, interp_method):

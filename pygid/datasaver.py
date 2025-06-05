@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 import h5py
 import re
+from datetime import datetime
 
 if TYPE_CHECKING:
     from . import Conversion
@@ -170,7 +171,7 @@ class DataSaver:
             if self.h5_group not in root:
                 _make_groups_(root, self.h5_group)
                 save_single_data(root['/' + self.h5_group], 'definition', 'NXsas')
-                save_single_data(root['/' + self.h5_group], 'title', 'self.h5_group')
+                save_single_data(root['/' + self.h5_group], 'title', str(self.h5_group))
                 # save_single_data(root['/' + self.h5_group + '/data'], 'filename', self.original_path)
                 save_single_data(root['/' + self.h5_group + '/instrument/detector'], 'angle_of_incidence', self.ai_list)
 
@@ -187,7 +188,8 @@ class DataSaver:
                     self.img_number_to_add = max(self.img_number_to_add, len(data))
                     create_dataset(root, self.h5_group, name, data)
             save_matrix(root, self.h5_group, self.matrix)
-            make_analysis_groups(root, self.h5_group, self.img_number_to_add)
+            # fill_analysis_groups(root, self.h5_group, self.img_number_to_add)
+            # fill_process_group(root, self.h5_group)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
             # print("img_number_to_add", self.img_number_to_add)
         return
@@ -384,10 +386,11 @@ def _make_groups_(root, h5_group="entry"):
     # ensure_group_exists(root, h5_group + '/data', {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q', 'axes': [".", ".", "."] })
     ensure_group_exists(root, h5_group + '/data',
                         {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
-    ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
+    # ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
+    ensure_group_exists(root, h5_group + '/process', {'NX_class': 'NXdata', 'EX_required': 'true'})
 
 
-def save_single_data(root, dataset_name, data, type = 'NX_CHAR'):
+def save_single_data(root, dataset_name, data, type = 'NX_CHAR', extend_list = False):
     """
     Saves a single dataset to the specified location in the HDF5 file.
 
@@ -407,8 +410,29 @@ def save_single_data(root, dataset_name, data, type = 'NX_CHAR'):
         # if not isinstance(data, str):
         #     data = str(data)
         if dataset_name in root:
-            del root[dataset_name]
-        # dtype = h5py.string_dtype(encoding='utf-8')
+            # del root[dataset_name]
+            if not extend_list:
+                del root[dataset_name]
+            else:
+                # old_data = root[dataset_name][()].decode('utf-8')
+                try:
+                    old_data = root[dataset_name][()].decode('utf-8')
+                except:
+                    old_data = root[dataset_name][()]
+                del root[dataset_name]
+
+                if isinstance(old_data, np.ndarray):
+                    old_data = old_data.tolist()
+                old_data = [old_data] if not isinstance(old_data, list) else old_data
+                if isinstance(old_data, list):
+                    if isinstance(old_data[0], bytes):
+                        old_data = [item.decode('utf-8') for item in old_data]
+                if isinstance(data, list) or isinstance(data, np.ndarray):
+                    for i in data:
+                        old_data.append(i)
+                else:
+                    old_data.append(data)
+                data = old_data
 
         root.create_dataset(
             name=dataset_name, data=data, maxshape=None,  # dtype=dtype
@@ -559,8 +583,16 @@ def save_expparams(root, h5_group, params):
     save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_x', params.centerX)
     save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_y', params.centerY)
 
+def fill_process_group(root, h5_group):
+    h5_group = "/" + h5_group
+    group = root[h5_group + '/process']
+    save_single_data(group, 'program', "pyGID", extend_list=False)
+    from . import __version__ as pygid_version
+    save_single_data(group, 'version', pygid_version, extend_list=False)
+    save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=True)
 
-def make_analysis_groups(root, h5_group, img_number_to_add):
+
+def fill_analysis_groups(root, h5_group, img_number_to_add):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -589,30 +621,6 @@ def make_analysis_groups(root, h5_group, img_number_to_add):
         root.create_group(group_name + "/fitted_peaks")
         root[group_name + "/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
 
-    # ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
-
-
-    # str(10).zfill(5)
-
-
-    # vlen_int_dtype = h5py.special_dtype(vlen=np.float32)
-    # save_single_data(root[h5_group + '/data/analysis'], 'r_range', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'x_range', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'angle', np.array([np.array([1, 2, 3]), np.array([4, 5]), np.array([6, 7, 8, 9])], dtype=vlen_int_dtype), 'NXparameters')
-    # save_single_data(root[h5_group + '/data/analysis'], 'angle_std', np.array([np.array([1.5, 0.2, 2.3]), np.array([4.5, 5.7]), np.array([6.6, 7.5, 8.6, 9.8])], dtype=vlen_int_dtype), 'NXparameters')
-    # save_single_data(root[h5_group + '/data/analysis'], 'radius', np.array([np.array([1, 20, 35]), np.array([4, 5]), np.array([6, 7, 89, 9])], dtype=vlen_int_dtype), 'NXparameters')
-    # save_single_data(root[h5_group + '/data/analysis'], 'width', np.array([np.array([1, 2, 33]), np.array([4, 59]), np.array([64, 79, 8, 90])], dtype=vlen_int_dtype), 'NXparameters')
-    # save_single_data(root[h5_group + '/data/analysis'], 'peak height', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'background (level)', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'background (slope)', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'init_params', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'lower_bounds', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'upper_bounds', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'fit_errors', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'fitted_params', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'confidence_level', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'key', [])
-    # save_single_data(root[h5_group + '/data/analysis'], 'type', [])
 
 
 def _create_path_to_save_(original_path=None):
