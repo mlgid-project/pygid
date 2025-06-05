@@ -173,7 +173,7 @@ class DataSaver:
                 save_single_data(root['/' + self.h5_group], 'definition', 'NXsas')
                 save_single_data(root['/' + self.h5_group], 'title', str(self.h5_group))
                 # save_single_data(root['/' + self.h5_group + '/data'], 'filename', self.original_path)
-                save_single_data(root['/' + self.h5_group + '/instrument/detector'], 'angle_of_incidence', self.ai_list)
+                save_single_data(root['/' + self.h5_group + '/instrument'], 'angle_of_incidence', self.ai_list)
 
                 save_expparams(root, self.h5_group, self.params)
 
@@ -189,7 +189,7 @@ class DataSaver:
                     create_dataset(root, self.h5_group, name, data)
             save_matrix(root, self.h5_group, self.matrix)
             # fill_analysis_groups(root, self.h5_group, self.img_number_to_add)
-            # fill_process_group(root, self.h5_group)
+            fill_process_group(root, self.h5_group, self.matrix)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
             # print("img_number_to_add", self.img_number_to_add)
         return
@@ -387,10 +387,10 @@ def _make_groups_(root, h5_group="entry"):
     ensure_group_exists(root, h5_group + '/data',
                         {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
     # ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/process', {'NX_class': 'NXdata', 'EX_required': 'true'})
+    ensure_group_exists(root, h5_group + '/process', {'NX_class': 'NXProcess', 'EX_required': 'true'})
 
 
-def save_single_data(root, dataset_name, data, type = 'NX_CHAR', extend_list = False):
+def save_single_data(root, dataset_name, data, extend_list = False, attrs=None):
     """
     Saves a single dataset to the specified location in the HDF5 file.
 
@@ -405,7 +405,8 @@ def save_single_data(root, dataset_name, data, type = 'NX_CHAR', extend_list = F
     type : str, optional
         NeXus class attribute to assign to the dataset. Default is 'NX_CHAR'.
     """
-
+    if attrs is None:
+        attrs = {'type': 'NX_CHAR'}
     if data is not None:
         # if not isinstance(data, str):
         #     data = str(data)
@@ -436,7 +437,8 @@ def save_single_data(root, dataset_name, data, type = 'NX_CHAR', extend_list = F
 
         root.create_dataset(
             name=dataset_name, data=data, maxshape=None,  # dtype=dtype
-        ).attrs.update({'type': type, 'EX_required': 'true'})
+        ).attrs.update(attrs)
+        # ).attrs.update({'type': type, 'EX_required': 'true'})
 
 
 def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CHAR", required = False, extend_list = False):
@@ -572,24 +574,78 @@ def save_expparams(root, h5_group, params):
             ExpParams class instance containing the experimental parameters to be saved.
         """
     h5_group = "/" + h5_group
-    save_single_data(root[h5_group + '/instrument/monochromator'], 'wavelength', params.wavelength * 1e-10)
+    save_single_data(root[h5_group + '/instrument/monochromator'], 'wavelength', params.wavelength * 1e-10,
+                     attrs = {'type': 'NX_FLOAT',
+                              'units': 'm'})
     # save_single_data(root[h5_group + '/instrument/monochromator'], 'wavelength_spread', 1.0)
-    save_single_data(root[h5_group + '/instrument/detector'], 'distance', params.SDD)
-    save_single_data(root[h5_group + '/instrument/detector'], 'x_pixel_size', params.px_size)
-    save_single_data(root[h5_group + '/instrument/detector'], 'y_pixel_size', params.px_size)
-    save_single_data(root[h5_group + '/instrument/detector'], 'polar_angle', -params.rot2)
-    save_single_data(root[h5_group + '/instrument/detector'], 'rotation_angle', params.rot3)
-    save_single_data(root[h5_group + '/instrument/detector'], 'aequatorial_angle', params.rot1)
-    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_x', params.centerX)
-    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_y', params.centerY)
+    save_single_data(root[h5_group + '/instrument/detector'], 'distance', params.SDD,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'})
+    save_single_data(root[h5_group + '/instrument/detector'], 'x_pixel_size', params.px_size,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'y_pixel_size', params.px_size,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'polar_angle', -params.rot2,
+                     attrs={'type': 'NX_ANGLE',
+                            'units': 'rad',
+                            'description': '-rot2'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'rotation_angle', params.rot3,
+                     attrs={'type': 'NX_ANGLE',
+                            'units': 'rad',
+                            'description': 'rot3'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'aequatorial_angle', params.rot1,
+                     attrs={'type': 'NX_ANGLE',
+                            'units': 'rad',
+                            'description': 'rot1'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_x', params.centerX,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'}
+                     )
+    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_y', params.centerY,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'}
+                     )
 
-def fill_process_group(root, h5_group):
+
+def check_correction(corr_matrices, attr):
+    if hasattr(corr_matrices, attr):
+        if getattr(corr_matrices, attr)  is not None:
+            return True
+    return False
+
+def fill_process_group(root, h5_group, matrix):
+    corr_matrices = matrix.corr_matrices
     h5_group = "/" + h5_group
     group = root[h5_group + '/process']
     save_single_data(group, 'program', "pyGID", extend_list=False)
     from . import __version__ as pygid_version
     save_single_data(group, 'version', pygid_version, extend_list=False)
-    save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=True)
+    save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=False)
+    NOTE = (
+        "Intensity corrections applied:\n"
+        f"  - dark_current: {check_correction(corr_matrices, 'dark_current')}\n"
+        f"  - flat_field: {check_correction(corr_matrices, 'flat_field')}\n"
+        f"  - solid_angle_corr: {check_correction(corr_matrices, 'solid_angle_corr_matrix')}\n"
+        f"  - pol_corr: {check_correction(corr_matrices, 'pol_corr_matrix')} "
+        f"(pol_type = {matrix.pol_type})\n"
+        f"  - air_attenuation_corr: {check_correction(corr_matrices, 'air_attenuation_corr_matrix')} "
+        f"(air_attenuation_coeff = {matrix.air_attenuation_coeff} m-1)\n"
+        f"  - sensor_attenuation_corr: {check_correction(corr_matrices, 'sensor_attenuation_corr_matrix')} "
+        f"(sensor_thickness = {matrix.sensor_thickness} m, sensor_attenuation_coeff = {matrix.sensor_attenuation_coeff} m-1)\n"
+        f"  - absorption_corr: {check_correction(corr_matrices, 'absorption_corr_matrix')} "
+        f"(sample_thickness = {matrix.sample_thickness} m, sample_attenuation_coeff = {matrix.sample_attenuation_coeff} m-1)\n"
+        f"  - lorentz_corr: {check_correction(corr_matrices, 'lorentz_corr_matrix')} "
+        f"(powder_dim = {matrix.powder_dim})\n"
+    )
+
+    save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
 def fill_analysis_groups(root, h5_group, img_number_to_add):

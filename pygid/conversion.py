@@ -421,7 +421,7 @@ class Conversion:
 
     def _apply_corrections_(self):
         """
-        Applies all calulated corrections. Only absorpton_corr_matrix and lorentz_corr_matrix depend on  the angle
+        Applies all calulated corrections. Only absorption_corr_matrix and lorentz_corr_matrix depend on  the angle
         of incidence.
 
         """
@@ -432,7 +432,7 @@ class Conversion:
             print("dark_current is subtracted")
         for corr_matrix in corr_matrices:
             if corr_matrix != 'dark_current' and corr_matrices[corr_matrix] is not None:
-                if corr_matrix == 'absorpton_corr_matrix' or corr_matrix == 'lorentz_corr_matrix':
+                if corr_matrix == 'absorption_corr_matrix' or corr_matrix == 'lorentz_corr_matrix':
                     for i, matrix in enumerate(self.matrix):
                         self.img_raw[i] /= matrix.corr_matrices.__dict__[corr_matrix]
                 print(corr_matrix, "was applied")

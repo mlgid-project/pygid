@@ -26,7 +26,7 @@ class Corr_matrices:
            The air attenuation correction matrix.
        sensor_attenuation_corr_matrix : np.ndarray, optional
            The sensor attenuation correction matrix .
-       absorpton_corr_matrix : np.ndarray, optional
+       absorption_corr_matrix : np.ndarray, optional
            The sample absorption correction matrix.
        lorentz_corr_matrix : np.ndarray, optional
            The Lorentz factor correction matrix.
@@ -43,7 +43,7 @@ class Corr_matrices:
     solid_angle_corr_matrix: Optional[np.array] = None
     air_attenuation_corr_matrix: Optional[np.array] = None
     sensor_attenuation_corr_matrix: Optional[np.array] = None
-    absorpton_corr_matrix: Optional[np.array] = None
+    absorption_corr_matrix: Optional[np.array] = None
     lorentz_corr_matrix: Optional[np.array] = None
 
 
@@ -406,12 +406,11 @@ class CoordMaps:
             if self.make_absorption_corr:
                 if self.sample_attenuation_coeff is None or self.sample_thickness is None:
                     print(
-                        "sample_attenuation_coeff or sample_thickness was not defined, absorpton_corr_matrix was not calculated")
+                        "sample_attenuation_coeff or sample_thickness was not defined, absorption_corr_matrix was not calculated")
                 else:
-                    self.corr_matrices.absorpton_corr_matrix = calc_absorpton_corr_matrix(self.kf, self.ai,
+                    self.corr_matrices.absorption_corr_matrix = calc_absorption_corr_matrix(self.kf, self.ai,
                                                                                           self.sample_attenuation_coeff,
                                                                                           self.sample_thickness)
-                    # print(f"absorpton_corr_matrix was calculated")
 
             if self.make_lorentz_corr:
                 if self.powder_dim is None:
@@ -429,9 +428,9 @@ class CoordMaps:
             if self.make_absorption_corr:
                 if self.sample_attenuation_coeff is None or self.sample_thickness is None:
                     print(
-                        "sample_attenuation_coeff or sample_thickness was not defined, absorpton_corr_matrix was not calculated")
+                        "sample_attenuation_coeff or sample_thickness was not defined, absorption_corr_matrix was not calculated")
                 else:
-                    self.corr_matrices.absorpton_corr_matrix = calc_absorpton_corr_matrix(self.kf, self.ai,
+                    self.corr_matrices.absorption_corr_matrix = calc_absorption_corr_matrix(self.kf, self.ai,
                                                                                           self.sample_attenuation_coeff,
                                                                                           self.sample_thickness)
             if self.make_lorentz_corr:
@@ -816,7 +815,7 @@ def calc_sensor_attenuation_corr_matrix(cos_2th, sensor_attenuation_coeff, senso
     return sensor_attenuation_corr_matrix
 
 
-def calc_absorpton_corr_matrix(kf, ai, sample_attenuation_coeff, sample_thickness):
+def calc_absorption_corr_matrix(kf, ai, sample_attenuation_coeff, sample_thickness):
     k1 = kf[..., 0]
     k2 = kf[..., 1]
     k3 = kf[..., 2]
@@ -824,9 +823,9 @@ def calc_absorpton_corr_matrix(kf, ai, sample_attenuation_coeff, sample_thicknes
     cos_delta = ne.evaluate('sqrt((k1**2+k2**2)/(k1**2+k2**2+k3**2))')
     delta = ne.evaluate('arccos(cos_delta)') * np.sign(k3)
     ka = ne.evaluate("(1/sin(ai))+(1/sin(delta - ai))")
-    absorpton_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka))/(sin(ai) * ka)")
-    absorpton_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka)) / sin(ai) * ka")
-    return absorpton_corr_matrix
+    absorption_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka))/(sin(ai) * ka)")
+    absorption_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka)) / sin(ai) * ka")
+    return absorption_corr_matrix
 
 
 def calc_lorentz_corr_matrix(kf_lab, ai, powder_dim=2):
