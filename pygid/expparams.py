@@ -11,7 +11,6 @@ from . import pixel_dict
 
 @dataclass
 class ExpParams:
-
     """
         A class to store experimental parameters for X-ray scattering experiments.
         These parameters describe the experimental setup, such as wavelength, detector
@@ -111,8 +110,6 @@ class ExpParams:
                     self.mask = fabio.open(self.mask_path).data.astype(bool)
                 except:
                     raise ValueError("Mask file not found.")
-            # if not self.rot:
-            #     self.img_dim = list(self.mask.shape)
 
         if self.poni_path is not None:
             self.read_from_file(self.poni_path)
@@ -120,7 +117,6 @@ class ExpParams:
             self._exp_params_update_()
 
         self.check_params()
-
 
     def check_params(self):
         """
@@ -142,7 +138,8 @@ class ExpParams:
             warnings.warn("rot2 is not provided. rot2 = 0 will be used", category=UserWarning)
             self.rot2 = 0
         if self.ai is None:
-            warnings.warn("Angle of incidence (ai) and scan are not provided. ai = 0 will be used", category=UserWarning)
+            warnings.warn("Angle of incidence (ai) and scan are not provided. ai = 0 will be used",
+                          category=UserWarning)
             self.ai = 0
 
     def read_from_file(self, filename):
@@ -184,7 +181,6 @@ class ExpParams:
         If pixel size is not explicitly provided, attempts to infer it from a known detector name
         using `pixel_dict.pixel_dict`.
         """
-
 
         if "distance" in config:
             self.SDD = float(config["distance"])
@@ -237,16 +233,14 @@ class ExpParams:
         elif self.centerY is None or self.centerX is None:
             self._calc_center_()
 
-
     def _calc_poni_(self):
         """
         Calculates poni1 and poni2 from the beam center.
 
         """
-        # self.flipud, self.fliplr = self.fliplr, self.flipud
+
         if self.transp:
             self.centerY, self.centerX = self.centerX, self.centerY
-            # self.img_dim[0], self.img_dim[1] = self.img_dim[1], self.img_dim[0]
         if self.flipud:
             self.centerY = self.img_dim[0] - self.centerY
         if self.fliplr:
@@ -280,4 +274,3 @@ class ExpParams:
             self.rot2 = -self.rot2
         if self.fliplr:
             self.rot1 = -self.rot1
-

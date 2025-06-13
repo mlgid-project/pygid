@@ -8,9 +8,11 @@ import numpy as np
 import h5py
 import re
 from datetime import datetime
+import warnings
 
 if TYPE_CHECKING:
     from . import Conversion
+
 
 class ExpMetadata:
     """
@@ -20,6 +22,7 @@ class ExpMetadata:
     ----------
     All attributes are variable that will be saved in sample gruop in h5-file
     """
+
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -88,10 +91,8 @@ class SampleMetadata:
             return value
 
 
-
 @dataclass
 class DataSaver:
-
     """
     A class to save processed data.
 
@@ -113,42 +114,40 @@ class DataSaver:
     path_to_save: str = None
     h5_group: str = None
     overwrite_file: bool = True
+    overwrite_group: bool = False
     exp_metadata: ExpMetadata = None
     smpl_metadata: SampleMetadata = None
 
     def __post_init__(self):
         self.matrix = self.sample.matrix[0]
         self.params = self.matrix.params
-        self.original_path = self.sample.path
-        # self.ai_list = [getattr(m, "ai") for m in self.sample.matrix]
-        self.ai_list = self.params.ai
-        if self.exp_metadata is not None:
-            if not hasattr(self.exp_metadata, "filename"):
-                self.exp_metadata.filename = self.original_path
+
+        if hasattr(self.sample, 'path'):
+            self.original_path = self.sample.path
+        self.ai_list = self.sample.ai_list
+        self.frame_num = self.sample.converted_frame_num
 
         if self.path_to_save is None:
-            self.path_to_save = _create_path_to_save_(self.original_path)
+            self.path_to_save = "result.h5"
         if self.h5_group is None:
             self.h5_group = os.path.basename(os.path.splitext(self.path_to_save)[0])
-            # self.h5_group = modify_string(self.h5_group, first_modification = True)
-            self.h5_group = modify_string('entry', first_modification = True)
+            self.h5_group = modify_string('entry', first_modification=True)
 
         keys = [
             "img_gid_q", "img_q", "img_gid_pol",
             "img_pol", "img_gid_pseudopol", "img_pseudopol",
             "rad_cut", "azim_cut", "horiz_cut"
         ]
-        data_args = {key: getattr(self.sample, key) for key in keys if hasattr(self.sample, key)}
-        self._save_data_(**data_args)
-        a = [delattr(self.sample, key) for key in keys if hasattr(self.sample, key)]
 
+        name, data = next(
+            ((key, getattr(self.sample, key)) for key in keys if hasattr(self.sample, key)),
+            (None, None)
+        )
 
-    # def __repr__(self):
-    #     return None
-    #     # return f"DataSaver(path_to_save='{self.path_to_save}')"
-    #     # return f"Saved in {self.path_to_save} in group {self.h5_group}"
+        self._save_data_(name, data)
+        delattr(self.sample, name)
 
-    def _save_data_(self, **images):
+    def _save_data_(self, name, data):
         """
         Saves converted images to HDF5 file.
         """
@@ -159,43 +158,52 @@ class DataSaver:
             os.makedirs(folder_to_save)
 
         if os.path.exists(file_name) and self.overwrite_file:
-            # os.remove(file_name)
             mode = 'w'
         else:
             mode = 'a'
         with h5py.File(file_name, mode) as root:
             root.attrs["NX_class"] = "NXroot"
-            self.h5_group = change_h5_group(root, self.h5_group, images)
-            # print("h5_group ", self.h5_group)
+            if not self.overwrite_group and self.h5_group in root:
+                root.attrs["NX_class"] = "NXroot"
+                new_h5_group = change_h5_group(root, self.h5_group, name, data[0].shape)
+                if self.h5_group != new_h5_group:
+                    warnings.warn(
+                        f"Image shape or type mismatch: cannot append to dataset in {self.h5_group}. Using new group {new_h5_group}.",
+                        category=UserWarning
+                    )
+                    self.h5_group = new_h5_group
+
+            else:
+                if self.h5_group in root:
+                    del root[self.h5_group]
 
             if self.h5_group not in root:
                 _make_groups_(root, self.h5_group)
-                save_single_data(root['/' + self.h5_group], 'definition', 'NXsas')
-                save_single_data(root['/' + self.h5_group], 'title', str(self.h5_group))
-                # save_single_data(root['/' + self.h5_group + '/data'], 'filename', self.original_path)
-                save_single_data(root['/' + self.h5_group + '/instrument'], 'angle_of_incidence', self.ai_list)
-
+                save_single_data(root[f"/{self.h5_group}"], 'definition', 'NXsas')
+                save_single_data(root[f"/{self.h5_group}"], 'title', str(self.h5_group))
                 save_expparams(root, self.h5_group, self.params)
+            save_single_data(root[f"/{self.h5_group}/instrument"], 'angle_of_incidence', self.ai_list, extend_list=True)
+            save_single_data(root[f"/{self.h5_group}/data"], 'frame_num', self.frame_num, extend_list=True)
 
-            if self.exp_metadata is not None:
-                save_exp_metadata(root, self.exp_metadata, self.h5_group)
+            if self.exp_metadata is None:
+                self.exp_metadata = ExpMetadata(filename=self.original_path)
+            if not hasattr(self.exp_metadata, "filename"):
+                self.exp_metadata.filename = self.original_path
+            save_exp_metadata(root, self.exp_metadata, self.h5_group)
+
             if self.smpl_metadata is not None:
                 save_smpl_metadata(root, self.smpl_metadata, self.h5_group)
 
-            self.img_number_to_add = 0
-            for name, data in images.items():
-                if data is not None:
-                    self.img_number_to_add = max(self.img_number_to_add, len(data))
-                    create_dataset(root, self.h5_group, name, data)
-            save_matrix(root, self.h5_group, self.matrix)
-            # fill_analysis_groups(root, self.h5_group, self.img_number_to_add)
+            if data is not None:
+                create_dataset(root, self.h5_group, name, data)
+
+            save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
-            # print("img_number_to_add", self.img_number_to_add)
         return
 
 
-def save_matrix(root, h5_group, matrix):
+def save_matrix(root, h5_group, matrix, img_name):
     """
     Saves coordinate maps data to HDF5 file.
 
@@ -208,20 +216,33 @@ def save_matrix(root, h5_group, matrix):
     matrix : numpy.ndarray
         The matrix data to be saved.
     """
+    keys_map = {
+        "img_gid_q": ["q_xy", "q_z"],
+        "img_q": ["q_x", "q_y"],
+        "img_gid_pol": ["q_gid_pol", "ang_gid_pol"],
+        "img_pol": ["q_pol", "ang_pol"],
+        "img_gid_pseudopol": ["q_gid_rad", "q_gid_azimuth"],
+        "img_pseudopol": ["q_rad", "q_azimuth"],
+        "rad_cut": ["q_gid_pol", "q_pol"],
+        "azim_cut": ["ang_gid_pol", "ang_pol"],
+        "horiz_cut": ["q_xy"]
+    }
 
-    keys = [
-        "q_xy", "q_z", "q_x", "q_y", "q_gid_pol", "ang_gid_pol",
-        "q_pol", "ang_pol", "q_gid_azimuth", "q_gid_rad",
-        "q_azimuth", "q_rad"
-    ]
+    keys = keys_map.get(img_name, [])
+
     coords_dict = {key: getattr(matrix, key) for key in keys if hasattr(matrix, key)}
+    keys = list(coords_dict.keys())
     for name in coords_dict:
         data = coords_dict[name]
-        save_single_data(root[h5_group + '/data'], name,
-                         np.array([data[0], data[-1]], dtype=np.float64))
+        save_single_data(root[f"{h5_group}/data"], name,
+                         np.array(data, dtype=np.float64))
+    if len(keys) == 2:
+        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
+    else:
+        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[0]]})
 
 
-def modify_string(s, first_modification = True):
+def modify_string(s, first_modification=True):
     """
     Modifies the input string by appending or incrementing a 4-digit numerical suffix. The number is incremented by 1.
     Parameters
@@ -242,7 +263,7 @@ def modify_string(s, first_modification = True):
         return s + "_0000"
 
 
-def read_dataset_size(root, h5_group, names):
+def read_dataset_size(root, h5_group):
     """
         Reads the shape of specified datasets within a given HDF5 group.
 
@@ -256,15 +277,22 @@ def read_dataset_size(root, h5_group, names):
             The names of datasets whose shapes are to be read.
     """
 
-    datasize_dict = {}
-    for name in names:
-        dataset_name = f'/{h5_group}/data/{name}'
+    datashape_dict = {}
+
+    keys = [
+        "img_gid_q", "img_q", "img_gid_pol",
+        "img_pol", "img_gid_pseudopol", "img_pseudopol",
+        "rad_cut", "azim_cut", "horiz_cut"
+    ]
+
+    for key in keys:
+        dataset_name = f'/{h5_group}/data/{key}'
         if dataset_name in root:
-            datasize_dict[name] = root[dataset_name][0].shape
-    return datasize_dict
+            datashape_dict[key] = root[dataset_name][0].shape
+    return datashape_dict
 
 
-def change_h5_group(root, h5_group, images):
+def change_h5_group(root, h5_group, name, data_shape):
     """
        Checks if the shapes of the datasets in the given HDF5 group match the shapes of the provided images.
        If there is a mismatch, modifies the group name and recursively checks the next group.
@@ -279,17 +307,14 @@ def change_h5_group(root, h5_group, images):
            conveted images to be saved
     """
 
-    names = [name for name in images]
-    datasize_dict = read_dataset_size(root, h5_group, names)
-    if datasize_dict != {}:
-        for name in datasize_dict:
-            dataset_name = f'/{h5_group}/data/{name}'
-            if dataset_name in root:
-                # print("shapes", datasize_dict[name], images[name][0].shape)
-                if datasize_dict[name] != images[name][0].shape:
-                    new_h5_group = modify_string(h5_group, first_modification = False)
-                    return change_h5_group(root, new_h5_group, images)
-
+    data_old = read_dataset_size(root, h5_group)
+    change = any(
+        key != name or data_shape_old != data_shape
+        for key, data_shape_old in data_old.items()
+    )
+    if change:
+        new_h5_group = modify_string(h5_group, first_modification=False)
+        return change_h5_group(root, new_h5_group, name, data_shape)
     return h5_group
 
 
@@ -317,23 +342,19 @@ def create_dataset(root, h5_group, name, data):
         if dataset.chunks is None:
             raise TypeError(f"The dataset '{dataset_name}' must be chunked to allow resizing.")
 
-        # Resize and append data
         current_size = dataset.shape[0]
         new_size = current_size + data.shape[0]
-        dataset.resize(new_size, axis=0)  # Correct argument for resizing along one axis
+        dataset.resize(new_size, axis=0)
         dataset[current_size:new_size] = data
-        # print(f"Data appended to {dataset_name}")
+
     else:
-        # Create a new resizable dataset with chunking
-        maxshape = (None,) + data.shape[1:]  # Allow unlimited size in the first dimension
+        maxshape = (None,) + data.shape[1:]
         print()
         root[f'/{h5_group}/data'].create_dataset(
             name=name,
             data=data,
             maxshape=maxshape,
-            chunks=True  # Enable chunking for resizing
-        )
-        # print(f"Dataset {dataset_name} created with data")
+            chunks=True)
 
 
 def ensure_group_exists(root, group_name, attrs=None):
@@ -367,30 +388,22 @@ def _make_groups_(root, h5_group="entry"):
     h5_group : str, optional
         The name of the top-level group under which subgroups will be created.
     """
-    # ensure_group_exists(root, 'entry')
+
     root.attrs["default"] = h5_group
-    h5_group = "/" + h5_group
     root.create_group(f'/{h5_group}').attrs.update({"NX_class": "NXentry", "EX_required": "true", "default": "data"})
-    # attributes = list(root[h5_group].attrs.keys())
-    # print(attributes)
-    # for attr in attributes:
-    #     print(f"{attr}: {root[h5_group].attrs[attr]}")
-
-    ensure_group_exists(root, h5_group + '/instrument', {'NX_class': 'NXinstrument', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/instrument/source', {'NX_class': 'NXsource', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/instrument/monochromator',
+    ensure_group_exists(root, f'/{h5_group}/instrument', {'NX_class': 'NXinstrument', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/instrument/source', {'NX_class': 'NXsource', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/instrument/monochromator',
                         {'NX_class': 'NXmonochromator', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/instrument/detector',
+    ensure_group_exists(root, f'/{h5_group}/instrument/detector',
                         {'NX_class': 'NXdetector', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/sample', {'NX_class': 'NXsample', 'EX_required': 'true'})
-    # ensure_group_exists(root, h5_group + '/data', {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q', 'axes': [".", ".", "."] })
-    ensure_group_exists(root, h5_group + '/data',
+    ensure_group_exists(root, f'/{h5_group}/sample', {'NX_class': 'NXsample', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/data',
                         {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
-    # ensure_group_exists(root, h5_group + '/data/analysis', {'NX_class': 'NXdata', 'EX_required': 'true'})
-    ensure_group_exists(root, h5_group + '/process', {'NX_class': 'NXProcess', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/process', {'NX_class': 'NXprocess', 'EX_required': 'true'})
 
 
-def save_single_data(root, dataset_name, data, extend_list = False, attrs=None):
+def save_single_data(root, dataset_name, data, extend_list=False, attrs=None):
     """
     Saves a single dataset to the specified location in the HDF5 file.
 
@@ -408,14 +421,10 @@ def save_single_data(root, dataset_name, data, extend_list = False, attrs=None):
     if attrs is None:
         attrs = {'type': 'NX_CHAR'}
     if data is not None:
-        # if not isinstance(data, str):
-        #     data = str(data)
         if dataset_name in root:
-            # del root[dataset_name]
             if not extend_list:
                 del root[dataset_name]
             else:
-                # old_data = root[dataset_name][()].decode('utf-8')
                 try:
                     old_data = root[dataset_name][()].decode('utf-8')
                 except:
@@ -436,13 +445,11 @@ def save_single_data(root, dataset_name, data, extend_list = False, attrs=None):
                 data = old_data
 
         root.create_dataset(
-            name=dataset_name, data=data, maxshape=None,  # dtype=dtype
+            name=dataset_name, data=data, maxshape=None,
         ).attrs.update(attrs)
-        # ).attrs.update({'type': type, 'EX_required': 'true'})
 
 
-def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CHAR", required = False, extend_list = False):
-
+def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CHAR", required=False, extend_list=False):
     """
     Saves a single metadata entry to the specified dataset location in an HDF5 file.
 
@@ -472,7 +479,6 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
                 if not extend_list:
                     del root[dataset_name]
                 else:
-                    # old_data = root[dataset_name][()].decode('utf-8')
                     try:
                         old_data = root[dataset_name][()].decode('utf-8')
                     except:
@@ -492,11 +498,9 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
                         old_data.append(data)
                     data = old_data
 
-            # dtype = h5py.string_dtype(encoding='utf-8')
             root.create_dataset(
-                name=dataset_name, data=data, maxshape=None, #dtype=dtype
-            ).attrs.update({#'NX_class': nx_type,
-                            'EX_required': 'true'})
+                name=dataset_name, data=data, maxshape=None,
+            ).attrs.update({'EX_required': 'true'})
 
 
 def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
@@ -513,28 +517,31 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
         The name of the group within the HDF5 file where metadata will be stored. Default is "entry".
     """
 
-    h5_group = "/" + h5_group
-
     if h5_group + '/instrument/source' not in root:
-        root.require_group(h5_group + '/instrument/source')
+        root.require_group(f"/{h5_group}/instrument/source")
 
-    save_single_metadata(root[h5_group + '/instrument'], exp_metadata, 'name', 'instrument_name', required=True)
-    save_single_metadata(root[h5_group + '/instrument/source'], exp_metadata, 'type', 'source_type', required = True)
-    save_single_metadata(root[h5_group + '/instrument/source'], exp_metadata, 'name', 'source_name', required=False)
-    save_single_metadata(root[h5_group + '/instrument/source'], exp_metadata, 'probe', 'source_probe', required=True)
-    save_single_metadata(root[h5_group + '/instrument/monochromator'], exp_metadata,'wavelength_spread', 'wavelength_spread', required=False)
-    save_single_metadata(root[h5_group + '/instrument/detector'], exp_metadata, 'name', 'detector_name', required = False)
-    save_single_metadata(root[h5_group], exp_metadata, 'start_time', 'start_time',"NX_DATE_TIME", required = False)
-    save_single_metadata(root[h5_group], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=False)
-    # save_single_metadata(root[h5_group + '/sample'], exp_metadata, 'name', 'sample_name', "NX_CHAR", required=False, )
-    save_single_metadata(root[h5_group + '/data'], exp_metadata, 'filename', 'filename', required=False, extend_list = True)
+    if not hasattr(exp_metadata, "source_probe"):
+        exp_metadata.source_probe = "x-ray"
+
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'name', 'instrument_name', required=True)
+    save_single_metadata(root[f"/{h5_group}/instrument/source"], exp_metadata, 'type', 'source_type', required=True)
+    save_single_metadata(root[f"/{h5_group}/instrument/source"], exp_metadata, 'name', 'source_name', required=False)
+    save_single_metadata(root[f"/{h5_group}/instrument/source"], exp_metadata, 'probe', 'source_probe', required=True)
+    save_single_metadata(root[f"/{h5_group}/instrument/monochromator"], exp_metadata, 'wavelength_spread',
+                         'wavelength_spread', required=False)
+    save_single_metadata(root[f"/{h5_group}/instrument/detector"], exp_metadata, 'name', 'detector_name',
+                         required=False)
+    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=False)
+    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True)
+    save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
+                         extend_list=True)
     saved_attr = ['instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
-                  'source_name', 'start_time', 'end_time',  'detector_name', 'detector', 'source', 'filename'] #'sample_name',
+                  'source_name', 'start_time', 'end_time', 'detector_name', 'detector', 'source',
+                  'filename']
     for attr_name in exp_metadata.__dict__:
         if attr_name not in saved_attr:
-            # attr_value = getattr(metadata, attr_name)
-            # if attr_value is not None:
-            save_single_metadata(root[h5_group + '/instrument'], exp_metadata, attr_name, attr_name, extend_list = False)
+            save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, attr_name, attr_name, extend_list=False)
+
 
 def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
     if smpl_metadata is None or not isinstance(smpl_metadata, SampleMetadata):
@@ -549,7 +556,6 @@ def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
                 subgrp = h5grp.require_group(key)
                 write_dict_to_group(subgrp, value)
             else:
-                # Удалим старое, если уже есть
                 if key in h5grp:
                     del h5grp[key]
                 try:
@@ -558,6 +564,8 @@ def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
                     h5grp.create_dataset(key, data=str(value))
 
     write_dict_to_group(group, smpl_metadata.data)
+    if "name" not in root[h5_path]:
+        warnings.warn("SampleMetadata does not contain a 'name' attribute.")
 
 
 def save_expparams(root, h5_group, params):
@@ -573,42 +581,40 @@ def save_expparams(root, h5_group, params):
         params : dict
             ExpParams class instance containing the experimental parameters to be saved.
         """
-    h5_group = "/" + h5_group
-    save_single_data(root[h5_group + '/instrument/monochromator'], 'wavelength', params.wavelength * 1e-10,
-                     attrs = {'type': 'NX_FLOAT',
-                              'units': 'm'})
-    # save_single_data(root[h5_group + '/instrument/monochromator'], 'wavelength_spread', 1.0)
-    save_single_data(root[h5_group + '/instrument/detector'], 'distance', params.SDD,
+    save_single_data(root[f"/{h5_group}/instrument/monochromator"], 'wavelength', params.wavelength * 1e-10,
                      attrs={'type': 'NX_FLOAT',
                             'units': 'm'})
-    save_single_data(root[h5_group + '/instrument/detector'], 'x_pixel_size', params.px_size,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'distance', params.SDD,
+                     attrs={'type': 'NX_FLOAT',
+                            'units': 'm'})
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'x_pixel_size', params.px_size,
                      attrs={'type': 'NX_FLOAT',
                             'units': 'm'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'y_pixel_size', params.px_size,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'y_pixel_size', params.px_size,
                      attrs={'type': 'NX_FLOAT',
                             'units': 'm'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'polar_angle', -params.rot2,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'polar_angle', -params.rot2,
                      attrs={'type': 'NX_ANGLE',
                             'units': 'rad',
                             'description': '-rot2'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'rotation_angle', params.rot3,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'rotation_angle', params.rot3,
                      attrs={'type': 'NX_ANGLE',
                             'units': 'rad',
                             'description': 'rot3'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'aequatorial_angle', params.rot1,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'aequatorial_angle', params.rot1,
                      attrs={'type': 'NX_ANGLE',
                             'units': 'rad',
                             'description': 'rot1'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_x', params.centerX,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'beam_center_x', params.centerX,
                      attrs={'type': 'NX_FLOAT',
                             'units': 'm'}
                      )
-    save_single_data(root[h5_group + '/instrument/detector'], 'beam_center_y', params.centerY,
+    save_single_data(root[f"/{h5_group}/instrument/detector"], 'beam_center_y', params.centerY,
                      attrs={'type': 'NX_FLOAT',
                             'units': 'm'}
                      )
@@ -616,15 +622,16 @@ def save_expparams(root, h5_group, params):
 
 def check_correction(corr_matrices, attr):
     if hasattr(corr_matrices, attr):
-        if getattr(corr_matrices, attr)  is not None:
+        if getattr(corr_matrices, attr) is not None:
             return True
     return False
+
 
 def fill_process_group(root, h5_group, matrix):
     corr_matrices = matrix.corr_matrices
     h5_group = "/" + h5_group
     group = root[h5_group + '/process']
-    save_single_data(group, 'program', "pyGID", extend_list=False)
+    save_single_data(group, 'program', "pygid", extend_list=False)
     from . import __version__ as pygid_version
     save_single_data(group, 'version', pygid_version, extend_list=False)
     save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=False)
@@ -664,66 +671,14 @@ def fill_analysis_groups(root, h5_group, img_number_to_add):
         """
 
     h5_group = "/" + h5_group
-    group = root[h5_group+'/data/analysis']
+    group = root[f"/{h5_group}/data/analysis"]
     subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
     img_number_current = len(subgroups)
-    # print("img_number_current",img_number_current)
-    for i in range(img_number_current, img_number_current+img_number_to_add):
-        group_name = h5_group+'/data/analysis/'+str(i).zfill(5)
+    for i in range(img_number_current, img_number_current + img_number_to_add):
+        group_name = f"/{h5_group}/data/analysis/{str(i).zfill(5)}"
         root.create_group(group_name)
         root[group_name].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-        root.create_group(group_name+"/detected_peaks")
-        root[group_name+"/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-        root.create_group(group_name + "/fitted_peaks")
-        root[group_name + "/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-
-
-
-def _create_path_to_save_(original_path=None):
-    """
-        Generates a path for saving data based on the provided original path.
-    Parameters
-    ----------
-    original_path : str, optional
-        The path to raw data
-    """
-
-    if original_path is None:
-        raise TypeError("path_to_save is not provided")
-        path_to_save = 'result.h5'
-    if isinstance(original_path, list):
-        path_to_save = original_path[0]
-    path_to_save = os.path.splitext(path_to_save)[0] + "_converted" + ".h5"
-    return path_to_save
-
-# def ensure_dataset_exists(h5_file, dataset_name, new_data, dtype=None):
-#     if new_data is not None:
-#         if dataset_name in h5_file:
-#             existing_data = h5_file[dataset_name][:]
-#
-#             if dtype == float:
-#                 if new_data in existing_data:
-#                     pass
-#                 else:
-#                     existing_data = list(existing_data)  # Convert to list if necessary
-#                     existing_data.append(new_data)
-#                     del h5_file[dataset_name]  # Delete existing dataset
-#                     h5_file.create_dataset(dataset_name, data=existing_data,
-#                                            dtype='float64')  # Create a new dataset with updated values
-#             elif dtype == str:
-#                 if new_data.encode() in existing_data:
-#                     pass
-#                 else:
-#                     existing_data.append(new_data)
-#                     del h5_file[dataset_name]
-#                     dtype = h5py.string_dtype(encoding='utf-8')
-#                     h5_file.create_dataset(dataset_name, data=existing_data, dtype=dtype)
-#         else:
-#             if dtype == float:
-#                 h5_file.create_dataset(dataset_name, data=[new_data], dtype='float64')
-#             elif dtype == str:
-#                 dtype = h5py.string_dtype(encoding='utf-8')
-#                 h5_file.create_dataset(dataset_name, data=[new_data], dtype=dtype)
-
-
-
+        root.create_group(group_name + "/detected_peaks")
+        root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+        root.create_group(f"{group_name}/fitted_peaks")
+        root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})

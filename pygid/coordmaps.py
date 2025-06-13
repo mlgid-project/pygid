@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 @dataclass
-class Corr_matrices:
+class CorrMaps:
     """
        A data class to store correction matrices.
 
@@ -83,8 +83,8 @@ class CoordMaps:
             Step size in q-space.
         dang : float, optional
             Step size in angle (default is 0.3).
-        corr_matrices : Corr_matrices, optional
-            An instance of Corr_matrices class that holds correction matrices. Defaults to None.
+        corr_matrices : CorrMaps, optional
+            An instance of CorrMaps class that holds correction matrices. Defaults to None.
         make_pol_corr : bool, optional
             Flag to calculate polarization correction matrix. Defaults to False.
         make_solid_angle_corr : bool, optional
@@ -143,7 +143,7 @@ class CoordMaps:
     q_y_range: Any = None
     dq: float = None
     dang: float = 0.3
-    corr_matrices: Corr_matrices = None
+    corr_matrices: CorrMaps = None
     make_pol_corr: bool = False
     make_solid_angle_corr: bool = False
     make_air_attenuation_corr: bool = False
@@ -189,15 +189,6 @@ class CoordMaps:
             for angle in self.ai:
                 attrs["ai"] = angle
                 self.sub_matrices.append(CoordMaps(**attrs))
-        # if self.folder_to_load is not None:
-        #     self.load_cordmaps()
-
-        # if self.folder_to_save is not None:
-        #     self.folder_to_save+="/coordmap_ai_"+str(self.ai).replace(".","_")
-        #     if not os.path.exists(self.folder_to_save):
-        #         os.makedirs(self.folder_to_save)
-
-    #     if os.path.exists(self.folder_to_load+"/corr_matrices.pkl"):
 
     def save_instance(self):
         if self.path_to_save is not None:
@@ -210,7 +201,6 @@ class CoordMaps:
 
     def _coordmaps_update_(self):
         self.params._calc_k_()
-        # self.params._exp_params_update_()
         if self.dq is None:
             self.dq = self.params._calc_dq_()
 
@@ -295,7 +285,6 @@ class CoordMaps:
         return np.min(phi), np.max(phi)
 
     def _p_to_q_lab_(self, calc_type="corner"):
-        # print("calc range for ai = ", self.ai)
         SDD = self.params.SDD
         d1 = -np.arange(self.img_dim[1]) * self.params.px_size + self.params.poni2
         d2 = np.arange(self.img_dim[0]) * self.params.px_size - self.params.poni1
@@ -347,7 +336,6 @@ class CoordMaps:
         else:
             Px = SDD * np.ones_like(Pz)
             P = np.stack([Px, Py, Pz], axis=-1)
-            # P_reshaped = P.reshape(-1, 3)
         R3 = rotation_matrix(-self.params.rot1, axis='z')
         R2 = rotation_matrix(self.params.rot2, axis='y')
         R1 = rotation_matrix(self.params.rot3, axis='x')
@@ -363,12 +351,11 @@ class CoordMaps:
             self.kf = kf
             self.cos_2th = ne.evaluate("1 - (q_abs / k) ** 2 / 2")
         self.q = q
-        # print('calculated')
         return q
 
     def _calc_corrs_(self):
         if self.corr_matrices is None:
-            self.corr_matrices = Corr_matrices()
+            self.corr_matrices = CorrMaps()
             self.corr_matrices.flat_field = self.flat_field
             self.corr_matrices.dark_current = self.dark_current
 
@@ -378,11 +365,9 @@ class CoordMaps:
 
             if self.make_pol_corr and self.pol_type is not None:
                 self.corr_matrices.pol_corr_matrix = calc_pol_corr_matrix(kf=self.kf, pol_type=self.pol_type)
-                # print(f"pol_type {self.pol_type} was used and pol_corr_matrix was calculated")
 
             if self.make_solid_angle_corr:
                 self.corr_matrices.solid_angle_corr_matrix = calc_solid_angle_corr_matrix(self.cos_2th)
-                # print(f"solid_angle_corr_matrix was calculated")
 
             if self.make_air_attenuation_corr:
                 if self.air_attenuation_coeff is None:
@@ -401,7 +386,6 @@ class CoordMaps:
                         self.sensor_attenuation_coeff,
                         self.sensor_thickness,
                         self.params.SDD)
-                    # print(f"sensor_attenuation_corr_matrix was calculated")
 
             if self.make_absorption_corr:
                 if self.sample_attenuation_coeff is None or self.sample_thickness is None:
@@ -417,11 +401,10 @@ class CoordMaps:
                     print("powder_dim was not defined, lorentz_corr_matrix was not calculated")
                 else:
                     self.corr_matrices.lorentz_corr_matrix = calc_lorentz_corr_matrix(self.kf, self.ai, self.powder_dim)
-                    # print(f"lorentz_corr_matrix was calculated")
 
 
         else:
-            self.corr_matrices = Corr_matrices()
+            self.corr_matrices = CorrMaps()
             if (self.make_lorentz_corr or self.make_absorption_corr):
                 self.q_lab_from_p = self._p_to_q_lab_(calc_type="full")
 
@@ -441,7 +424,6 @@ class CoordMaps:
                                                                                       self.powder_dim)
 
     def _calc_recip_giwaxs_(self, q_xy_range=None, q_z_range=None, dq = None):
-        # print("matrix recalculation")
         if q_xy_range is None:
             q_xy_range = self.q_xy_range
         if q_z_range is None:
@@ -460,7 +442,6 @@ class CoordMaps:
         )
 
     def _calc_pol_giwaxs_(self, radial_range=None, angular_range=None, dang = None, dq = None):
-        # print("matrix recalculation")
         radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
         angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
         dang = self.dang if dang is None else dang
@@ -480,12 +461,6 @@ class CoordMaps:
         )
 
     def _calc_pseudopol_giwaxs_(self, q_gid_rad_range=None, q_gid_azimuth_range = None, dang = None, dq = None):
-        # print("matrix recalculation")
-
-        # q_gid_azimuth = self.q_gid_azimuth if q_gid_azimuth is None else q_gid_azimuth
-        #
-        # radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
-        # angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
         dang = self.dang if dang is None else dang
         self.dang = dang
         dq = self.dq if dq is None else dq
@@ -502,7 +477,7 @@ class CoordMaps:
         )
 
     def _calc_recip_ewald_(self, q_x_range=None, q_y_range=None, dq = None):
-        # print("matrix recalculation")
+
         if not hasattr(self, 'q_lab_from_p'):
             self.q_lab_from_p = self._p_to_q_lab_(calc_type="corner")
 
@@ -527,7 +502,7 @@ class CoordMaps:
         )
 
     def _calc_pol_ewald_(self, radial_range=None, angular_range=None, dang = None, dq = None):
-        # print("matrix recalculation")
+
         radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
         angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
         dang = self.dang if dang is None else dang
@@ -541,9 +516,7 @@ class CoordMaps:
         )
 
     def _calc_pseudopol_ewald_(self,  q_rad_range=None, q_azimuth_range = None, dang = None, dq = None):
-        # print("matrix recalculation")
-        # radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
-        # angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+
         dang = self.dang if dang is None else dang
         self.dang = dang
         dq = self.dq if dq is None else dq
@@ -563,7 +536,6 @@ class CoordMaps:
         ai = np.deg2rad(ai)
         R_ai = rotation_matrix(-ai, axis='y')
         q_lab = q_smpl @ R_ai.T
-        # print("q_lab",np.nanmin(q_lab), np.nanmax(q_lab))
         return q_lab
 
     def _q_lab_to_p_(self, q_lab):
@@ -584,7 +556,7 @@ class CoordMaps:
         p_y = (p[..., 2] + self.params.poni1) / self.params.px_size
         p_x = -(p[..., 1] - self.params.poni2) / self.params.px_size
         return p_x.astype(np.float32), p_y.astype(np.float32)
-        # return p_x, p_y
+
 
     def _q_smpl_to_q_giwaxs_(self, q_smpl):
         q_x = q_smpl[..., 0]
@@ -602,25 +574,18 @@ class CoordMaps:
     def _q_giwaxs_to_q_smpl_(self, q_xy_giwaxs, q_z_giwaxs, ai=0):
         ai = np.deg2rad(ai)
         k = self.params.k
-        # q_x = (-(q_xy_giwaxs ** 2 + q_z_giwaxs ** 2) / (2 * k) + q_z_giwaxs * np.sin(ai)) / np.cos(ai)
-        # q_y = -(q_xy_giwaxs / np.abs(q_xy_giwaxs)) * np.sqrt(q_xy_giwaxs ** 2 - q_x ** 2)
         q_x = ne.evaluate("(-(q_xy_giwaxs**2 + q_z_giwaxs**2) / (2 * k) + q_z_giwaxs * sin(ai)) / cos(ai)")
         q_y = ne.evaluate("-(q_xy_giwaxs / abs(q_xy_giwaxs)) * sqrt(q_xy_giwaxs**2 - q_x**2)")
         q_z = q_z_giwaxs
         q_smpl = np.stack([q_x, q_y, q_z], axis=-1)
-        # q_smpl = q_smpl.reshape(-1, 3)
         return q_smpl
 
     def _find_q_abs_(self, q):
-        # self.q_min = np.sqrt(self.q_xy_range[0] ** 2 + self.q_z_range[0] ** 2) * (
-        #             (-1) ** ((self.q_xy_range[0] < 0) or (self.q_z_range[0] < 0)))
         q_max = np.max(np.linalg.norm(q, axis=-1))
         if len(q) >= 8:
             q_min = 0
         else:
             q_min = np.min(np.linalg.norm(q, axis=-1))
-        # q_min = min(np.sqrt(self.q_xy_range[0] ** 2 + self.q_z_range[0] ** 2) * (
-        #             (-1) ** ((self.q_xy_range[0] < 0) or (self.q_z_range[0] < 0))))
         return q_min, np.max(np.linalg.norm(q, axis=-1))
 
     def _find_ranges_q_giwaxs_(self, q_xy_giwaxs, q_z_giwaxs):
@@ -694,12 +659,8 @@ class CoordMaps:
 
         q_rad = np.arange(self.q_min, self.q_max, dq)
         ang_range = [self.ang_min, self.ang_max]
-        # q_rad = np.arange(radial_range[0], radial_range[1], dq)
-        # if len(self.q) == 8 or len(self.q) == 4:
-        #     self._p_to_q_lab_(calc_type="frame")
         if not hasattr(self,'phi'):
             self._find_ang_()
-            # self._p_to_q_lab_(calc_type="frame")
         q = self.q
         q_abs = np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2 + q[..., 2] ** 2)
         phi = np.arctan2(q[..., 2], np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2) * np.sign(-q[..., 1]))
@@ -707,8 +668,6 @@ class CoordMaps:
         phi[phi < np.radians(self.ang_min)] = np.nan
         self.q_rad, self.phi = q_rad, phi
         q_phi = q_abs * phi
-        # self.q_phi = q_phi
-        # q_azimuth = np.linspace(0, q_abs[np.argmax(phi)]*np.nanmax(phi), int((ang_range[1]-ang_range[0])/dang))
         if q_gid_rad_range is not None:
             q_rad = np.arange(q_gid_rad_range[0], q_gid_rad_range[1], dq)
 
@@ -734,15 +693,10 @@ class CoordMaps:
             self._p_to_q_lab_(calc_type="frame")
 
         q = self.q
-        # q_abs = np.sqrt(q[..., 1] ** 2 + q[..., 2] ** 2)
         q_abs = np.linalg.norm(q, axis=-1)
-        # q_rad = np.arange(radial_range[0], radial_range[1], dq)
         q_rad = np.arange(self.q_min, self.q_max, dq)
         ang_range = [self.ang_min, self.ang_max]
-        # q_rad = np.arange(0, self.q_max, dq)
-
         phi = np.arctan2(q[..., 2], -q[..., 1])
-        # phi[phi>np.radians(min(ang_range[1], 90))] = np.nan
         phi[phi > np.radians(ang_range[1])] = np.nan
         phi[phi < np.radians(ang_range[0])] = np.nan
 
@@ -791,13 +745,10 @@ def calc_pol_corr_matrix(kf, pol_type):
     norm = np.nanmax(pol_corr_matrix)
     pol_corr_matrix = ne.evaluate("pol_corr_matrix / norm")
     return pol_corr_matrix
-    # Pv = ne.evaluate('1 / cos_delta_2')
 
 
 def calc_solid_angle_corr_matrix(cos_2th):
     solid_angle_corr_matrix = ne.evaluate("cos_2th**3")
-    # norm = np.nanmax(solid_angle_corr_matrix)
-    # solid_angle_corr_matrix = ne.evaluate("solid_angle_corr_matrix / norm")
     return solid_angle_corr_matrix
 
 

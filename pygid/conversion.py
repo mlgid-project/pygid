@@ -16,11 +16,17 @@ from tqdm.notebook import tqdm as log_progress
 from matplotlib.ticker import LogLocator
 from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as ticker
+from adjustText import adjust_text
 import warnings
+
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
-# from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
+try:
+    from pygidsim.experiment import ExpParameters
+    from pygidsim.giwaxs_sim import GIWAXSFromCif
+except:
+    warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
 
 @dataclass
 class Conversion:
@@ -83,7 +89,6 @@ class Conversion:
         Calls data loader if imgage if not provided. Applies flipping of raw image, calls q- and angular
         ranges calculation. Calculates correction maps and applies corrections. Activates batch analysis.
         """
-        # print("instance created")
 
         if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
             self.matrix_to_save = self.matrix
@@ -94,7 +99,7 @@ class Conversion:
         if self.img_raw is not None:
             if self.img_raw.ndim == 2:
                 self.img_raw = np.expand_dims(self.img_raw, axis=0)
-
+            self.fmt = None
         else:
             loaded_data = DataLoader(path=self.path,
                                      frame_num=self.frame_num, dataset=self.dataset,
@@ -102,7 +107,7 @@ class Conversion:
                                      batch_size=self.batch_size,
                                      multiprocessing=self.multiprocessing,
                                      build_image_P03=self.build_image_P03)
-
+            self.fmt = loaded_data.fmt
             if loaded_data.activate_batch:
                 self.batch_activated = True
                 self.number_of_frames = loaded_data.number_of_frames
@@ -111,15 +116,15 @@ class Conversion:
                 self.img_raw = loaded_data.img_raw
             del loaded_data
 
-
         self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
                                                self.params.transp, self.roi_range, self.params.count_range) for
                                  img in self.img_raw])
 
         self.update_conversion()
 
-    def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None, overwrite_file=True,
-              save_result = True, plot_result = False, return_result = False):
+    def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None,
+              overwrite_file=True, overwrite_group=False,
+              save_result=True, plot_result=False, return_result=False):
         """
         Devidea raw images in batches and process them separately. There are two cases: either path amount
         or frames number in a single h5-file can be bigger than batch size.
@@ -142,7 +147,7 @@ class Conversion:
             rest = self.batch_size % self.number_to_average
             if rest != 0:
                 self.batch_size -= rest
-        if isinstance(self.path, list):  # many paths
+        if isinstance(self.path, list):
             self.path_batches = [self.path[i:i + self.batch_size] for i in range(0, len(self.path), self.batch_size)]
             if self.average_all:
                 averaged_image = []
@@ -171,14 +176,12 @@ class Conversion:
                     multiprocessing=False,
                     save_result=save_result,
                     overwrite_file=overwrite_file,
+                    overwrite_group=overwrite_group,
                     exp_metadata=exp_metadata,
                     smpl_metadata=smpl_metadata,
                     path_to_save=path_to_save,
                     h5_group=h5_group
                 )
-                # return (res[0], res[1], res[2][0])
-
-
 
 
             else:
@@ -188,18 +191,21 @@ class Conversion:
                         frame_num=self.frame_num,
                         remap_func=remap_func,
                         overwrite_file=overwrite_file,
+                        overwrite_group=overwrite_group,
                         exp_metadata=exp_metadata,
                         smpl_metadata=smpl_metadata,
                         path_to_save=path_to_save,
                         h5_group=h5_group
                     )
                     overwrite_file = False
+                    overwrite_group = False
                     exp_metadata = None
                     smpl_metadata = None
                 if plot_result or return_result:
-                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.", category=UserWarning)
+                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
+                                  category=UserWarning)
 
-        else:  # many frames in a file
+        else:
             self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
                                   for i in range(0, self.number_of_frames, self.batch_size)]
             if self.average_all:
@@ -229,6 +235,7 @@ class Conversion:
                     multiprocessing=False,
                     save_result=save_result,
                     overwrite_file=overwrite_file,
+                    overwrite_group=overwrite_group,
                     exp_metadata=exp_metadata,
                     smpl_metadata=smpl_metadata,
                     path_to_save=path_to_save,
@@ -236,24 +243,28 @@ class Conversion:
                 )
             else:
                 for frame_num in log_progress(self.frame_batches, desc='Progress'):
+                    self.frame_num = frame_num
                     self.process_batch(
                         path_batch=self.path,
                         frame_num=frame_num,
                         remap_func=remap_func,
                         overwrite_file=overwrite_file,
+                        overwrite_group=overwrite_group,
                         exp_metadata=exp_metadata,
                         smpl_metadata=smpl_metadata,
                         path_to_save=path_to_save,
                         h5_group=h5_group
                     )
                     overwrite_file = False
+                    overwrite_group = False
                     exp_metadata = None
                     smpl_metadata = None
                 if plot_result or return_result:
-                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.", category=UserWarning)
+                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
+                                  category=UserWarning)
 
     def process_batch(
-            self, path_batch, frame_num, remap_func, overwrite_file,
+            self, path_batch, frame_num, remap_func, overwrite_file, overwrite_group,
             exp_metadata, smpl_metadata, path_to_save, h5_group
     ):
         self.img_raw = DataLoader(
@@ -280,7 +291,6 @@ class Conversion:
 
         self.update_conversion()
 
-
         remap = getattr(self, remap_func, None)
         if exp_metadata is None:
             exp_metadata = ExpMetadata(filename=path_batch)
@@ -293,6 +303,7 @@ class Conversion:
             multiprocessing=self.multiprocessing,
             save_result=True,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata,
             path_to_save=path_to_save,
@@ -307,7 +318,6 @@ class Conversion:
         ]:
             if hasattr(self, attr):
                 delattr(self, attr)
-
 
     def update_conversion(self):
 
@@ -333,7 +343,10 @@ class Conversion:
         self.update_params()
         self.update_coordmaps()
         self._apply_corrections_()
-        self.frame_num = np.array(range(len(self.img_raw)))
+        if self.frame_num is None:
+            self.frame_num = np.array(range(len(self.img_raw)))
+        if self.fmt in ["tif", "edf"]:
+            self.frame_num *= 0
 
         self.x = np.linspace(0, self.img_raw.shape[2] - 1, self.img_raw.shape[2]) - self.params.centerX
         self.y = np.linspace(0, self.img_raw.shape[1] - 1, self.img_raw.shape[1]) - self.params.centerY
@@ -447,12 +460,16 @@ class Conversion:
         kwargs : tuple
             Turple with saving parametes like path_to_save, h5_group, overwrite_file and metadata.
         """
+
         DataSaver(self, **kwargs)
         return
 
-    def plot_raw_image(self, return_result=False, frame_num=None, plot_result=True,
-                       clims=(1e1, 4e4), xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
-                       fontsize=14, labelsize=18):
+    def plot_raw_image(self, **kwargs):
+        self.plot_img_raw(**kwargs)
+
+    def plot_img_raw(self, return_result=False, frame_num=None, plot_result=True,
+                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
+                     fontsize=14, labelsize=18):
         """
         Plots the raw image from the detector with optional display, return and saving.
 
@@ -478,13 +495,42 @@ class Conversion:
             Font size for tick labels. Default is 14.
         labelsize : int, optional
             Font size for axis labels. Default is 18.
+
+        Returns
+        -------
+        x : array
+            The x-axis values of the image (in pixels).
+        y : array
+            The y-axis values of the image (in pixels).
+        img : 2D-array or list of 2D-arrays
+            The raw image data plotted.
         """
 
+        if self.img_raw is None:
+            raise AttributeError("img_raw is not loaded")
+        if not isinstance(self.img_raw, np.ndarray):
+            self.img_raw = np.array(self.img_raw)
+
+        if frame_num is None and self.img_raw.shape[0] != 1:
+            frame_num = np.arange(1, self.img_raw.shape[0],1)
+        if isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
+            img_list = []
+            for num in frame_num:
+                x, y, img = self.plot_img_raw(return_result=True, frame_num=num, plot_result=plot_result,
+                             clims=clims, xlim=xlim, ylim=ylim, save_fig=save_fig,
+                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num),
+                             fontsize=fontsize, labelsize=labelsize)
+                img_list.append(img)
+            if return_result:
+                return self.x, self.y, img_list
+            return
+
         if frame_num is None:
-            if self.img_raw.shape[0] != 1:
-                print("frame_num is not defined, frame_num = 0 was plotted")
             frame_num = 0
         img = np.array(self.img_raw[frame_num])
+
+        if clims is None:
+            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
 
         if self.img_raw is not None:
 
@@ -494,7 +540,6 @@ class Conversion:
 
             xlim = fill_limits(xlim, self.x)
             ylim = fill_limits(ylim, self.y)
-
 
             fig, ax = plt.subplots(figsize=(6.4, 4.8))
             plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
@@ -574,6 +619,15 @@ class Conversion:
                 multiprocessing=kwargs["multiprocessing"],
             )
 
+        keys = [
+            "img_gid_q", "img_q", "img_gid_pol",
+            "img_pol", "img_gid_pseudopol", "img_pseudopol",
+            "rad_cut", "azim_cut", "horiz_cut"
+        ]
+        for key in keys:
+            if hasattr(self, key):
+                delattr(self, key)
+
         result_img = []
         matrix = self.matrix[0] if len(self.matrix) == 1 else None
         if frame_num is None:
@@ -589,23 +643,33 @@ class Conversion:
                     result_img = list(
                         executor.map(lambda frame: self._remap_general_(frame, **kwargs_copy)[2], frame_num))
 
-                # with ThreadPoolExecutor() as executor:
-                #     results = list(executor.map(
-                #         lambda frame: (frame, self._remap_general_(frame, **kwargs_copy)[2]),
-                #         frame_num
-                #     ))
-                #
-                # processed_indices = [frame for frame, _ in results]
-                # result_img = [img for _, img in results]
-
             else:
                 for frame in frame_num:
                     result_img.append(self._remap_general_(frame, **kwargs_copy)[2])
+
+            self.ai_list = []
+            for frame in frame_num:
+                if isinstance(self.params.ai, list):
+                    self.ai_list.append(self.params.ai[frame])
+                else:
+                    self.ai_list.append(self.params.ai)
+
+            self.converted_frame_num = []
+            if self.frame_num is None:
+                self.converted_frame_num = frame_num
+            else:
+                for i in frame_num:
+                    if isinstance(self.frame_num, int):
+                        self.converted_frame_num.append(self.frame_num)
+                    else:
+                        self.converted_frame_num.append(self.frame_num[i])
+
+            setattr(self, kwargs["result_attr"], result_img)
             if kwargs["save_result"]:
-                self.img_raw = result_img
                 self.save_nxs(path_to_save=kwargs["path_to_save"],
                               h5_group=kwargs["h5_group"],
                               overwrite_file=kwargs["overwrite_file"],
+                              overwrite_group=kwargs["overwrite_group"],
                               exp_metadata=kwargs["exp_metadata"],
                               smpl_metadata=kwargs["smpl_metadata"],
                               )
@@ -614,17 +678,17 @@ class Conversion:
                 matrix_y = getattr(self.matrix[0], kwargs["y_key"])
                 return matrix_x, matrix_y, result_img
         else:
-            # print("frame_num", frame_num)
             img = self.img_raw[frame_num]
             mat = matrix or self.matrix[frame_num]
             result_img = process_frame(img, mat, frame_num)
-            if not hasattr(self, kwargs["result_attr"]):
-                setattr(self, kwargs["result_attr"], [])
-            getattr(self, kwargs["result_attr"]).append(result_img)
+            self.ai_list = mat.ai
+            self.converted_frame_num = [self.frame_num] if hasattr(self, 'frame_num') else [frame_num]
+            setattr(self, kwargs["result_attr"], [result_img])
             if kwargs["save_result"]:
                 self.save_nxs(path_to_save=kwargs["path_to_save"],
                               h5_group=kwargs["h5_group"],
                               overwrite_file=kwargs["overwrite_file"],
+                              overwrite_group=kwargs["overwrite_group"],
                               exp_metadata=kwargs["exp_metadata"],
                               smpl_metadata=kwargs["smpl_metadata"],
                               )
@@ -632,7 +696,7 @@ class Conversion:
                 return getattr(mat, kwargs["x_key"]), getattr(mat, kwargs["y_key"]), result_img
 
     def det2q_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                  q_xy_range=None, q_z_range=None, dq = None,
+                  q_xy_range=None, q_z_range=None, dq=None,
                   plot_result=False, clims=(1e1, 4e4),
                   xlim=(None, None), ylim=(None, None),
                   save_fig=False, path_to_save_fig="img.png",
@@ -640,6 +704,7 @@ class Conversion:
                   path_to_save='result.h5',
                   h5_group=None,
                   overwrite_file=True,
+                  overwrite_group=False,
                   exp_metadata=None,
                   smpl_metadata=None,
                   cmap="inferno",
@@ -693,25 +758,34 @@ class Conversion:
                 Font size for axis labels. Default is 14.
             labelsize : int, optional
                 Font size for tick labels. Default is 18.
+
+            Returns
+            -------
+            q_xy : array
+                The q_xy-axis values of the converted data (in 1/A).
+            q_z : array
+                The q_z-axis values of the converted data (in 1/A).
+            img_gid_q : 2D-array or list of 2D-arrays
+                The converted image img_gid_q.
             """
 
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group, save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
         recalc = (determine_recalc_key(q_xy_range, self.matrix[0].q_xy_range, self.matrix[0].q_xy, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_xy") else True) or (determine_recalc_key(q_z_range, self.matrix[0].q_z_range,
-                                                                                  self.matrix[0].q_z, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_z") else True)
+                      if hasattr(self.matrix[0], "q_xy") else True) or (
+                     determine_recalc_key(q_z_range, self.matrix[0].q_z_range,
+                                          self.matrix[0].q_z, self.matrix[0].dq) \
+                         if hasattr(self.matrix[0], "q_z") else True)
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
 
         self.calc_matrices("p_y_gid", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_xy_range=q_xy_range,
-                           q_z_range=q_z_range, dq = dq)
+                           q_z_range=q_z_range, dq=dq)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_gid",
@@ -721,11 +795,12 @@ class Conversion:
             result_attr="img_gid_q",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
@@ -738,7 +813,7 @@ class Conversion:
             return x, y, img
 
     def det2q(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-              q_x_range=None, q_y_range=None, dq = None,
+              q_x_range=None, q_y_range=None, dq=None,
               plot_result=False, clims=(1e1, 4e4),
               xlim=(None, None), ylim=(None, None),
               save_fig=False, path_to_save_fig="img.png",
@@ -746,6 +821,7 @@ class Conversion:
               path_to_save='result.h5',
               h5_group=None,
               overwrite_file=True,
+              overwrite_group=False,
               exp_metadata=None,
               smpl_metadata=None,
               cmap="inferno",
@@ -799,24 +875,35 @@ class Conversion:
                 Font size for axis labels. Default is 14.
             labelsize : int, optional
                 Font size for tick labels. Default is 18.
+
+            Returns
+            -------
+            q_x : array
+                The q_x-axis values of the converted data (in 1/A).
+            q_y : array
+                The q_y-axis values of the converted data (in 1/A).
+            img_q : 2D-array or list of 2D-arrays
+                The converted image img_q.
+
             """
         if self.batch_activated:
-            res =   self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
         recalc = (determine_recalc_key(q_x_range, self.matrix[0].q_x_range, self.matrix[0].q_x, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_x") else True) or (determine_recalc_key(q_y_range, self.matrix[0].q_y_range,
-                                                                                  self.matrix[0].q_y, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_y") else True)
+                      if hasattr(self.matrix[0], "q_x") else True) or (
+                     determine_recalc_key(q_y_range, self.matrix[0].q_y_range,
+                                          self.matrix[0].q_y, self.matrix[0].dq) \
+                         if hasattr(self.matrix[0], "q_y") else True)
 
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
 
         self.calc_matrices("p_y_ewald", recalc, multiprocessing=multiprocessing or self.multiprocessing,
-                           q_x_range=q_x_range, q_y_range=q_y_range, dq = dq)
+                           q_x_range=q_x_range, q_y_range=q_y_range, dq=dq)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_ewald",
@@ -826,13 +913,14 @@ class Conversion:
             result_attr="img_q",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
-            exp_metadata = exp_metadata,
-            smpl_metadata = smpl_metadata)
+            overwrite_group=overwrite_group,
+            exp_metadata=exp_metadata,
+            smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
         if plot_result or save_fig:
             for i in range(len(img)):
@@ -851,6 +939,7 @@ class Conversion:
                 path_to_save='result.h5',
                 h5_group=None,
                 overwrite_file=True,
+                overwrite_group=False,
                 exp_metadata=None,
                 smpl_metadata=None,
                 cmap="inferno",
@@ -904,21 +993,31 @@ class Conversion:
              Font size for axis labels. Default is 14.
          labelsize : int, optional
              Font size for tick labels. Default is 18.
+
+         Returns
+         -------
+         q_pol : array
+             The q_pol-axis values of the converted data (in 1/A).
+         ang_pol : array
+             The ang_pol-axis values of the converted data (in degrees).
+         img_pol : 2D-array or list of 2D-arrays
+             The converted image img_pol.
+
          """
 
         if self.batch_activated:
-            res =   self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
         recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
                                         self.matrix[0].ang_pol, self.matrix[0].dang) \
-            if hasattr(self.matrix[0], "ang_pol") else True) or
+                       if hasattr(self.matrix[0], "ang_pol") else True) or
                   (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
                                         self.matrix[0].q_pol, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_pol") else True))
+                       if hasattr(self.matrix[0], "q_pol") else True))
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
         if dang is not None:
@@ -937,11 +1036,12 @@ class Conversion:
             result_attr="img_pol",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata
         )
@@ -963,6 +1063,7 @@ class Conversion:
                     path_to_save='result.h5',
                     h5_group=None,
                     overwrite_file=True,
+                    overwrite_group=False,
                     exp_metadata=None,
                     smpl_metadata=None,
                     cmap="inferno",
@@ -1016,25 +1117,34 @@ class Conversion:
              Font size for axis labels. Default is 14.
          labelsize : int, optional
              Font size for tick labels. Default is 18.
+
+         Returns
+         -------
+         q_gid_pol : array
+             The q_gid_pol-axis values of the converted data (in 1/A).
+         ang_gid_pol : array
+             The ang_gid_pol-axis values of the converted data (in degrees).
+         img_gid_pol : 2D-array or list of 2D-arrays
+             The converted image img_gid_pol.
+
          """
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
         recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
                                         self.matrix[0].ang_gid_pol, self.matrix[0].dang) \
-            if hasattr(self.matrix[0], "ang_gid_pol") else True) or
+                       if hasattr(self.matrix[0], "ang_gid_pol") else True) or
                   (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
                                         self.matrix[0].q_gid_pol, self.matrix[0].dq) \
-            if hasattr(self.matrix[0], "q_gid_pol") else True))
+                       if hasattr(self.matrix[0], "q_gid_pol") else True))
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
-
 
         self.calc_matrices("p_y_smpl_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
@@ -1051,11 +1161,12 @@ class Conversion:
             result_attr="img_gid_pol",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
@@ -1076,6 +1187,7 @@ class Conversion:
                       path_to_save='result.h5',
                       h5_group=None,
                       overwrite_file=True,
+                      overwrite_group=False,
                       exp_metadata=None,
                       smpl_metadata=None,
                       cmap="inferno",
@@ -1123,37 +1235,47 @@ class Conversion:
             Font size for axis labels. Default is 14.
         labelsize : int, optional
             Font size for tick labels. Default is 18.
+
+        Returns
+        -------
+        q_rad : array
+            The q_rad-axis values of the converted data (in 1/A).
+        q_azimuth : array
+            The q_azimuth-axis values of the converted data (in 1/A).
+        img_pseudopol : 2D-array or list of 2D-arrays
+            The converted image img_pseudopol.
+
         """
 
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
         recalc = False
-        if hasattr(self.matrix[0] , "q_rad"):
+        if hasattr(self.matrix[0], "q_rad"):
             if q_rad_range is None:
                 recalc = False
             else:
                 recalc = False if (np.isclose(q_rad_range[0], np.nanmin(self.matrix[0].q_rad), rtol=0.01) and
-                np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_rad), atol=0.01)) else True
+                                   np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_rad), atol=0.01)) else True
 
-        if hasattr(self.matrix[0] , "q_azimuth"):
+        if hasattr(self.matrix[0], "q_azimuth"):
             if q_azimuth_range is not None:
-                recalc = recalc or (False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_azimuth), rtol=0.01) and
-                                  np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_azimuth), atol=0.01)) else True)
+                recalc = recalc or (
+                    False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_azimuth), rtol=0.01) and
+                              np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_azimuth), atol=0.01)) else True)
 
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
-        self.calc_matrices("p_y_lab_pseudopol",recalc, multiprocessing=multiprocessing or self.multiprocessing,
+        self.calc_matrices("p_y_lab_pseudopol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_rad_range=q_rad_range,
                            q_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
-
 
         x, y, img = self._remap_general_(
             frame_num,
@@ -1164,11 +1286,12 @@ class Conversion:
             result_attr="img_pseudopol",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
@@ -1181,7 +1304,7 @@ class Conversion:
             return x, y, img
 
     def det2pseudopol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                          q_rad_range = None, q_azimuth_range = None, dang=None, dq=None,
+                          q_rad_range=None, q_azimuth_range=None, dang=None, dq=None,
                           plot_result=False, clims=(1e1, 4e4),
                           xlim=(None, None), ylim=(None, None),
                           save_fig=False, path_to_save_fig="img.png",
@@ -1189,6 +1312,7 @@ class Conversion:
                           path_to_save='result.h5',
                           h5_group=None,
                           overwrite_file=True,
+                          overwrite_group=False,
                           exp_metadata=None,
                           smpl_metadata=None,
                           cmap="inferno",
@@ -1236,35 +1360,45 @@ class Conversion:
             Font size for axis labels. Default is 14.
         labelsize : int, optional
             Font size for tick labels. Default is 18.
+
+        Returns
+        -------
+        q_gid_rad : array
+            The q_gid_rad-axis values of the converted data (in 1/A).
+        q_gid_azimuth : array
+            The q_gid_azimuth-axis values of the converted data (in 1/A).
+        img_gid_pseudopol : 2D-array or list of 2D-arrays
+            The converted image img_gid_pseudopol.
         """
 
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
-
-
         recalc = False
-        if hasattr(self.matrix[0] , "q_gid_rad"):
+        if hasattr(self.matrix[0], "q_gid_rad"):
             if q_rad_range is None:
                 recalc = False
             else:
                 recalc = False if (np.isclose(q_rad_range[0], np.nanmin(self.matrix[0].q_gid_rad), rtol=0.01) and
-                np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_gid_rad), atol=0.01)) else True
+                                   np.isclose(q_rad_range[1], np.nanmax(self.matrix[0].q_gid_rad), atol=0.01)) else True
 
-        if hasattr(self.matrix[0] , "q_gid_azimuth"):
+        if hasattr(self.matrix[0], "q_gid_azimuth"):
             if q_azimuth_range is not None:
-                recalc = recalc or (False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_gid_azimuth), rtol=0.01) and
-                                  np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_gid_azimuth), atol=0.01)) else True)
+                recalc = recalc or (
+                    False if (np.isclose(q_azimuth_range[0], np.nanmin(self.matrix[0].q_gid_azimuth), rtol=0.01) and
+                              np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_gid_azimuth),
+                                         atol=0.01)) else True)
 
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
-        self.calc_matrices("p_y_smpl_pseudopol",recalc, multiprocessing=multiprocessing or self.multiprocessing,
+        self.calc_matrices("p_y_smpl_pseudopol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_gid_rad_range=q_rad_range,
                            q_gid_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
 
@@ -1277,11 +1411,12 @@ class Conversion:
             result_attr="img_gid_pseudopol",
             interp_type=interp_type,
             multiprocessing=multiprocessing,
-            return_result= True, #return_result or plot_result or save_fig,
+            return_result=True,
             save_result=save_result,
             path_to_save=path_to_save,
             h5_group=h5_group,
             overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
@@ -1380,8 +1515,9 @@ class Conversion:
                        path_to_save='result.h5',
                        h5_group=None,
                        overwrite_file=True,
+                       overwrite_group=False,
                        exp_metadata=None,
-                       smpl_metadata=None,):
+                       smpl_metadata=None, ):
 
         """
         Computes and optionally plots the radial profile from 2D scattering data for a given angular range.
@@ -1430,11 +1566,19 @@ class Conversion:
             If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
         metadata : dict or None, optional
             Optional metadata to include when saving results.
+
+        Returns
+        -------
+        q_abs_values : array
+            The q_abs_values-axis values of the converted data (in 1/A).
+        rad_cut : 1D-array or list of 1D-arrays
+            Integrated image profile rad_cut.
         """
 
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
@@ -1448,12 +1592,12 @@ class Conversion:
                                xlim, ylim, plot_result, save_fig, path_to_save_fig)
         setattr(self, "rad_cut", radial_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
-        # delattr(self.matrix[0], "ang_gid_pol") if key == "gid" else delattr(self.matrix[0], "ang_gid_pol")
 
         if save_result:
             self.save_nxs(path_to_save=path_to_save,
                           h5_group=h5_group,
                           overwrite_file=overwrite_file,
+                          overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
 
@@ -1467,8 +1611,9 @@ class Conversion:
                      path_to_save='result.h5', dang=0.5, dq=None,
                      h5_group=None,
                      overwrite_file=True,
+                     overwrite_group=False,
                      exp_metadata=None,
-                     smpl_metadata=None,):
+                     smpl_metadata=None, ):
         """
         Computes and optionally plots the azmuthal profile from 2D scattering data for a given angular range.
 
@@ -1516,14 +1661,21 @@ class Conversion:
             If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
         metadata : dict or None, optional
             Optional metadata to include when saving results.
+
+        Returns
+        -------
+        phi_abs_values : array
+            The phi_abs_values-axis values of the converted data (in degrees).
+        azim_cut : 1D-array or list of 1D-arrays
+            Integrated image profile azim_cut.
         """
 
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
-
 
         _, phi_abs_values, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
@@ -1534,12 +1686,12 @@ class Conversion:
                                ylim, plot_result, save_fig, path_to_save_fig)
         setattr(self, "azim_cut", azim_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
-        # delattr(self.matrix[0], "q_gid_pol") if key == "gid" else delattr(self.matrix[0], "q_pol")
 
         if save_result:
             self.save_nxs(path_to_save=path_to_save,
                           h5_group=h5_group,
                           overwrite_file=overwrite_file,
+                          overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
 
@@ -1547,7 +1699,7 @@ class Conversion:
             return (phi_abs_values, azim_profile[0]) if azim_profile.shape[0] == 1 else (
                 phi_abs_values, azim_profile)
 
-    def _get_q_data(self, frame_num, q_xy_range=None, q_z_range=None, dq = None):
+    def _get_q_data(self, frame_num, q_xy_range=None, q_z_range=None, dq=None):
 
         """
         Calls GID remapping of detector data.
@@ -1564,14 +1716,15 @@ class Conversion:
 
         method = self.det2q_gid
         return method(return_result=True, plot_result=False, frame_num=frame_num,
-                      q_xy_range=q_xy_range, q_z_range=q_z_range, dq = dq)
+                      q_xy_range=q_xy_range, q_z_range=q_z_range, dq=dq)
 
-    def horiz_profile(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq = None, multiprocessing=None,
+    def horiz_profile(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',
                       plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
                       path_to_save='result.h5',
                       h5_group=None,
                       overwrite_file=True,
+                      overwrite_group=False,
                       exp_metadata=None,
                       smpl_metadata=None):
         """
@@ -1621,10 +1774,19 @@ class Conversion:
             If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
         metadata : dict or None, optional
             Optional metadata to include when saving results.
+
+        Returns
+        -------
+        q_hor_values : array
+            The q_hor_values-axis values of the converted data (in 1/A).
+        horiz_cut : 1D-array or list of 1D-arrays
+            Integrated image profile horiz_cut.
+
         """
         if self.batch_activated:
-            res =  self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                       save_result, plot_result, return_result)
+            res = self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
@@ -1642,8 +1804,9 @@ class Conversion:
             self.save_nxs(path_to_save=path_to_save,
                           h5_group=h5_group,
                           overwrite_file=overwrite_file,
+                          overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
-                          smpl_metadata = smpl_metadata)
+                          smpl_metadata=smpl_metadata)
 
         if return_result:
             return (q_hor_values, horiz_profile[0]) if horiz_profile.shape[0] == 1 else (
@@ -1675,7 +1838,6 @@ class Conversion:
 
         remap_image = fast_pixel_remap(img_raw, p_y, p_x, use_gpu=self.use_gpu, interp_type=interp_type,
                                        multiprocessing=multiprocessing)
-        # remap_image[remap_image <= 0] = np.nan
         return remap_image
 
     def _plot_single_image(self, img, x, y, clims, xlim, ylim, x_label, y_label, aspect, plot_result, save_fig,
@@ -1689,8 +1851,6 @@ class Conversion:
         plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
         img[img < 0] = clims[0]
         log_img = np.log(img / clims[1])
-        # log_img = np.nan_to_num(log_img, nan=np.log(clims[0] / clims[1]), posinf=np.log(clims[0] / clims[1]),
-        #                         neginf=np.log(clims[0] / clims[1]))
         log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
                                 neginf=np.log(clims[0] / clims[1]))
 
@@ -1716,8 +1876,6 @@ class Conversion:
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
-        # plt.tight_layout()
-
         if save_fig:
             if path_to_save_fig is not None:
                 if (path_to_save_fig.endswith('.svg') or path_to_save_fig.endswith('.pdf')
@@ -1729,7 +1887,6 @@ class Conversion:
 
                     plt.savefig(path_to_save_fig, dpi=600)
                 else:
-                    # ax.set_aspect('auto')
                     plt.savefig(path_to_save_fig, dpi=600, bbox_inches='tight')
                 print(f"Saved figure in {path_to_save_fig}")
             else:
@@ -1761,16 +1918,45 @@ class Conversion:
                         text_color='black', max_shift=1, save_result=False, path_to_save='simul_result.png',
                         fontsize=14,
                         labelsize=18):
-        try:
-            # from numpy_giwaxs_simul.experiment import ExpParameters
-            # from numpy_giwaxs_simul.giwaxs_sim import GIWAXSFromCif
-            from pygidsim.experiment import ExpParameters
-            from pygidsim.giwaxs_sim import GIWAXSFromCif
-        except:
-            raise ValueError("pygidsim is not installed.")
+        """
+        Simulates and visualizes diffraction pattern for the given crystallographic data.
+
+        Parameters:
+            frame_num (int): Image frame number to visualize.
+            path_to_cif (str): Path to a CIF file containing the crystal structure.
+            orientation (list): Crystal orientation. None the for poweder pattern.
+            plot_result (bool): Whether to plot the result of simulation and experimental data.
+            plot_mi (bool): Whether to plot the Miller indices.
+            return_result (bool): Whether to return the result of simulation.
+            min_int (float or None): Minimum intensity threshold for display
+            clims (list): Intensity range for the color scale of experimental data
+            vmin (float): Normalization limits for the color scale of simulated data
+            vmax (float): Normalization limits for the color scale of simulated data
+            linewidth (float): Simulated peaks line thickness for visualization
+            radius (float): Simulated peaks radius for visualization
+            cmap (matplotlib colormap): Colormap used in the visualization.
+            text_color (str): Color of any text annotations.
+            max_shift (float): Maximum positional shift allowed in the simulation.
+            save_result (bool): If True, saves the figure image.
+            path_to_save (str): File path to save the simulation figure.
+            fontsize (int): Font size for axis labels ticks.
+            labelsize (int): Font size for axis labels.
+
+        Returns
+        -------
+        (q_xy, q_z) : (array, array)
+           q_xy, q_z positions of the simulated data (in 1/A).
+        intensity : array
+           The intensity values of the simulated data.
+        mi : array
+           Miller indices of the simulated data.
+
+        """
+
 
         q_xy_max = self.matrix[0].q_xy_range[1]
         q_z_max = self.matrix[0].q_z_range[1]
+        radius/=np.sqrt(q_xy_max**2+q_z_max**2)/4.37
         ai = self.matrix[0].ai if len(self.matrix) == 1 else self.matrix[frame_num].ai
         simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
 
@@ -1781,8 +1967,6 @@ class Conversion:
             orientation = [orientation] if not isinstance(orientation[0], list) else orientation
         else:
             orientation = [orientation]
-        # cmap = [cmap] if not isinstance(cmap, list) else cmap
-
         if len(orientation) == 1:
             orientation *= len(path_to_cif)
         if len(path_to_cif) == 1:
@@ -1797,20 +1981,6 @@ class Conversion:
         simulated_data = [simul_single_data(path_to_cif[i], orientation[i], simul_params, min_int[i]) for i in
                           range(len(path_to_cif))]
 
-        #
-        #     simulated_data = [simul_single_data(path, orientation[0], simul_params, min_int) for path in path_to_cif]
-        # else:
-        #     if len(path_to_cif) == 1:
-        #         simulated_data = [simul_single_data(path_to_cif[0], orient, simul_params, min_int) for orient in orientation]
-        #     else:
-        #         if len(orientation) == len(path_to_cif):
-        #             simulated_data = [simul_single_data(path_to_cif[i], orientation[i], simul_params, min_int) for i in
-        #                                                range(len(path_to_cif))]
-        #         else:
-        #             raise ValueError("orientation and path_to_cif have different length. They should be equal or "
-        #                              "at least one should be equal to 1")
-        # return simulated_data
-
         q_xy, q_z, img = self._get_q_data(frame_num)
         img = img[0]
         img[img < 0] = clims[0]
@@ -1822,7 +1992,6 @@ class Conversion:
 
             fig, ax = plt.subplots(figsize=(6.4, 4.8))
             p = ax.imshow(log_img,
-                          # norm=colors.LogNorm(vmin=clims[0], vmax=clims[1], clip=True),
                           vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
                           cmap="inferno",
                           extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
@@ -1839,22 +2008,15 @@ class Conversion:
                 norm = plot_single_simul_data(dataset, ax, cmap_i, vmin, vmax, linewidth, radius, text_color, plot_mi,
                                               max_shift)
 
-            # if len(simulated_data) == 1:
-            #     sm = cm.ScalarMappable(cmap=cmap_i, norm=norm)
-            #     sm.set_array([])
-            #     cbar = plt.colorbar(sm, ax=ax)
-            #     cbar.set_label('Calculated intensity [arb. units]', fontsize=16)
-            # ax.set_aspect(aspect)
             cb = fig.colorbar(mappable=p, ax=ax)
             cb.set_label(label='Intensity [arb. units]', fontsize=labelsize)
             cb.ax.yaxis.labelpad = 1
             cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
             cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))], fontsize=fontsize)
             print(f"frame_num = {frame_num} was plotted")
-            # fig.tight_layout(pad=0.5)
-            # plt.axis('square')
+
             if save_result:
-                # plt.savefig(path_to_save, dpi=300)
+
                 if (path_to_save.endswith('.svg') or path_to_save.endswith('.pdf')
                         or path_to_save.endswith('.eps') or path_to_save.endswith('.pgf')):
                     plt.axis('square')
@@ -1862,14 +2024,12 @@ class Conversion:
                 else:
                     plt.savefig(path_to_save, dpi=600, bbox_inches='tight')
                 print(f"Saved figure in {path_to_save}")
-            # fig.savefig(r"C:\Users\Ainur Abukaev\Downloads\cif files/CuPc_alpha_mono.png", dpi=300, bbox_inches='tight')
             plt.show()
         if return_result:
             if len(simulated_data):
                 return simulated_data[0]
             else:
                 return simulated_data
-
 
 
 def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, text_color, plot_mi, max_shift):
@@ -1885,19 +2045,26 @@ def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, tex
 
     if q.ndim == 2:
         existing_texts = None
+        texts = []
         for x, y, inten, text in zip(q[0], q[1], intensity, mi):
-            color = cmap(norm(inten))  # цвет из colormap
+            color = cmap(norm(inten))
             circle = plt.Circle((x, y), radius, edgecolor=color, facecolor='none', linewidth=linewidth)
             ax.add_patch(circle)
             if plot_mi:
-                text_x, text_y = adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None,
-                                                      max_shift=max_shift)
-                ax.text(text_x, text_y, str(text), fontsize=8, color=text_color, weight='bold',
-                        ha='center', va='bottom')
+                txt = ax.text(x, y, str(text), fontsize=8, color=text_color,
+                              weight='bold', ha='center', va='bottom')
+                texts.append(txt)
+                # text_x, text_y = adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None,
+                #                                       max_shift=max_shift)
+                # ax.text(text_x, text_y, str(text), fontsize=8, color=text_color, weight='bold',
+                #         ha='center', va='bottom')
+        if plot_mi and texts:
+            adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
 
     else:
         size = len(intensity)
         num = 1
+        texts = []
         for rad, i, text in zip(q, intensity, mi):
             color = cmap(norm(i))
             circle = plt.Circle((0, 0), rad, color=color, fill=False, linestyle="dashed", linewidth=linewidth)
@@ -1906,15 +2073,27 @@ def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, tex
                 angle_to_plot = np.pi / 2 / size * num - 0.1
                 pos_xy = rad * np.sin(angle_to_plot)
                 pos_z = rad * np.cos(angle_to_plot)
+
                 if pos_xy > q_xy_max or pos_z > q_z_max:
                     angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
                     pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
                     pos_z = rad * np.cos(angle_to_plot)
-                plt.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
-                # plt.text(0, rad, str(text), fontsize=8, color=text_color, weight='bold')
-                num += 1
-    return norm
 
+                txt = ax.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
+                texts.append(txt)
+                num += 1
+                # angle_to_plot = np.pi / 2 / size * num - 0.1
+                # pos_xy = rad * np.sin(angle_to_plot)
+                # pos_z = rad * np.cos(angle_to_plot)
+                # if pos_xy > q_xy_max or pos_z > q_z_max:
+                #     angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
+                #     pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
+                #     pos_z = rad * np.cos(angle_to_plot)
+                # plt.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
+                # num += 1
+            if plot_mi and texts:
+                adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
+    return norm
 
 
 def adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None, max_shift=3):
@@ -1938,10 +2117,12 @@ def adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None
 
     return text_x, text_y
 
+
 def determine_recalc_key(current_range, global_range, array, step):
     recalc = (determine_recalc_key_index(current_range, global_range, array, step, np.nanargmin(array), 0) or
               determine_recalc_key_index(current_range, global_range, array, step, np.nanargmax(array), -1))
     return recalc
+
 
 def determine_recalc_key_index(current_range, global_range, array, step, arr_index, index):
     if current_range is None:
@@ -1955,8 +2136,6 @@ def determine_recalc_key_index(current_range, global_range, array, step, arr_ind
 
 def simul_single_data(path_to_cif, orientation, simul_params, min_int):
     try:
-        # from numpy_giwaxs_simul.experiment import ExpParameters
-        # from numpy_giwaxs_simul.giwaxs_sim import GIWAXSFromCif
         from pygidsim.experiment import ExpParameters
         from pygidsim.giwaxs_sim import GIWAXSFromCif
     except:
@@ -2000,13 +2179,6 @@ def calc_matrix(matrix, key, recalc, **kwargs):
         func_map.get(key, lambda: None)(**kwargs)
 
 
-# def calc_matrix(matrix):
-#     """Function to process each matrix in parallel."""
-#     if not hasattr(matrix, "p_y_giwaxs") or not hasattr(matrix, "p_x_giwaxs"):
-#         # print("done")
-#         matrix._calc_recip_giwaxs_()
-
-
 def fast_pixel_remap(original_image, new_coords_x, new_coords_y, use_gpu=True, interp_type="INTER_LINEAR",
                      multiprocessing=False):
     """
@@ -2037,41 +2209,9 @@ def fast_pixel_remap_cpu(original_image, new_coords_x, new_coords_y, interp_meth
     Perform fast pixel remapping using OpenCV's remap function on CPU.
     """
 
-    # if original_image.dtype != np.float32:
-    #     original_image = original_image.astype(np.float32)
-    # if new_coords_x.dtype != np.float32:
-    #     new_coords_x = new_coords_x.astype(np.float32)
-    # if new_coords_y.dtype != np.float32:
-    #     new_coords_y = new_coords_y.astype(np.float32)
-
-    # print("multiprocessing", multiprocessing)
-    # print("original_image.ndim", original_image.ndim)
-
     if original_image.ndim == 2:
         return cv2.remap(original_image, new_coords_y, new_coords_x, interp_method,
                          borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
-        # return cv2.remap(original_image.T, new_coords_x, new_coords_y, cv2.INTER_LINEAR,
-        #                  borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
-
-    # elif original_image.ndim == 3:
-    #     if multiprocessing:
-    #         with ThreadPoolExecutor() as executor:
-    #             # original_image = np.transpose(original_image, axes=(0, 2, 1))
-    #             remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
-    #
-    #             # Use map to apply remap_worker for each image slice in parallel
-    #             remapped_image[:] = list(executor.map(remap_worker, range(original_image.shape[0]),
-    #                                                   [original_image] * original_image.shape[0],
-    #                                                   [new_coords_y] * original_image.shape[0],
-    #                                                   [new_coords_x] * original_image.shape[0],
-    #                                                   [interp_method] * original_image.shape[0]))
-    #
-    #     else:
-    #         # original_image = np.transpose(original_image, axes=(0, 2, 1))
-    #         remapped_image = np.empty((original_image.shape[0], *new_coords_x.shape))
-    #         for i in range(original_image.shape[0]):
-    #             remapped_image[i] = cv2.remap(original_image[i].T, new_coords_x, new_coords_y, interp_method,
-    #                                           borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
         return remapped_image
     else:
         raise ValueError("Input image must be 2D")
@@ -2086,11 +2226,6 @@ def fast_pixel_remap_gpu(original_image, new_coords_x, new_coords_y, interp_meth
     """
     Perform pixel remapping using OpenCV's CUDA remap function on GPU.
     """
-    # if original_image.dtype != np.float32:
-    #     original_image = original_image.astype(np.float32)
-    #
-    # new_coords_x = new_coords_x.astype(np.float32)
-    # new_coords_y = new_coords_y.astype(np.float32)
 
     gpu_map_x = cv2.cuda_GpuMat()
     gpu_map_y = cv2.cuda_GpuMat()
@@ -2123,7 +2258,6 @@ def fast_pixel_remap_gpu(original_image, new_coords_x, new_coords_y, interp_meth
 def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_range=[None, None, None, None],
                   count_range=None):
     if mask is not None:
-        # img = img * mask
         img = img.astype(float)
         mask = mask[roi_range[0]:roi_range[1], roi_range[2]:roi_range[3]]
         img[mask] = np.nan
@@ -2162,3 +2296,8 @@ def select_best_array(arrays):
         )
 
     return min(arrays, key=sort_key)
+
+
+def make_numbered_filename(base_filename, frame_num):
+    name, ext = os.path.splitext(base_filename)
+    return f"{name}_{frame_num:04d}{ext}"

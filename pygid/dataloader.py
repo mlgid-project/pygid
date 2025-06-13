@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 import warnings, logging
 
+
 @dataclass
 class DataLoader:
     """
@@ -30,6 +31,8 @@ class DataLoader:
         Number of loaded frames to process. Default is None (all frames). Will be changed if > batch_size
     multiprocessing : bool, optional
         Whether to use multiprocessing for convetion and coordinate maps calculation. Default is False.
+    fmt: str, optional
+        File format.
     """
     path: Union[str, List[str]] = None
     dataset: str = "measurement/eiger4m"
@@ -40,15 +43,13 @@ class DataLoader:
     number_of_frames: int = None
     multiprocessing: bool = False
     build_image_P03: bool = False
+    fmt: str = None
 
     def __post_init__(self):
         if self.build_image_P03:
-            self.img_raw =self._reconstruct_lmbd_()
+            self.img_raw = self._reconstruct_lmbd_()
             return
         self.img_raw = self._process_path_()
-
-
-
 
     def _process_path_(self):
         """
@@ -64,6 +65,8 @@ class DataLoader:
             return img_raw
 
         elif isinstance(self.path, list):
+            fmt = os.path.splitext(self.path[0])[1][1:]
+            self.fmt = fmt
             img_raw = []
 
             if len(self.path) > self.batch_size:
@@ -76,10 +79,9 @@ class DataLoader:
                     img_raw = list(executor.map(
                         lambda file: self._image_loading_(path=file, frame_num=self.frame_num, dataset=self.dataset),
                         self.path))
-                # img_raw = np.array(img_raw)
-                # img_raw = img_raw.reshape(-1, img_raw.shape[2], img_raw.shape[3])
             else:
-                img_raw = [self._image_loading_(path=file, frame_num=self.frame_num, dataset=self.dataset) for file in self.path]
+                img_raw = [self._image_loading_(path=file, frame_num=self.frame_num, dataset=self.dataset) for file in
+                           self.path]
             img_raw = np.array(img_raw)
             img_raw = img_raw.reshape(-1, img_raw.shape[2], img_raw.shape[3])
             return img_raw
@@ -88,7 +90,7 @@ class DataLoader:
             raise FileNotFoundError(
                 "Invalid path format. Should be either a str or a list of str.")
 
-    def _image_loading_(self, path=None, frame_num=None, dataset= None):
+    def _image_loading_(self, path=None, frame_num=None, dataset=None):
         """
         Loads a single file based on its format. If the file format can be opened with `fabio`, it will be loaded using `fabio`.
         If the format cannot be handled by `fabio`, the function will call the `h5py` loading function to open HDF5 files.
@@ -154,7 +156,8 @@ class DataLoader:
                     self.number_of_frames = number_of_frames
                     return
 
-                return root[dataset][:, roi[0], roi[1]].astype('float32') if len(dataset_shape) == 3 else root[dataset][roi[0], roi[1]].astype('float32')
+                return root[dataset][:, roi[0], roi[1]].astype('float32') if len(dataset_shape) == 3 else root[dataset][
+                    roi[0], roi[1]].astype('float32')
 
             elif isinstance(frame_num, list):
                 if len(frame_num) > self.batch_size:
@@ -167,14 +170,6 @@ class DataLoader:
                     [np.array(root[dataset][frame][roi[0], roi[1]]).astype('float32') for frame in frame_num])
             else:
                 return np.array(root[dataset][frame_num][roi]).astype('float32')
-
-    # def change_dim(self):
-    #     if self.img_raw.ndim == 2:
-    #         self.img_raw = np.expand_dims(self.img_raw, axis=0)
-    #     shape = self.img_raw.shape
-    #     if len(shape) == 4:
-    #         new_shape = (shape[0] * shape[1], shape[2], shape[3])
-    #         self.img_raw = self.img_raw.reshape(new_shape)
 
     def _reconstruct_lmbd_(self):
         """
@@ -206,13 +201,12 @@ class DataLoader:
                 int(max_data_shape[2] + max_translation[2])
             ), -1, dtype=np.float32)
 
-
             for i, (d, ff, m, t) in enumerate(zip(data, flatfield, mask, translation)):
-                t=t[::-1]
+                t = t[::-1]
                 slices = tuple(slice(t[j], t[j] + d.shape[j]) for j in range(3))
                 lmbd_img[slices] = d * ff
                 lmbd_img[slices][:, (m[0, :, :]).astype(bool)] = -1
-            lmbd_img[lmbd_img<0] = np.nan
+            lmbd_img[lmbd_img < 0] = np.nan
             image = fabio.tifimage.TifImage(lmbd_img[0])
             image.write("reconstructed_image.tiff")
             print("Reconstructed image saved to reconstructed_image.tiff")
@@ -222,6 +216,7 @@ class DataLoader:
             raise ValueError('path should be a list of strings, when build_image_P03 is True')
 
         return img_raw
+
 
 def check_file_exists(filepath):
     """
@@ -234,4 +229,3 @@ def check_file_exists(filepath):
     """
     if not os.path.isfile(filepath):
         raise FileNotFoundError(f"The file '{filepath}' does not exist.")
-
