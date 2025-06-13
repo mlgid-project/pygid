@@ -465,6 +465,9 @@ class Conversion:
         return
 
     def plot_raw_image(self, **kwargs):
+        """
+        Old naming of self.plot_img_raw() function
+        """
         self.plot_img_raw(**kwargs)
 
     def plot_img_raw(self, return_result=False, frame_num=None, plot_result=True,
@@ -697,7 +700,7 @@ class Conversion:
 
     def det2q_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
                   q_xy_range=None, q_z_range=None, dq=None,
-                  plot_result=False, clims=(1e1, 4e4),
+                  plot_result=False, clims=None,
                   xlim=(None, None), ylim=(None, None),
                   save_fig=False, path_to_save_fig="img.png",
                   save_result=False,
@@ -814,7 +817,7 @@ class Conversion:
 
     def det2q(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
               q_x_range=None, q_y_range=None, dq=None,
-              plot_result=False, clims=(1e1, 4e4),
+              plot_result=False, clims=None,
               xlim=(None, None), ylim=(None, None),
               save_fig=False, path_to_save_fig="img.png",
               save_result=False,
@@ -932,7 +935,7 @@ class Conversion:
 
     def det2pol(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
                 radial_range=None, angular_range=None, dang=None, dq=None,
-                plot_result=False, clims=(1e1, 4e4),
+                plot_result=False, clims=None,
                 xlim=(None, None), ylim=(None, None),
                 save_fig=False, path_to_save_fig="img.png",
                 save_result=False,
@@ -1056,7 +1059,7 @@ class Conversion:
 
     def det2pol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
                     radial_range=None, angular_range=None, dang=None, dq=None,
-                    plot_result=False, clims=(1e1, 4e4),
+                    plot_result=False, clims=None,
                     xlim=(None, None), ylim=(None, None),
                     save_fig=False, path_to_save_fig="img.png",
                     save_result=False,
@@ -1180,7 +1183,7 @@ class Conversion:
 
     def det2pseudopol(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
                       q_azimuth_range=None, q_rad_range=None, dang=None, dq=None,
-                      plot_result=False, clims=(1e1, 4e4),
+                      plot_result=False, clims=None,
                       xlim=(None, None), ylim=(None, None),
                       save_fig=False, path_to_save_fig="img.png",
                       save_result=False,
@@ -1305,7 +1308,7 @@ class Conversion:
 
     def det2pseudopol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
                           q_rad_range=None, q_azimuth_range=None, dang=None, dq=None,
-                          plot_result=False, clims=(1e1, 4e4),
+                          plot_result=False, clims=None,
                           xlim=(None, None), ylim=(None, None),
                           save_fig=False, path_to_save_fig="img.png",
                           save_result=False,
@@ -1849,6 +1852,8 @@ class Conversion:
 
         fig, ax = plt.subplots(figsize=(fig_lenth, 4.8))
         plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
+        if clims is None:
+            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
         img[img < 0] = clims[0]
         log_img = np.log(img / clims[1])
         log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
@@ -1906,7 +1911,6 @@ class Conversion:
         else:
             for matrix in self.matrix:
                 calc_matrix(matrix, key, recalc, **kwargs)
-
         if hasattr(self, "matrix_to_save"):
             self.matrix_to_save.save_instance()
         else:
@@ -1914,7 +1918,7 @@ class Conversion:
 
     def make_simulation(self, frame_num=0, path_to_cif=None, orientation=None,
                         plot_result=True, plot_mi=False, return_result=False,
-                        min_int=None, clims=[30, 8000], vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=cm.Blues,
+                        min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=cm.Blues,
                         text_color='black', max_shift=1, save_result=False, path_to_save='simul_result.png',
                         fontsize=14,
                         labelsize=18):
@@ -1983,6 +1987,8 @@ class Conversion:
 
         q_xy, q_z, img = self._get_q_data(frame_num)
         img = img[0]
+        if clims is None:
+            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
         img[img < 0] = clims[0]
         log_img = np.log(img / clims[1])
         log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
