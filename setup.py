@@ -18,6 +18,7 @@ setup(
         'pytest',
         'tqdm',
         'joblib',
-        'PyYAML'
+        'PyYAML',
+        'adjustText'
     ],
 )
