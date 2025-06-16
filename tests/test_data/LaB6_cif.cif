@@ -1,0 +1,166 @@
+#------------------------------------------------------------------------------
+#$Date: 2017-01-29 23:22:55 +0200 (Sun, 29 Jan 2017) $
+#$Revision: 191079 $
+#$URL: file:///home/coder/svn-repositories/cod/cif/2/10/47/2104747.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/. The original data for this entry
+# were provided by IUCr Journals, http://journals.iucr.org/.
+#
+# The file may be used within the scientific community so long as
+# proper attribution is given to the journal article from which the
+# data were obtained.
+#
+data_2104747
+loop_
+_publ_author_name
+'Elliot, Alexander Dean'
+_publ_section_title
+;
+ Structure of pyrrhotite 5<i>C</i> (Fe~9~S~10~)
+;
+_journal_coeditor_code           KD5037
+_journal_issue                   3
+_journal_name_full               'Acta Crystallographica Section B'
+_journal_page_first              271
+_journal_page_last               279
+_journal_paper_doi               10.1107/S0108768110011845
+_journal_volume                  66
+_journal_year                    2010
+_chemical_formula_sum            'B6 La'
+_chemical_formula_weight         203.772
+_chemical_name_common            'Lanthanum Hexaboride'
+_space_group_crystal_system      cubic
+_space_group_IT_number           221
+_space_group_name_Hall           '-P 4 2 3'
+_space_group_name_H-M_alt        'P m -3 m'
+_symmetry_space_group_name_Hall  '-P 4 2 3'
+_symmetry_space_group_name_H-M   'P m -3 m'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            1
+_cell_length_a                   4.15706(1)
+_cell_length_b                   4.15706(1)
+_cell_length_c                   4.15706(1)
+_cell_volume                     71.8388(3)
+_exptl_absorpt_coefficient_mu    21.62738(11)
+_exptl_crystal_density_diffrn    4.71028(2)
+_pd_block_id                     2010-05-13T00:45|LaB6|A.Elliot|5Ca3
+_pd_proc_ls_profile_function
+;
+Crystallite size and strain modelled with Lorentzian and 
+Gaussian component convolutions
+LaB6 Phase
+    CS_L(@, 3613.51461`_119.22568 min 1000 max 50000)
+;
+_refine_ls_R_I_factor            0.02146
+_cod_data_source_file            kd5037.cif
+_cod_data_source_block           (5Ca3)_LaB6
+_cod_depositor_comments
+;
+ Moving _atom_site_aniso_U_* data items from the _atom_site loop to the
+ _atom_site_aniso loop and adding the _atom_site_aniso_label data item.
+
+ Antanas Vaitkus,
+ 2017-01-29
+;
+_cod_original_cell_volume        71.8388(4)
+_cod_database_code               2104747
+loop_
+_symmetry_equiv_pos_as_xyz
+'-x, -y, -z'
+'-x, -y, z'
+'-x, -z, -y'
+'-x, -z, y'
+'-x, z, -y'
+'-x, z, y'
+'-x, y, -z'
+'-x, y, z'
+'-y, -x, -z'
+'-y, -x, z'
+'-y, -z, -x'
+'-y, -z, x'
+'-y, z, -x'
+'-y, z, x'
+'-y, x, -z'
+'-y, x, z'
+'-z, -x, -y'
+'-z, -x, y'
+'-z, -y, -x'
+'-z, -y, x'
+'-z, y, -x'
+'-z, y, x'
+'-z, x, -y'
+'-z, x, y'
+'z, -x, -y'
+'z, -x, y'
+'z, -y, -x'
+'z, -y, x'
+'z, y, -x'
+'z, y, x'
+'z, x, -y'
+'z, x, y'
+'y, -x, -z'
+'y, -x, z'
+'y, -z, -x'
+'y, -z, x'
+'y, z, -x'
+'y, z, x'
+'y, x, -z'
+'y, x, z'
+'x, -y, -z'
+'x, -y, z'
+'x, -z, -y'
+'x, -z, y'
+'x, z, -y'
+'x, z, y'
+'x, y, -z'
+'x, y, z'
+loop_
+_atom_site_aniso_label
+_atom_site_aniso_U_11
+_atom_site_aniso_U_22
+_atom_site_aniso_U_33
+_atom_site_aniso_U_12
+_atom_site_aniso_U_13
+_atom_site_aniso_U_23
+La1 0.00338(5) 0.00338(5) 0.00338(5) 0 0 0
+B1 0.00534(94) 0.00000(45) 0.00000(45) 0 0 0
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_symmetry_multiplicity
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+La1 La 1 0 0 0 1
+B1 B 6 0.19854(40) 0.5 0.5 1
+loop_
+_atom_type_symbol
+_atom_type_description
+_atom_type_scat_dispersion_real
+_atom_type_scat_dispersion_imag
+_atom_type_scat_source
+La La 57.085 3.411 'Default dataset used by TOPAS R3'
+B B 5.002 0.0010 'Default dataset used by TOPAS R3'
+loop_
+_citation_title
+_citation_page_first
+_citation_page_last
+_citation_year
+_citation_journal_abbrev
+_citation_journal_volume
+_citation_journal_id_ISSN
+; X-ray structural investigation of single crystals of lanthanum, 
+cerium, and samarium hexaborides
+;
+803 805 1986
+;
+;
+;
+;
+;
+;

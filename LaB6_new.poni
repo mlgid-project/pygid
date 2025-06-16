@@ -1,0 +1,14 @@
+# Nota: C-Order, 1 refers to the Y axis, 2 to the X axis
+# Calibration done on Fri Nov 15 10:54:49 2024
+poni_version: 2.1
+Detector: Eiger2CdTe_4M
+Detector_config: {"orientation": 3}
+Distance: 0.3271661836504515
+Poni1: 0.1446949272569577
+Poni2: 0.14877525660652482
+Rot1: -0.0026308680554001304
+Rot2: -0.004647717026373591
+Rot3: 0.0
+Wavelength: 6.199209921660013e-11
+# Calibrant: LaB6
+# Image: silx:///D:/PhD/X-ray data/2024_07_ESRF_ID10_Dima_local/LaB6/LaB6_0001/scan0001/eiger4m_0000.h5?path=/entry_0000/measurement/data&slice=0

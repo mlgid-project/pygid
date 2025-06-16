@@ -1,0 +1,14 @@
+README.md
+setup.py
+pygid/__init__.py
+pygid/conversion.py
+pygid/coordmaps.py
+pygid/dataloader.py
+pygid/datasaver.py
+pygid/expparams.py
+pygid/pixel_dict.py
+pygid.egg-info/PKG-INFO
+pygid.egg-info/SOURCES.txt
+pygid.egg-info/dependency_links.txt
+pygid.egg-info/requires.txt
+pygid.egg-info/top_level.txt

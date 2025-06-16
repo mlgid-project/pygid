@@ -97,8 +97,8 @@ class CoordMaps:
             Flag to calculate absorption correction matrix. Defaults to False.
         make_lorentz_corr : bool, optional
             Flag to calculate Lorentz correction matrix. Defaults to False.
-        pol_type : str, optional
-            Type of polar correction matrix: 'synchrotron' (default) or 'tube '.
+        pol_type : float, optional
+            Polarization parameter from 0 to 1. 0.98 for synchrotrons, 0.5 for unpolorized tubes.
         air_attenuation_coeff : float, optional
             Linear coefficient for air attenuation correction (in 1/m).
         sensor_attenuation_coeff : float, optional
@@ -150,7 +150,7 @@ class CoordMaps:
     make_sensor_attenuation_corr: bool = False
     make_absorption_corr: bool = False
     make_lorentz_corr: bool = False
-    pol_type: str = 'synchrotron'
+    pol_type: float = 0.98
     air_attenuation_coeff: float = None
     sensor_attenuation_coeff: float = None
     sensor_thickness: float = None
@@ -734,14 +734,17 @@ def calc_pol_corr_matrix(kf, pol_type):
     k3 = kf[..., 2]
     cos_gamma_2 = ne.evaluate('k1**2/(k1**2+k2**2)')
     cos_delta_2 = ne.evaluate('(k1**2+k2**2)/(k1**2+k2**2+k3**2)')
-    if pol_type == 'synchrotron':
-        pol_corr_matrix_hor = ne.evaluate('1 - cos_delta_2 * (1 - cos_gamma_2)')
-        pol_corr_matrix_vert = ne.evaluate('cos_delta_2')
-        pol_corr_matrix = ne.evaluate('1 / (pol_corr_matrix_hor*0.98 + pol_corr_matrix_vert*0.02)')
-    elif pol_type == 'tube':
-        pol_corr_matrix = ne.evaluate('2 / (1 + cos_gamma_2 * cos_delta_2)')
-    else:
-        raise ValueError(f'pol_type should be "synchrotron" or "tube", not {pol_type}')
+    pol_corr_matrix_hor = ne.evaluate('1 - cos_delta_2 * (1 - cos_gamma_2)')
+    pol_corr_matrix_vert = ne.evaluate('cos_delta_2')
+    if pol_type == "tube":
+        pol_type = 0.5
+    elif pol_type == "synchrotron":
+        pol_type = 0.98
+    if not isinstance(pol_type, float) and not isinstance(pol_type, int):
+        raise TypeError('pol_type must be float')
+    if pol_type > 1 or pol_type < 0:
+        raise ValueError('pol_type must be between 0 and 1')
+    pol_corr_matrix = ne.evaluate('1 / (pol_corr_matrix_hor*pol_type + pol_corr_matrix_vert*(1-pol_type))')
     norm = np.nanmax(pol_corr_matrix)
     pol_corr_matrix = ne.evaluate("pol_corr_matrix / norm")
     return pol_corr_matrix

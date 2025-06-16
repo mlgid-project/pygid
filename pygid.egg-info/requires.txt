@@ -1,0 +1,14 @@
+numpy
+h5py
+fabio
+tifffile
+matplotlib
+opencv-python
+numexpr
+typing
+streamz
+pytest
+tqdm
+joblib
+PyYAML
+adjustText

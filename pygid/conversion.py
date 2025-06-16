@@ -749,8 +749,6 @@ class Conversion:
                 Path to save the result if save_result is True. Default is 'result.h5'.
             h5_group : str or None, optional
                 HDF5 group under which to save data.
-            recalc : bool, optional
-                Whether to force recalculation even if coodinate map exists. Default is False.
             overwrite_file : bool, optional
                 Whether to overwrite existing file. Default is True.
             metadata : dict or None, optional
@@ -1512,7 +1510,12 @@ class Conversion:
                 plt.close()
                 del fig, ax
 
-    def radial_profile(self, key="gid", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
+
+    def radial_profile_gid(self, **kwargs):
+        kwargs['key'] = "gid"
+        self.radial_profile(**kwargs)
+
+    def radial_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
                        return_result=False, save_result=False, save_fig=False, path_to_save_fig='rad_cut.tiff',
                        plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None, dang=0.5, dq=None,
                        path_to_save='result.h5',
@@ -1593,7 +1596,8 @@ class Conversion:
         if plot_result or save_fig:
             self._plot_profile(q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift, tick_size, fontsize,
                                xlim, ylim, plot_result, save_fig, path_to_save_fig)
-        setattr(self, "rad_cut", radial_profile)
+        name = "rad_cut_gid" if key == "gid" else "rad_cut"
+        setattr(self, name, radial_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
         if save_result:
@@ -1608,7 +1612,13 @@ class Conversion:
             return (q_abs_values, radial_profile[0]) if radial_profile.shape[0] == 1 else (
                 q_abs_values, radial_profile)
 
-    def azim_profile(self, key="gid", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
+
+    def azim_profile_gid(self, **kwargs):
+        kwargs['key'] = "gid"
+        self.azim_profile(**kwargs)
+
+
+    def azim_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
                      return_result=False, save_result=False, save_fig=False, path_to_save_fig='azim_cut.tiff',
                      plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
                      path_to_save='result.h5', dang=0.5, dq=None,
@@ -1687,7 +1697,8 @@ class Conversion:
         if plot_result or save_fig:
             self._plot_profile(phi_abs_values, azim_profile, r"$\phi\ (\degree)$", shift, tick_size, fontsize, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
-        setattr(self, "azim_cut", azim_profile)
+        name = "azim_cut_gid" if key == "gid" else "azim_cut"
+        setattr(self, name, azim_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
         if save_result:
@@ -1721,7 +1732,10 @@ class Conversion:
         return method(return_result=True, plot_result=False, frame_num=frame_num,
                       q_xy_range=q_xy_range, q_z_range=q_z_range, dq=dq)
 
-    def horiz_profile(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
+    def horiz_profile(self, **kwargs):
+        self.horiz_profile_gid(**kwargs)
+
+    def horiz_profile_gid(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',
                       plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
                       path_to_save='result.h5',
@@ -1801,7 +1815,7 @@ class Conversion:
         if plot_result or save_fig:
             self._plot_profile(q_hor_values, horiz_profile, xlabel, shift, tick_size, fontsize, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
-        setattr(self, "horiz_cut", horiz_profile)
+        setattr(self, "horiz_cut_gid", horiz_profile)
         delattr(self, "img_gid_q")
         if save_result:
             self.save_nxs(path_to_save=path_to_save,

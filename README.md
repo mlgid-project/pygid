@@ -179,6 +179,7 @@ matrix = pygid.CoordMaps(params,                                                
                         ang_min = 0, ang_max = 90, dang = 0.1,                      # angle range and resolution (in degrees)
                         hor_positive = False,  vert_positive = False,               # flags for only positive values of q in h
                         make_pol_corr= True,                                        # Flag to calculate polarization correction matrix
+                        pol_type = 0.98,                                            # Polarization parameter from 0 to 1. 0.98 for synchrotrons, 0.5 for unpolorized tubes.
                         make_solid_angle_corr = True,                               # Flag to calculate solid angle correction matrix
                         make_air_attenuation_corr = False,                          # Flag to calculate air attenuation correction matrix
                         air_attenuation_coeff = 1,                                  # Linear coefficient for air attenuation correction (in 1/m)
@@ -316,13 +317,13 @@ analysis.det2pol_gid(plot_result = False, return_result = False,  multiprocessin
 ```
 ### Line profiles and 1D integration
 
-radial_profile() and azim_profile() functions takes radial and angular ranges, performs polar integration and averages along angle or radial axes, respectively.
-Specification of the geometry key = "gid" or "transmission" is necessary.
-Horizontal profile makes transformation to the GID coordinates and averages in the given q_z range.  
+radial_profile_gid() and azim_profile_gid() functions takes radial and angular ranges, performs polar integration and averages along angle or radial axes, respectively.
+Horizontal profile horiz_profile_gid() makes transformation to the GID coordinates and averages in the given q_z range.
+
+For the transmission geometry use radial_profile() and azim_profile() functions.
 ```
 
-q, I, = analysis.radial_profile(
-                    key="gid",                        # Scattering geometry: "gid" or "transmission"
+q, I = analysis.radial_profile_gid(
                     frame_num=None,                   # Frame number(s) to analyze; if None, all are processed
                     radial_range=(0,4),               # Radial q-range (min, max) in Å⁻¹; full range if None
                     angular_range=(0, 90),            # Angular range in degrees (min, max) for integration
@@ -346,18 +347,23 @@ q, I, = analysis.radial_profile(
                     smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
                 )
 
-phi, i = analysis.azim_profile(key = "gid", plot_result = True, shift = 0.5, radial_range = (1.34,1.4), angular_range = (0,180), return_result = True)
+chi, I = analysis.azim_profile( plot_result = True, shift = 0.5, radial_range = (1.34,1.4), angular_range = (0,180), return_result = True)
+q_xy, I = analysis.horiz_profile( plot_result = True, shift = 1, q_xy_range = None, q_z_range = (0, 3), return_result = True)
 
-q_xy, i = analysis.horiz_profile( plot_result = True, shift = 1, q_xy_range = None, q_z_range = (0, 3), return_result = True)
+
+q, I = analysis.radial_profile(plot_result = True)
+chi, I = analysis.azim_profile(plot_result = True)
 
 ```
-Table 1. Conversion line profile functions 
+Table 2. Conversion line profile functions
 
-| Function           | Description                                                    | Name of Output Image | Corresponding Matrix Coordinates |
-|--------------------|----------------------------------------------------------------|----------------------|----------------------------------|
-| `radial_profile()` | makes polar remapping and averages in the given angular range  | `rad_cut`            | `q_gid_pol` or `q_pol`           |
-| `azim_profile()`   | makes polar remapping and averages in the given radial range   | `azim_cut`           | `ang_gid_pol` or `ang_pol`       |
-| `horiz_profile()`  | makes cylindrical remapping and averages in the given qz range | `horiz_cut`          | `q_xy`                           |
+| Function Name             | Output Data Name       | Axes Name             | Description                                                                 |
+|---------------------------|------------------------|------------------------|-----------------------------------------------------------------------------|
+| `radial_profile_gid()`    | `rad_cut_gid`          | `q_gid_pol`            | Makes polar remapping and averages in the given angular range (GID geometry) |
+| `radial_profile()`        | `rad_cut`              | `q_pol`                | Makes polar remapping and averages in the given angular range (transmission geometry) |
+| `azim_profile_gid()`      | `azim_cut_gid`         | `ang_gid_pol`          | Makes polar remapping and averages in the given radial range (GID geometry) |
+| `azim_profile()`          | `azim_cut`             | `ang_pol`              | Makes polar remapping and averages in the given radial range (transmission geometry) |
+| `horiz_profile_gid()`     | `horiz_cut_gid`        | `q_xy`                 | Makes cylindrical remapping and averages in the given $q_z$ range (GID geometry) |
 
 
 ### GID pattern simulation

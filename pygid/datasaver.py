@@ -136,7 +136,8 @@ class DataSaver:
         keys = [
             "img_gid_q", "img_q", "img_gid_pol",
             "img_pol", "img_gid_pseudopol", "img_pseudopol",
-            "rad_cut", "azim_cut", "horiz_cut"
+            "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid",
+            "rad_cut", "azim_cut"
         ]
 
         name, data = next(
@@ -223,15 +224,18 @@ def save_matrix(root, h5_group, matrix, img_name):
         "img_pol": ["q_pol", "ang_pol"],
         "img_gid_pseudopol": ["q_gid_rad", "q_gid_azimuth"],
         "img_pseudopol": ["q_rad", "q_azimuth"],
-        "rad_cut": ["q_gid_pol", "q_pol"],
-        "azim_cut": ["ang_gid_pol", "ang_pol"],
-        "horiz_cut": ["q_xy"]
+        "rad_cut": ["q_pol"],
+        "rad_cut_gid": ["q_gid_pol"],
+        "azim_cut": ["ang_pol"],
+        "azim_cut_gid": ["ang_gid_pol"],
+        "horiz_cut_gid": ["q_xy"]
     }
 
     keys = keys_map.get(img_name, [])
 
     coords_dict = {key: getattr(matrix, key) for key in keys if hasattr(matrix, key)}
     keys = list(coords_dict.keys())
+    # print("keys", "keys")
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
@@ -282,7 +286,9 @@ def read_dataset_size(root, h5_group):
     keys = [
         "img_gid_q", "img_q", "img_gid_pol",
         "img_pol", "img_gid_pseudopol", "img_pseudopol",
-        "rad_cut", "azim_cut", "horiz_cut"
+        "rad_cut", "azim_cut",
+        "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid",
+
     ]
 
     for key in keys:
