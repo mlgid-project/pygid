@@ -17,7 +17,6 @@ def test_coordmaps(test_data_paths):
     poni_path = test_data_paths['poni_path']
     mask_path = test_data_paths['mask_path']
     data_path = test_data_paths['data_path'].as_posix()
-    # data_path = test_data_paths['data_path'].as_posix()
 
     assert poni_path.exists(), f"Missing PONI file at {poni_path}"
     assert mask_path.exists(), f"Missing mask file at {mask_path}"
