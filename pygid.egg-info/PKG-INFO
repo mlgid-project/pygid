@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygid
-Version: 0.1.7
+Version: 0.1.8
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
 Home-page: https://github.com/mlgid-project/pygid
 Author: Ainur Abukaev
@@ -163,9 +163,6 @@ or for beam positions (centerX and centerY) in pixels (relative to the bottom le
 
 ```python
 params = pygid.ExpParams(
-    fliplr=True,  # Flag for horizontal flipping (left-right)
-    flipud=True,  # Flag for vertical flipping (up-down)
-    transp=False,  # Flag for applying rotation
     SDD=0.3271661836504515,  # Sample-to-detector distance (in meters)
     wavelength=0.6199,  # Wavelength (in angstroms)
     rot1=-0.00263,  # Detector rotation angle along the horizontal direction (X axis) (in radians)
@@ -174,7 +171,10 @@ params = pygid.ExpParams(
     centerY=2145,  # Beam position in the vertical direction (in pixels)
     px_size=75e-6,  # Detector pixel size (in meters)
     count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 
-    ai=0  # angle of incidence in GID experiments (in degrees) or list of angles     
+    ai=0,  # angle of incidence in GID experiments (in degrees) or list of angles 
+    fliplr=True,  # Flag for horizontal flipping (left-right)
+    flipud=True,  # Flag for vertical flipping (up-down)
+    transp=False,  # Flag for applying rotation
 )
 ```
 
@@ -189,6 +189,7 @@ please use the Detector_config with the orientation set to 3 for the script to w
 ```python
 exp_metadata = pygid.ExpMetadata(
     start_time=r"2021-03-29T15:51:41.343788",
+    end_time=r"2021-03-29T15:52:45.235658",
     source_type="synchrotron",
     source_name="ESRF ID10",
     detector_name="eiger4m",
@@ -231,8 +232,7 @@ matrix = pygid.CoordMaps(params,  # experimental parameters
                          ang_min=0, ang_max=90, dang=0.1,  # angle range and resolution (in degrees)
                          hor_positive=False, vert_positive=False,  # flags for only positive values of q in h
                          make_pol_corr=True,  # Flag to calculate polarization correction matrix
-                         pol_type=0.98,
-                         # Polarization parameter from 0 to 1. 0.98 for synchrotrons, 0.5 for unpolorized tubes.
+                         pol_type=0.98,  # Polarization parameter from 0 to 1. 0.98 for synchrotrons, 0.5 for unpolorized tubes.
                          make_solid_angle_corr=True,  # Flag to calculate solid angle correction matrix
                          make_air_attenuation_corr=False,  # Flag to calculate air attenuation correction matrix
                          air_attenuation_coeff=1,  # Linear coefficient for air attenuation correction (in 1/m)
@@ -246,10 +246,8 @@ matrix = pygid.CoordMaps(params,  # experimental parameters
                          powder_dim=3,  # Dimension of powder for Lorentz correction: 2 or 3
                          dark_current=None,  # Array for dark current values
                          flat_field=None,  # Array for flat field correction values
-                         path_to_save='matrix.pkl',
-                         # Path where coordinate map will be saved. Path format should be '.pkl'
-                         path_to_load=None
-                         # Path from which coordinate map will be loaded. Path format should be '.pkl'
+                         path_to_save='matrix.pkl',  # Path where coordinate map will be saved. Path format should be '.pkl'
+                         path_to_load=None  # Path from which coordinate map will be loaded. Path format should be '.pkl'
                          )       
 ```
 
@@ -285,18 +283,17 @@ analysis = pygid.Conversion(matrix=matrix,  # coordinate map
 5. Raw image plotting
 
 ```python
-x, y, img = analysis.plot_img_raw(clims=(0.1, 100),  # tuple specifying color limits (vmin, vmax) for the image.
-                                  frame_num=0,  # number of frame to plot
-                                  xlim=(None, None), ylim=(None, None),  # X and Y image limits
-                                  return_result=True,
-                                  # if True, returns the image data and axes used for plotting. Default is False.
-                                  plot_result=True,  # whether to display the plot. Default is True. 
-                                  save_fig=False,  # whether to save the figure to a file. Default is False.
-                                  path_to_save_fig="img.png",
-                                  # path to save the figure if save_fig is True. Default is "img.png".  
-                                  fontsize=14,  # font size for tick labels. Default is 14.
-                                  labelsize=18,  # font size for axis labels. Default is 18.       
-                                  )
+x, y, img = analysis.plot_img_raw(
+                                 frame_num=0,  # number of frame to plot                               
+                                 clims=(0.1, 100),  # tuple specifying color limits (vmin, vmax) for the image.
+                                 return_result=True,  # if True, returns the image data and axes used for plotting. Default is False.                  
+                                 plot_result=True,  # whether to display the plot. Default is True. 
+                                 xlim=(None, None), ylim=(None, None),  # X and Y image limits
+                                 fontsize=14,  # font size for tick labels. Default is 14.
+                                 labelsize=18,  # font size for axis labels. Default is 18.  
+                                 save_fig=False,  # whether to save the figure to a file. Default is False.
+                                 path_to_save_fig="img.png",  # path to save the figure if save_fig is True. Default is "img.png".  
+                                 )
 
 ```
 
@@ -304,13 +301,10 @@ x, y, img = analysis.plot_img_raw(clims=(0.1, 100),  # tuple specifying color li
    the parameters are same. Dataset is automatically deleted after saving.
 
 ```python
-analysis.det2q_gid(clims=(50, 8000),  # Tuple specifying color limits (vmin, vmax) for the image.
-                   frame_num=[0, 1, 2],
-                   # frame number or list of numbers of loaded raw images to convert. If None, will convet all loaded images   
-                   plot_result=True,  # flag to plot the result
+analysis.det2q_gid(frame_num=[0, 1, 2],# frame number or list of numbers of loaded raw images to convert. If None, will convert all loaded images 
+                   q_xy_range=(0, 4),  # tuple specifying the min and max of q_xy range. If None, uses full range.
+                   q_z_range=(0, 4),  # tuple specifying the min and max of q_z range. If None, uses full range.
                    return_result=False,  # if True, returns the image data and corresponding axes. Default is False.
-                   radial_range=None,  # radial range (in angstroms)
-                   angular_range=(0, 90),  # angular range (in degrees)
                    save_result=True,  # flag to save the result as a NeXus (HDF5) file
                    path_to_save="result.h5",  # path to save the result with experimental params.
                    h5_group="entry_0000",  # dataset name in the h5-file
@@ -318,18 +312,16 @@ analysis.det2q_gid(clims=(50, 8000),  # Tuple specifying color limits (vmin, vma
                    overwrite_group=False,  # whether to overwrite NXentry group in the HDF5 file. Default is True
                    exp_metadata=exp_metadata,  # experiment metadata that will be saved with result
                    smpl_metadata=smpl_metadata,  # sample metadata that will be saved with result
-                   save_fig=False,  # flag to save the results as a picture
-                   path_to_save_fig="graph.tiff",  # path to save the image
+                   plot_result=True,  # flag to plot the result
+                   clims=(50, 8000),  # Tuple specifying color limits (vmin, vmax) for the image.
                    xlim=(None, None), ylim=(None, None),  # X and Y image limits
                    fontsize=14,  # font size for tick labels. Default is 14.
                    labelsize=18,  # font size for axis labels. Default is 18. 
                    cmap='imferno',  # colormap used for plotting. Default is "inferno".
+                   save_fig=False,  # flag to save the results as a picture
+                   path_to_save_fig="graph.tiff",  # path to save the image
                    interp_type="INTER_LINEAR",  # interpolation method used for remapping. Default is "INTER_LINEAR".
-                   multiprocessing=None,
-                   # key for multiprocessing mode activation. If None, uses default setting defined in Conversion class instance creation.
-                   q_xy_range=(0, 4),  # tuple specifying the min and max of q_xy range. If None, uses full range.
-                   q_z_range=(0, 4),  # tuple specifying the min and max of q_z range. If None, uses full range.
-
+                   multiprocessing=None, # key for multiprocessing mode activation. If None, uses default setting defined in Conversion class instance creation.
                    )
 analysis.det2pol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
 analysis.det2pseudopol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
@@ -391,38 +383,39 @@ Horizontal profile horiz_profile_gid() makes transformation to the GID coordinat
 
 For the transmission geometry use radial_profile() and azim_profile() functions.
 
-```
+```python
 
-q, I = analysis.radial_profile_gid(
+q, intensity = analysis.radial_profile_gid(
                     frame_num=None,                   # Frame number(s) to analyze; if None, all are processed
                     radial_range=(0,4),               # Radial q-range (min, max) in Å⁻¹; full range if None
                     angular_range=(0, 90),            # Angular range in degrees (min, max) for integration
-                    multiprocessing=None,             # Use multiprocessing for faster computation if True
+                    dang=0.5,                         # Angular resolution in degrees for binning
+                    dq=None,                          # Radial bin width in Å⁻¹; default binning if None
                     return_result=True,               # Return computed q-values, intensity profile
                     save_result=True,                 # Save computed profile to an NeXus (HDF5) file if True
-                    save_fig=False,                   # Save the figure if True
-                    path_to_save_fig="graph.tiff",    # Path to save the figure
+                    path_to_save="result.h5",         # Path to save the result file
+                    h5_group=None,                    # Group name in the HDF5 file; default if None
+                    overwrite_file=False,             # Overwrite existing HDF5 file if True
+                    overwrite_group=False,  # whether to overwrite NXentry group in the HDF5 file. Default is True
+                    exp_metadata = exp_metadata,      # experiment metadata that will be saved with result
+                    smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
                     plot_result=True,                 # Display the radial profile plot
                     shift=0.5,                        # Vertical shift between plotted lines for clarity
                     tick_size=None,                   # Font size for tick labels; default if None
                     fontsize=None,                    # Font size for axis labels; default if None
                     xlim=None,                        # X-axis limits as (min, max); auto-scaled if None
                     ylim=None,                        # Y-axis limits as (min, max); auto-scaled if None
-                    dang=0.5,                         # Angular resolution in degrees for binning
-                    dq=None,                          # Radial bin width in Å⁻¹; default binning if None
-                    path_to_save="result.h5",         # Path to save the result file
-                    h5_group=None,                    # Group name in the HDF5 file; default if None
-                    overwrite_file=False,             # Overwrite existing HDF5 file if True
-                    exp_metadata = exp_metadata,      # experiment metadata that will be saved with result
-                    smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
+                    save_fig=False,                   # Save the figure if True
+                    path_to_save_fig="graph.tiff",    # Path to save the figure
+                    multiprocessing=None,             # Use multiprocessing for faster computation if True
                 )
 
-chi, I = analysis.azim_profile_gid( plot_result = True, shift = 0.5, radial_range = (1.34,1.4), angular_range = (0,180), return_result = True)
-q_xy, I = analysis.horiz_profile_gid( plot_result = True, shift = 1, q_xy_range = None, q_z_range = (0, 3), return_result = True)
+chi, intensity = analysis.azim_profile_gid(radial_range = (1.34,1.4), angular_range = (0,180), return_result = True, plot_result = True, shift = 0.5)
+q_xy, intensity = analysis.horiz_profile_gid(q_xy_range = None, q_z_range = (0, 3), return_result = True, plot_result = True, shift = 1)
 
 
-q, I = analysis.radial_profile(plot_result = True)
-chi, I = analysis.azim_profile(plot_result = True)
+q, intensity = analysis.radial_profile(plot_result = True)
+chi, intensity = analysis.azim_profile(plot_result = True)
 
 ```
 
