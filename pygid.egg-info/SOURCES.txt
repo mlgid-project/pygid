@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 pygid/__init__.py
@@ -12,3 +13,7 @@ pygid.egg-info/SOURCES.txt
 pygid.egg-info/dependency_links.txt
 pygid.egg-info/requires.txt
 pygid.egg-info/top_level.txt
+tests/__init__.py
+tests/test_conversion.py
+tests/test_coordmaps.py
+tests/test_expparams.py
