@@ -124,8 +124,16 @@ class DataSaver:
 
         if hasattr(self.sample, 'path'):
             self.original_path = self.sample.path
-        self.ai_list = self.sample.ai_list
-        self.frame_num = self.sample.converted_frame_num
+
+        if hasattr(self.sample, 'ai_list'):
+            self.ai_list = self.sample.ai_list
+        else:
+            raise ValueError("conversion process is not correct. ai_list was not calculated")
+
+        if hasattr(self.sample, 'converted_frame_num'):
+            self.frame_num = self.sample.converted_frame_num
+        else:
+            raise ValueError("conversion process is not correct. converted_frame_num was not calculated")
 
         if self.path_to_save is None:
             self.path_to_save = "result.h5"

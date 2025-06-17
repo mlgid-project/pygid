@@ -1,57 +1,15 @@
-Metadata-Version: 2.4
-Name: pygid
-Version: 0.1.6
-Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
-Home-page: https://github.com/mlgid-project/pygid
-Author: Ainur Abukaev
-Author-email: ainurabukaev@gmail.com
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: numpy<2.0,>=1.21.0
-Requires-Dist: h5py<4.0,>=3.12.1
-Requires-Dist: fabio<2025.0,>=2024.9.0
-Requires-Dist: tifffile<2024.0,>=2023.7.18
-Requires-Dist: matplotlib<4.0,>=3.10.0
-Requires-Dist: opencv-python<5.0,>=4.10.0.82
-Requires-Dist: numexpr<3.0,>=2.10.0
-Requires-Dist: streamz<1.0,>=0.6.3
-Requires-Dist: pytest<9.0,>=8.2.0
-Requires-Dist: tqdm<5.0,>=4.66.4
-Requires-Dist: joblib<2.0,>=1.4.2
-Requires-Dist: PyYAML<7.0,>=6.0.1
-Requires-Dist: adjustText<2.0,>=1.3.0
-Requires-Dist: typing
-Provides-Extra: test
-Requires-Dist: pytest>=7.0.0; extra == "test"
-Requires-Dist: pytest-cov>=4.0.0; extra == "test"
-Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
-Requires-Dist: pytest-mock>=3.10.0; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
-
-# pygid
+# _pygid_
 
 ## Fast Preprocessing of Grazing Incidence Diffraction Data (GID)
+
+<p align="center">
+  <img src="image/pygid-logo.png" width="400" alt="pygid">
+</p>
 
 The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the
 result as a NXsas file.
 
 ## Installation
-
-### Install using pip
-
-```bash
-pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid
-```
 
 ### Install from source
 
@@ -131,6 +89,8 @@ analysis.det2pol_gid(clims=(50, 800), plot_result=True, return_result=False, sav
 analysis.det2pseudopol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
 
 ```
+
+![The resulting images](image/image1.PNG)
 
 ### Detailed overview of package usage:
 
@@ -417,8 +377,8 @@ q, I = analysis.radial_profile_gid(
                     smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
                 )
 
-chi, I = analysis.azim_profile_gid( plot_result = True, shift = 0.5, radial_range = (1.34,1.4), angular_range = (0,180), return_result = True)
-q_xy, I = analysis.horiz_profile_gid( plot_result = True, shift = 1, q_xy_range = None, q_z_range = (0, 3), return_result = True)
+chi, I = analysis.azim_profile( plot_result = True, shift = 0.5, radial_range = (1.34,1.4), angular_range = (0,180), return_result = True)
+q_xy, I = analysis.horiz_profile( plot_result = True, shift = 1, q_xy_range = None, q_z_range = (0, 3), return_result = True)
 
 
 q, I = analysis.radial_profile(plot_result = True)

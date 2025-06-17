@@ -1,14 +1,21 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+# with open("README.md", "r", encoding="utf-8") as f:
+#     long_description = f.read()
 
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name='pygid',
-    version='0.1.2',
+    version='0.1.6',
     author='Ainur Abukaev',
     description='Fast Preprocessing of Grazing Incidence Diffraction Data',
     python_requires='>=3.8',
     author_email='ainurabukaev@gmail.com',
     url='https://github.com/mlgid-project/pygid',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=[
         'numpy>=1.21.0,<2.0',
