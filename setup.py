@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pygid',
-    version='0.1.0',
+    version='0.1.2',
     author='Ainur Abukaev',
     description='Fast Preprocessing of Grazing Incidence Diffraction Data',
     python_requires='>=3.8',
@@ -11,7 +11,7 @@ setup(
     url='https://github.com/mlgid-project/pygid',
     packages=find_packages(),
     install_requires=[
-        'numpy>=1.24.4,<2.0',
+        'numpy>=1.21.0,<2.0',
         'h5py>=3.12.1,<4.0',
         'fabio>=2024.9.0,<2025.0',
         'tifffile>=2023.7.18,<2024.0',
