@@ -4,15 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="fixed numpy version">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="version was corrected">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.0-py3-none-any.whl" beforeDir="false" afterPath="$PROJECT_DIR$/dist/pygid-0.1.0-py3-none-any.whl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.0.tar.gz" beforeDir="false" afterPath="$PROJECT_DIR$/dist/pygid-0.1.0.tar.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.6-py3-none-any.whl" beforeDir="false" afterPath="$PROJECT_DIR$/dist/pygid-0.1.6-py3-none-any.whl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.6.tar.gz" beforeDir="false" afterPath="$PROJECT_DIR$/dist/pygid-0.1.6.tar.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,7 +64,7 @@
       <option name="presentableId" value="Default" />
       <updated>1750091675549</updated>
       <workItem from="1750091676807" duration="5888000" />
-      <workItem from="1750152573544" duration="6829000" />
+      <workItem from="1750152573544" duration="8822000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -168,7 +162,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750165721013</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="version was corrected">
+      <option name="closed" value="true" />
+      <created>1750167352542</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1750167352542</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -178,7 +180,8 @@
     <MESSAGE value="Added tests" />
     <MESSAGE value="Added gitignore" />
     <MESSAGE value="fixed numpy version" />
-    <option name="LAST_COMMIT_MESSAGE" value="fixed numpy version" />
+    <MESSAGE value="version was corrected" />
+    <option name="LAST_COMMIT_MESSAGE" value="version was corrected" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
