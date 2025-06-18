@@ -206,8 +206,13 @@ class Conversion:
                                   category=UserWarning)
 
         else:
-            self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
-                                  for i in range(0, self.number_of_frames, self.batch_size)]
+            if isinstance(self.frame_num, list):
+                self.frame_batches = []
+                for i in range(0, self.number_of_frames, self.batch_size):
+                    self.frame_batches.append(self.frame_num[i:min(i + self.batch_size, len(self.frame_num))])
+            else:
+                self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
+                                      for i in range(0, self.number_of_frames, self.batch_size)]
             if self.average_all:
                 averaged_image = []
                 for frame_num in log_progress(self.frame_batches, desc='Progress'):
