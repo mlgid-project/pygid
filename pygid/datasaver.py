@@ -208,6 +208,7 @@ class DataSaver:
 
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
+            fill_analysis_group(root, self.h5_group, len(data))
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
         return
 
@@ -247,7 +248,7 @@ def save_matrix(root, h5_group, matrix, img_name):
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float64))
+                         np.array(data, dtype=np.float32))
     if len(keys) == 2:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
     else:
@@ -669,7 +670,7 @@ def fill_process_group(root, h5_group, matrix):
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
-def fill_analysis_groups(root, h5_group, img_number_to_add):
+def fill_analysis_group(root, h5_group, img_number_to_add):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -683,9 +684,10 @@ def fill_analysis_groups(root, h5_group, img_number_to_add):
         h5_group : str
             The name of the group within the HDF5 file where the analysis fields will be created.
         """
-
-    h5_group = "/" + h5_group
-    group = root[f"/{h5_group}/data/analysis"]
+    analysis_path = f"/{h5_group}/data/analysis"
+    if analysis_path not in root:
+        root.create_group(analysis_path)
+    group = root[analysis_path]
     subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
     img_number_current = len(subgroups)
     for i in range(img_number_current, img_number_current + img_number_to_add):

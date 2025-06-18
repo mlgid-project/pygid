@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="version was corrected">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="README.md was corrected">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +64,7 @@
       <option name="presentableId" value="Default" />
       <updated>1750091675549</updated>
       <workItem from="1750091676807" duration="5888000" />
-      <workItem from="1750152573544" duration="8822000" />
+      <workItem from="1750152573544" duration="12079000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -170,7 +170,23 @@
       <option name="project" value="LOCAL" />
       <updated>1750167352542</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="README.md was corrected">
+      <option name="closed" value="true" />
+      <created>1750168927048</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1750168927048</updated>
+    </task>
+    <task id="LOCAL-00015" summary="README.md was corrected">
+      <option name="closed" value="true" />
+      <created>1750169013586</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1750169013586</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -181,7 +197,8 @@
     <MESSAGE value="Added gitignore" />
     <MESSAGE value="fixed numpy version" />
     <MESSAGE value="version was corrected" />
-    <option name="LAST_COMMIT_MESSAGE" value="version was corrected" />
+    <MESSAGE value="README.md was corrected" />
+    <option name="LAST_COMMIT_MESSAGE" value="README.md was corrected" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
