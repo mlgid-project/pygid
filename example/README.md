@@ -82,7 +82,8 @@ analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measure
 
 # Conversion
 
-analysis.det2q_gid(clims=(50, 8000), plot_result=True, return_result=False,
+analysis.det2q_gid(frame_num=0, return_result=False,
+                   plot_result=True, clims=(50, 8000), 
                    save_result=True, path_to_save="result.h5",
                    exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)
 analysis.det2pol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
