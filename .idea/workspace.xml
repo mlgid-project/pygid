@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="README.md was corrected">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="analysis groups are created, batch analysis fixed">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.8-py3-none-any.whl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/pygid-0.1.8.tar.gz" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +67,7 @@
       <option name="presentableId" value="Default" />
       <updated>1750091675549</updated>
       <workItem from="1750091676807" duration="5888000" />
-      <workItem from="1750152573544" duration="12079000" />
+      <workItem from="1750152573544" duration="14431000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -186,7 +189,23 @@
       <option name="project" value="LOCAL" />
       <updated>1750169013586</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="analysis groups are created, batch analysis fixed">
+      <option name="closed" value="true" />
+      <created>1750258925599</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1750258925599</updated>
+    </task>
+    <task id="LOCAL-00017" summary="analysis groups are created, batch analysis fixed">
+      <option name="closed" value="true" />
+      <created>1750258988173</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1750258988173</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -198,7 +217,8 @@
     <MESSAGE value="fixed numpy version" />
     <MESSAGE value="version was corrected" />
     <MESSAGE value="README.md was corrected" />
-    <option name="LAST_COMMIT_MESSAGE" value="README.md was corrected" />
+    <MESSAGE value="analysis groups are created, batch analysis fixed" />
+    <option name="LAST_COMMIT_MESSAGE" value="analysis groups are created, batch analysis fixed" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

@@ -667,7 +667,7 @@ class Conversion:
                 self.converted_frame_num = frame_num
             else:
                 for i in frame_num:
-                    if isinstance(self.frame_num, int):
+                    if isinstance(self.frame_num, int) or isinstance(self.frame_num, np.int64):
                         self.converted_frame_num.append(self.frame_num)
                     else:
                         self.converted_frame_num.append(self.frame_num[i])
@@ -1738,7 +1738,7 @@ class Conversion:
                       q_xy_range=q_xy_range, q_z_range=q_z_range, dq=dq)
 
     def horiz_profile(self, **kwargs):
-        self.horiz_profile_gid(**kwargs)
+        return self.horiz_profile_gid(**kwargs)
 
     def horiz_profile_gid(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',

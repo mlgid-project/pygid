@@ -283,7 +283,7 @@ analysis.det2q_gid(clims=(50, 8000),  # Tuple specifying color limits (vmin, vma
                    xlim=(None, None), ylim=(None, None),  # X and Y image limits
                    fontsize=14,  # font size for tick labels. Default is 14.
                    labelsize=18,  # font size for axis labels. Default is 18. 
-                   cmap='imferno',  # colormap used for plotting. Default is "inferno".
+                   cmap='inferno',  # colormap used for plotting. Default is "inferno".
                    interp_type="INTER_LINEAR",  # interpolation method used for remapping. Default is "INTER_LINEAR".
                    multiprocessing=None,
                    # key for multiprocessing mode activation. If None, uses default setting defined in Conversion class instance creation.
