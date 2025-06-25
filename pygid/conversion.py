@@ -90,6 +90,9 @@ class Conversion:
         ranges calculation. Calculates correction maps and applies corrections. Activates batch analysis.
         """
 
+        # set default settings fot figures
+        self.set_plot_defaults()
+
         if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
             self.matrix_to_save = self.matrix
             self.matrix = self.matrix.sub_matrices
@@ -469,15 +472,110 @@ class Conversion:
         DataSaver(self, **kwargs)
         return
 
+    def set_plot_defaults(self, font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
+                          grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=14, ytick_labelsize=14,
+                          legend_fontsize=12, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
+                          legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6.4, 4.8), axes_linewidth = 0.5,
+                          savefig_dpi=600, savefig_transparent=False, savefig_bbox_inches=None,
+                          savefig_pad_inches=0.1, line_linewidth=2, line_color='blue', line_linestyle='-',
+                          line_marker=None, scatter_marker='o', scatter_edgecolors='black', grid_major_linestyle='-',
+                          grid_minor_linestyle=':', grid_major_linewidth=0.7, grid_minor_linewidth=0.3,
+                          cmap='inferno'):
+        """
+        Sets the default settings for various parts of a Matplotlib plot, including font sizes, gridlines,
+        legend, figure properties, and line styles. The function configures the default style for future
+        plots created with Matplotlib.
+
+        Parameters:
+        - font_size (int): Default font size for text elements (e.g., title, labels, ticks).
+        - axes_titlesize (int): Font size for axes titles.
+        - axes_labelsize (int): Font size for axes labels (x and y).
+        - grid (bool): Whether or not to display gridlines (True/False).
+        - grid_color (str): Color of the gridlines (e.g., 'gray', 'black').
+        - grid_linestyle (str): Line style of the gridlines (e.g., '--', '-', ':').
+        - grid_linewidth (float): Width of the gridlines.
+        - xtick_labelsize (int): Font size for x-axis tick labels.
+        - ytick_labelsize (int): Font size for y-axis tick labels.
+        - legend_fontsize (int): Font size for the legend text.
+        - legend_loc (str): Location of the legend (e.g., 'best', 'upper right', 'lower left').
+        - legend_frameon (bool): Whether to display a frame around the legend.
+        - legend_borderpad (float): Padding between the legend's content and the legend's frame.
+        - legend_borderaxespad (float): Padding between the legend and axes.
+        - figure_titlesize (int): Font size for the figure title.
+        - figsize (tuple): Size of the figure in inches (e.g., (6, 6)).
+        - savefig_dpi (int): DPI for saving the figure (higher DPI means better quality).
+        - savefig_transparent (bool): Whether the saved figure should have a transparent background.
+        - savefig_bbox_inches (str): Defines what part of the plot to save (e.g., 'tight' to crop extra whitespace).
+        - savefig_pad_inches (float): Padding added around the figure when saving.
+        - line_linewidth (float): Line width for plot lines.
+        - line_color (str): Color of the plot lines (e.g., 'blue', 'red').
+        - line_linestyle (str): Line style (e.g., '-', '--', ':').
+        - line_marker (str): Marker style for plot lines (e.g., 'o', 'x').
+        - scatter_marker (str): Marker style for scatter plots (e.g., 'o', 'x').
+        - scatter_edgecolors (str): Color for the edges of scatter plot markers (e.g., 'black').
+        - grid_major_linestyle (str): Style of major gridlines (e.g., '-', '--').
+        - grid_minor_linestyle (str): Style of minor gridlines (e.g., ':').
+        - grid_major_linewidth (float): Width of major gridlines.
+        - grid_minor_linewidth (float): Width of minor gridlines.
+        - cmap (str): Image colormap
+        """
+        # Font settings
+        plt.rc('font', size=font_size)  # Controls default text sizes
+        plt.rc('axes', titlesize=axes_titlesize)  # Font size for axes title
+        plt.rc('axes', labelsize=axes_labelsize)  # Font size for axes labels (x and y)
+        plt.rc('xtick', labelsize=xtick_labelsize)  # Font size for x-axis tick labels
+        plt.rc('ytick', labelsize=ytick_labelsize)  # Font size for y-axis tick labels
+        plt.rc('legend', fontsize=legend_fontsize)  # Font size for legend text
+        plt.rc('figure', titlesize=figure_titlesize)  # Font size for figure title
+
+        # Axes settings
+        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
+        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
+        plt.rcParams['axes.linewidth'] = axes_linewidth
+        plt.rcParams['grid.color'] = grid_color  # Grid line color
+        plt.rcParams['grid.linestyle'] = grid_linestyle  # Grid line style
+        plt.rcParams['grid.linewidth'] = grid_linewidth  # Grid line width
+
+        plt.rcParams['legend.loc'] = legend_loc  # Legend location
+        plt.rcParams['legend.frameon'] = legend_frameon  # Enable or disable legend frame
+        plt.rcParams['legend.borderpad'] = legend_borderpad  # Padding inside the legend box
+        plt.rcParams['legend.borderaxespad'] = legend_borderaxespad  # Padding between legend and axes
+
+        # Figure settings
+        plt.rcParams['figure.figsize'] = figsize  # Default figure size
+        plt.rcParams['savefig.dpi'] = savefig_dpi  # DPI when saving figure
+        plt.rcParams['savefig.transparent'] = savefig_transparent  # Transparent background for saved figure
+        plt.rcParams['savefig.bbox'] = savefig_bbox_inches  # Bounding box for saving figure
+        plt.rcParams['savefig.pad_inches'] = savefig_pad_inches  # Padding when saving figure
+
+        # Line settings
+        plt.rc('lines', linewidth=line_linewidth)  # Line width for plot lines
+        plt.rc('lines', color=line_color)  # Line color for plot lines
+        plt.rc('lines', linestyle=line_linestyle)  # Line style for plot lines
+        if line_marker is not None:
+            plt.rc('lines', marker=line_marker)  # Marker style for plot lines
+
+        # Scatter settings
+        plt.rc('scatter', marker=scatter_marker)  # Marker style for scatter plot
+        plt.rcParams['scatter.edgecolors'] = scatter_edgecolors  # Edge color for scatter markers
+
+        # Set grid settings
+        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
+        plt.rcParams['grid.color'] = grid_color  # Grid line color
+        plt.rcParams['grid.linestyle'] = grid_linestyle  # Grid line style
+        plt.rcParams['grid.linewidth'] = grid_linewidth  # Grid line width
+
+        # Image colormap
+        plt.rcParams['image.cmap'] = cmap
+
     def plot_raw_image(self, **kwargs):
         """
         Old naming of self.plot_img_raw() function
         """
-        self.plot_img_raw(**kwargs)
+        return self.plot_img_raw(**kwargs)
 
     def plot_img_raw(self, return_result=False, frame_num=None, plot_result=True,
-                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
-                     fontsize=14, labelsize=18):
+                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png"):
         """
         Plots the raw image from the detector with optional display, return and saving.
 
@@ -499,10 +597,6 @@ class Conversion:
             Whether to save the figure to a file. Default is False.
         path_to_save_fig : str, optional
             Path to save the figure if save_fig is True. Default is "img.png".
-        fontsize : int, optional
-            Font size for tick labels. Default is 14.
-        labelsize : int, optional
-            Font size for axis labels. Default is 18.
 
         Returns
         -------
@@ -526,8 +620,7 @@ class Conversion:
             for num in frame_num:
                 x, y, img = self.plot_img_raw(return_result=True, frame_num=num, plot_result=plot_result,
                              clims=clims, xlim=xlim, ylim=ylim, save_fig=save_fig,
-                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num),
-                             fontsize=fontsize, labelsize=labelsize)
+                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num))
                 img_list.append(img)
             if return_result:
                 return self.x, self.y, img_list
@@ -549,7 +642,7 @@ class Conversion:
             xlim = fill_limits(xlim, self.x)
             ylim = fill_limits(ylim, self.y)
 
-            fig, ax = plt.subplots(figsize=(6.4, 4.8))
+            fig, ax = plt.subplots()
             plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
             img[img < 0] = clims[0]
             log_img = np.log(img / clims[1])
@@ -558,31 +651,30 @@ class Conversion:
 
             p = ax.imshow(log_img,
                           vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                          cmap="inferno",
                           extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
                           aspect='equal',
                           origin='lower')
 
-            ax.set_xlabel(r'$y$ [px]', fontsize=labelsize)
-            ax.set_ylabel(r'$z$ [px]', fontsize=labelsize)
+            ax.set_xlabel(r'$y$ [px]')
+            ax.set_ylabel(r'$z$ [px]')
             ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
             ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True, prune=None, nbins=4))
-            ax.tick_params(axis='both', labelsize=fontsize)
+            ax.tick_params(axis='both')
 
             cb = fig.colorbar(mappable=p, ax=ax)
-            cb.set_label(label='Intensity [arb. units]', fontsize=labelsize)
+            cb.set_label(label='Intensity [arb. units]')
             cb.ax.yaxis.labelpad = 1
             cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))], fontsize=fontsize)
+            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
 
             if save_fig:
                 if path_to_save_fig is not None:
                     if (path_to_save_fig.endswith('.svg') or path_to_save_fig.endswith('.pdf')
                             or path_to_save_fig.endswith('.eps') or path_to_save_fig.endswith('.pgf')):
                         plt.axis('square')
-                        plt.savefig(path_to_save_fig, dpi=600)
+                        plt.savefig(path_to_save_fig)
                     else:
-                        plt.savefig(path_to_save_fig, dpi=600, bbox_inches='tight')
+                        plt.savefig(path_to_save_fig, bbox_inches='tight')
                     print(f"Saved figure in {path_to_save_fig}")
                 else:
                     raise ValueError("path_to_save_fig is not defined.")
@@ -715,9 +807,6 @@ class Conversion:
                   overwrite_group=False,
                   exp_metadata=None,
                   smpl_metadata=None,
-                  cmap="inferno",
-                  fontsize=14,
-                  labelsize=18,
                   ):
         """
             Converts detector image to reciprocal space map (q_xy, q_z) for GID geometry.
@@ -758,12 +847,6 @@ class Conversion:
                 Whether to overwrite existing file. Default is True.
             metadata : dict or None, optional
                 Additional metadata to store with result. Default is None.
-            cmap : str, optional
-                Colormap used for plotting. Default is "inferno".
-            fontsize : int, optional
-                Font size for axis labels. Default is 14.
-            labelsize : int, optional
-                Font size for tick labels. Default is 18.
 
             Returns
             -------
@@ -814,7 +897,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
                                         r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -830,9 +913,6 @@ class Conversion:
               overwrite_group=False,
               exp_metadata=None,
               smpl_metadata=None,
-              cmap="inferno",
-              fontsize=14,
-              labelsize=18,
               ):
         """
             Converts detector image to reciprocal space map (q_x, q_y) for transmission geometry.
@@ -875,12 +955,6 @@ class Conversion:
                 Whether to overwrite existing file. Default is True.
             metadata : dict or None, optional
                 Additional metadata to store with result. Default is None.
-            cmap : str, optional
-                Colormap used for plotting. Default is "inferno".
-            fontsize : int, optional
-                Font size for axis labels. Default is 14.
-            labelsize : int, optional
-                Font size for tick labels. Default is 18.
 
             Returns
             -------
@@ -932,7 +1006,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r'$q_{x}$ [$\mathrm{\AA}^{-1}$]',
                                         r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -948,9 +1022,6 @@ class Conversion:
                 overwrite_group=False,
                 exp_metadata=None,
                 smpl_metadata=None,
-                cmap="inferno",
-                fontsize=14,
-                labelsize=18,
                 ):
         """
          Converts detector image to polar coordinates for transmission geometry.
@@ -993,12 +1064,6 @@ class Conversion:
              Whether to overwrite existing file. Default is True.
          metadata : dict or None, optional
              Additional metadata to store with result. Default is None.
-         cmap : str, optional
-             Colormap used for plotting. Default is "inferno".
-         fontsize : int, optional
-             Font size for axis labels. Default is 14.
-         labelsize : int, optional
-             Font size for tick labels. Default is 18.
 
          Returns
          -------
@@ -1056,7 +1121,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
                                         r"$\chi$ [$\degree$]", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -1072,9 +1137,6 @@ class Conversion:
                     overwrite_group=False,
                     exp_metadata=None,
                     smpl_metadata=None,
-                    cmap="inferno",
-                    fontsize=14,
-                    labelsize=18,
                     ):
         """
          Converts detector image to polar coordinates for GID geometry.
@@ -1117,12 +1179,6 @@ class Conversion:
              Whether to overwrite existing file. Default is True.
          metadata : dict or None, optional
              Additional metadata to store with result. Default is None.
-         cmap : str, optional
-             Colormap used for plotting. Default is "inferno".
-         fontsize : int, optional
-             Font size for axis labels. Default is 14.
-         labelsize : int, optional
-             Font size for tick labels. Default is 18.
 
          Returns
          -------
@@ -1180,7 +1236,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
                                         r"$\chi$ [$\degree$]", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -1196,9 +1252,6 @@ class Conversion:
                       overwrite_group=False,
                       exp_metadata=None,
                       smpl_metadata=None,
-                      cmap="inferno",
-                      fontsize=14,
-                      labelsize=18,
                       ):
         """
         Converts detector image to pseudopolar coordinates for transmssion geometry.
@@ -1235,12 +1288,6 @@ class Conversion:
             Whether to overwrite existing file. Default is True.
         metadata : dict or None, optional
             Additional metadata to store with result. Default is None.
-        cmap : str, optional
-            Colormap used for plotting. Default is "inferno".
-        fontsize : int, optional
-            Font size for axis labels. Default is 14.
-        labelsize : int, optional
-            Font size for tick labels. Default is 18.
 
         Returns
         -------
@@ -1305,7 +1352,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
                                         r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -1321,9 +1368,6 @@ class Conversion:
                           overwrite_group=False,
                           exp_metadata=None,
                           smpl_metadata=None,
-                          cmap="inferno",
-                          fontsize=14,
-                          labelsize=18,
                           ):
         """
         Converts detector image to pseudopolar coordinates for GID geometry.
@@ -1360,12 +1404,6 @@ class Conversion:
             Whether to overwrite existing file. Default is True.
         metadata : dict or None, optional
             Additional metadata to store with result. Default is None.
-        cmap : str, optional
-            Colormap used for plotting. Default is "inferno".
-        fontsize : int, optional
-            Font size for axis labels. Default is 14.
-        labelsize : int, optional
-            Font size for tick labels. Default is 18.
 
         Returns
         -------
@@ -1430,7 +1468,7 @@ class Conversion:
             for i in range(len(img)):
                 self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
                                         r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i), cmap, fontsize, labelsize)
+                                        save_fig, add_frame_number(path_to_save_fig, i))
         if return_result:
             return x, y, img
 
@@ -1457,7 +1495,7 @@ class Conversion:
         return method(return_result=True, plot_result=False, frame_num=frame_num,
                       radial_range=radial_range, angular_range=angular_range, dang=dang, dq=dq)
 
-    def _plot_profile(self, x_values, profiles, xlabel, shift, tick_size, fontsize, xlim, ylim, plot_result,
+    def _plot_profile(self, x_values, profiles, xlabel, shift, xlim, ylim, plot_result,
                       save_fig, path_to_save_fig):
         """
         Plots one or multiple radial/azmuthal or horizontal profiles with optional vertical shifting and formatting.
@@ -1472,10 +1510,6 @@ class Conversion:
             Label for the x-axis.
         shift : float
             Amount by which to vertically shift each profile (for clarity in stacked plots).
-        tick_size : int
-            Font size for the axis ticks.
-        fontsize : int
-            Font size for axis labels.
         xlim : tuple or None
             Limits for the x-axis as (min, max). Use None to auto-scale.
         ylim : tuple or None
@@ -1488,11 +1522,11 @@ class Conversion:
             Path where the figure will be saved if `save_fig` is True.
         """
 
-        fig, ax = plt.subplots(figsize=(6.4, 4.8))
-        ax.set_xlabel(xlabel, fontsize=fontsize)
-        ax.set_ylabel("Intensity [arb. units]", fontsize=fontsize)
+        fig, ax = plt.subplots()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel("Intensity [arb. units]")
         ax.set_yscale('log')
-        ax.tick_params(axis='both', labelsize=tick_size)
+        ax.tick_params(axis='both')
         if xlim: ax.set_xlim(xlim)
         if ylim: ax.set_ylim(ylim)
         fig.tight_layout(pad=3)
@@ -1505,7 +1539,7 @@ class Conversion:
         if save_fig:
             if path_to_save_fig is not None:
                 fig.canvas.draw()
-                plt.savefig(path_to_save_fig, dpi=300)
+                plt.savefig(path_to_save_fig)
                 print(f"Saved figure in {path_to_save_fig}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
@@ -1518,11 +1552,11 @@ class Conversion:
 
     def radial_profile_gid(self, **kwargs):
         kwargs['key'] = "gid"
-        self.radial_profile(**kwargs)
+        return self.radial_profile(**kwargs)
 
     def radial_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
                        return_result=False, save_result=False, save_fig=False, path_to_save_fig='rad_cut.tiff',
-                       plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None, dang=0.5, dq=None,
+                       plot_result=False, shift=1, xlim=None, ylim=None, dang=0.5, dq=None,
                        path_to_save='result.h5',
                        h5_group=None,
                        overwrite_file=True,
@@ -1557,10 +1591,6 @@ class Conversion:
             If True, displays the radial profile plot.
         shift : float, optional
             Vertical shift applied to the profile for display purposes.
-        tick_size : int, optional
-            Font size for tick labels.
-        fontsize : int, optional
-            Font size for axis labels.
         xlim : tuple or None, optional
             X-axis limits as (min, max). If None, limits are auto-scaled.
         ylim : tuple or None, optional
@@ -1599,7 +1629,7 @@ class Conversion:
         img_pol = np.expand_dims(img_pol, axis=0) if img_pol.ndim == 2 else img_pol
         radial_profile = np.nanmean(img_pol, axis=1)
         if plot_result or save_fig:
-            self._plot_profile(q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift, tick_size, fontsize,
+            self._plot_profile(q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift,
                                xlim, ylim, plot_result, save_fig, path_to_save_fig)
         name = "rad_cut_gid" if key == "gid" else "rad_cut"
         setattr(self, name, radial_profile)
@@ -1620,12 +1650,12 @@ class Conversion:
 
     def azim_profile_gid(self, **kwargs):
         kwargs['key'] = "gid"
-        self.azim_profile(**kwargs)
+        return self.azim_profile(**kwargs)
 
 
     def azim_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
                      return_result=False, save_result=False, save_fig=False, path_to_save_fig='azim_cut.tiff',
-                     plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
+                     plot_result=False, shift=1, xlim=None, ylim=None,
                      path_to_save='result.h5', dang=0.5, dq=None,
                      h5_group=None,
                      overwrite_file=True,
@@ -1659,10 +1689,6 @@ class Conversion:
             If True, displays the radial profile plot.
         shift : float, optional
             Vertical shift applied to the profile for display purposes.
-        tick_size : int, optional
-            Font size for tick labels.
-        fontsize : int, optional
-            Font size for axis labels.
         xlim : tuple or None, optional
             X-axis limits as (min, max). If None, limits are auto-scaled.
         ylim : tuple or None, optional
@@ -1700,7 +1726,7 @@ class Conversion:
         img_pol = np.expand_dims(img_pol, axis=0) if img_pol.ndim == 2 else img_pol
         azim_profile = np.nanmean(img_pol, axis=2)
         if plot_result or save_fig:
-            self._plot_profile(phi_abs_values, azim_profile, r"$\phi\ (\degree)$", shift, tick_size, fontsize, xlim,
+            self._plot_profile(phi_abs_values, azim_profile, r"$\phi\ (\degree)$", shift, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
         name = "azim_cut_gid" if key == "gid" else "azim_cut"
         setattr(self, name, azim_profile)
@@ -1742,7 +1768,7 @@ class Conversion:
 
     def horiz_profile_gid(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',
-                      plot_result=False, shift=1, tick_size=18, fontsize=20, xlim=None, ylim=None,
+                      plot_result=False, shift=1, xlim=None, ylim=None,
                       path_to_save='result.h5',
                       h5_group=None,
                       overwrite_file=True,
@@ -1776,10 +1802,6 @@ class Conversion:
             If True, displays the radial profile plot.
         shift : float, optional
             Vertical shift applied to the profile for display purposes.
-        tick_size : int, optional
-            Font size for tick labels.
-        fontsize : int, optional
-            Font size for axis labels.
         xlim : tuple or None, optional
             X-axis limits as (min, max). If None, limits are auto-scaled.
         ylim : tuple or None, optional
@@ -1818,7 +1840,7 @@ class Conversion:
         horiz_profile = np.nanmean(img_q, axis=1)
         xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]'
         if plot_result or save_fig:
-            self._plot_profile(q_hor_values, horiz_profile, xlabel, shift, tick_size, fontsize, xlim,
+            self._plot_profile(q_hor_values, horiz_profile, xlabel, shift, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
         setattr(self, "horiz_cut_gid", horiz_profile)
         delattr(self, "img_gid_q")
@@ -1863,7 +1885,7 @@ class Conversion:
         return remap_image
 
     def _plot_single_image(self, img, x, y, clims, xlim, ylim, x_label, y_label, aspect, plot_result, save_fig,
-                           path_to_save_fig, cmap, fontsize, labelsize):
+                           path_to_save_fig):
 
         fig_lenth = 6.4
         if aspect == 'auto':
@@ -1880,22 +1902,21 @@ class Conversion:
 
         p = ax.imshow(log_img,
                       vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                      cmap="inferno",
                       extent=[x.min(), x.max(), y.min(), y.max()],
                       aspect=aspect,
                       origin='lower')
 
-        ax.set_xlabel(x_label, fontsize=labelsize)
-        ax.set_ylabel(y_label, fontsize=labelsize)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
         ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
         ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-        ax.tick_params(axis='both', labelsize=fontsize)
+        ax.tick_params(axis='both')
         cb = fig.colorbar(mappable=p, ax=ax)
-        cb.set_label(label='Intensity [arb. units]', fontsize=labelsize)
+        cb.set_label(label='Intensity [arb. units]')
         cb.ax.yaxis.labelpad = 1
 
         cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-        cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))], fontsize=fontsize)
+        cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
 
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
@@ -1909,9 +1930,9 @@ class Conversion:
                     else:
                         ax.set_aspect('auto', 'box')
 
-                    plt.savefig(path_to_save_fig, dpi=600)
+                    plt.savefig(path_to_save_fig)
                 else:
-                    plt.savefig(path_to_save_fig, dpi=600, bbox_inches='tight')
+                    plt.savefig(path_to_save_fig, bbox_inches='tight')
                 print(f"Saved figure in {path_to_save_fig}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
@@ -1938,9 +1959,7 @@ class Conversion:
     def make_simulation(self, frame_num=0, path_to_cif=None, orientation=None,
                         plot_result=True, plot_mi=False, return_result=False,
                         min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=cm.Blues,
-                        text_color='black', max_shift=1, save_result=False, path_to_save='simul_result.png',
-                        fontsize=14,
-                        labelsize=18):
+                        text_color='black', max_shift=1, save_result=False, path_to_save='simul_result.png'):
         """
         Simulates and visualizes diffraction pattern for the given crystallographic data.
 
@@ -1962,8 +1981,6 @@ class Conversion:
             max_shift (float): Maximum positional shift allowed in the simulation.
             save_result (bool): If True, saves the figure image.
             path_to_save (str): File path to save the simulation figure.
-            fontsize (int): Font size for axis labels ticks.
-            labelsize (int): Font size for axis labels.
 
         Returns
         -------
@@ -1981,7 +1998,10 @@ class Conversion:
         q_z_max = self.matrix[0].q_z_range[1]
         radius/=np.sqrt(q_xy_max**2+q_z_max**2)/4.37
         ai = self.matrix[0].ai if len(self.matrix) == 1 else self.matrix[frame_num].ai
-        simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
+        try:
+            simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
+        except:
+            raise ValueError("pygidsim package is not installed.")
 
         path_to_cif = [path_to_cif] if not isinstance(path_to_cif, list) else path_to_cif
         min_int = [min_int] if not isinstance(min_int, list) else min_int
@@ -2015,18 +2035,17 @@ class Conversion:
 
         if plot_result:
 
-            fig, ax = plt.subplots(figsize=(6.4, 4.8))
+            fig, ax = plt.subplots()
             p = ax.imshow(log_img,
                           vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                          cmap="inferno",
                           extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
                           aspect='equal',
                           origin='lower')
-            ax.set_xlabel(r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]', fontsize=labelsize)
-            ax.set_ylabel(r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', fontsize=labelsize)
+            ax.set_xlabel(r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]')
+            ax.set_ylabel(r'$q_{z}$ [$\mathrm{\AA}^{-1}$]')
             ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
             ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.tick_params(axis='both', labelsize=fontsize)
+            ax.tick_params(axis='both')
 
             for i, dataset in enumerate(simulated_data):
                 cmap_i = cmap if not isinstance(cmap, list) else cmap[i]
@@ -2034,10 +2053,10 @@ class Conversion:
                                               max_shift)
 
             cb = fig.colorbar(mappable=p, ax=ax)
-            cb.set_label(label='Intensity [arb. units]', fontsize=labelsize)
+            cb.set_label(label='Intensity [arb. units]')
             cb.ax.yaxis.labelpad = 1
             cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))], fontsize=fontsize)
+            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
             print(f"frame_num = {frame_num} was plotted")
 
             if save_result:
@@ -2045,16 +2064,46 @@ class Conversion:
                 if (path_to_save.endswith('.svg') or path_to_save.endswith('.pdf')
                         or path_to_save.endswith('.eps') or path_to_save.endswith('.pgf')):
                     plt.axis('square')
-                    plt.savefig(path_to_save, dpi=600)
+                    plt.savefig(path_to_save)
                 else:
-                    plt.savefig(path_to_save, dpi=600, bbox_inches='tight')
+                    plt.savefig(path_to_save, bbox_inches='tight')
                 print(f"Saved figure in {path_to_save}")
             plt.show()
         if return_result:
+            simulated_data = sort_simul_data(simulated_data)
             if len(simulated_data):
                 return simulated_data[0]
             else:
                 return simulated_data
+
+
+def sort_simul_data(simulated_data):
+    for i in range(len(simulated_data)):
+        q, value, mi = simulated_data[i]
+
+        q = np.array(q)
+        value = np.array(value)
+        mi = np.array(mi)
+
+        assert q.shape[-1] == len(value) == len(mi), "Mismatch in array lengths"
+
+        if q.ndim == 2 and q.shape[0] == 2:
+            # q is shape (2, N) → compute |q| for each column
+            q_abs = np.linalg.norm(q, axis=0)  # axis=0: по столбцам
+            indices = np.argsort(q_abs)
+        elif q.ndim == 1:
+            indices = np.argsort(q)
+        else:
+            raise ValueError(f"Unsupported q shape: {q.shape}")
+
+        # Apply sorting
+        q_sorted = q[:, indices] if q.ndim == 2 else q[indices]
+        value_sorted = np.array(value)[indices]
+        mi_sorted = np.array(mi)[indices]
+
+        simulated_data[i] = (q_sorted, value_sorted, mi_sorted)
+    return simulated_data
+
 
 
 def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, text_color, plot_mi, max_shift):
@@ -2079,10 +2128,6 @@ def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, tex
                 txt = ax.text(x, y, str(text), fontsize=8, color=text_color,
                               weight='bold', ha='center', va='bottom')
                 texts.append(txt)
-                # text_x, text_y = adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None,
-                #                                       max_shift=max_shift)
-                # ax.text(text_x, text_y, str(text), fontsize=8, color=text_color, weight='bold',
-                #         ha='center', va='bottom')
         if plot_mi and texts:
             adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
 
@@ -2107,40 +2152,10 @@ def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, tex
                 txt = ax.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
                 texts.append(txt)
                 num += 1
-                # angle_to_plot = np.pi / 2 / size * num - 0.1
-                # pos_xy = rad * np.sin(angle_to_plot)
-                # pos_z = rad * np.cos(angle_to_plot)
-                # if pos_xy > q_xy_max or pos_z > q_z_max:
-                #     angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
-                #     pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
-                #     pos_z = rad * np.cos(angle_to_plot)
-                # plt.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
-                # num += 1
+
             if plot_mi and texts:
                 adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
     return norm
-
-
-def adjust_text_position(ax, x, y, radius, text, fontsize=8, existing_texts=None, max_shift=3):
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    fig = ax.figure
-    renderer = fig.canvas.get_renderer()
-
-    text_x = x - radius
-    text_y = y + radius
-
-    temp_text = ax.text(text_x, text_y, str(text), fontsize=fontsize, alpha=0, ha='center', va='bottom')
-    bbox = temp_text.get_window_extent(renderer=renderer)
-    temp_text.remove()
-
-    bbox_data = ax.transData.inverted().transform([[bbox.x0, bbox.y0], [bbox.x1, bbox.y1]])
-    text_width = bbox_data[1, 0] - bbox_data[0, 0]
-    text_height = bbox_data[1, 1] - bbox_data[0, 1]
-    text_x = np.clip(text_x, xlim[0] + text_width, xlim[1] - text_width)
-    text_y = np.clip(text_y, ylim[0] + text_height, ylim[1] - text_height)
-
-    return text_x, text_y
 
 
 def determine_recalc_key(current_range, global_range, array, step):
@@ -2160,11 +2175,6 @@ def determine_recalc_key_index(current_range, global_range, array, step, arr_ind
 
 
 def simul_single_data(path_to_cif, orientation, simul_params, min_int):
-    try:
-        from pygidsim.experiment import ExpParameters
-        from pygidsim.giwaxs_sim import GIWAXSFromCif
-    except:
-        raise ValueError("pygidsim is not installed.")
     print(f"path_to_cif = {path_to_cif}, orientation = {orientation}, min_int = {min_int}")
     if orientation is not None:
         orientation = np.array(orientation)

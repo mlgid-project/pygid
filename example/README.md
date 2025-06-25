@@ -86,8 +86,8 @@ analysis.det2q_gid(frame_num=0, return_result=False,
                    plot_result=True, clims=(50, 8000), 
                    save_result=True, path_to_save="result.h5",
                    exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)
-analysis.det2pol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
-analysis.det2pseudopol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
+analysis.det2pol_gid(plot_result=True, return_result=False, save_result=False)
+analysis.det2pseudopol_gid(plot_result=True, return_result=False, save_result=False)
 
 ```
 
@@ -113,8 +113,7 @@ import pygid
 # loading of poni-file and mask (optional)
 params = pygid.ExpParams(poni_path='LaB6.poni',  # poni file location
                          mask_path='mask.npy',  # mask file location (edf/tiff/npy)
-                         fliplr=True, flipud=True, transp=False,
-                         # flags for horizontal and vertical flipping and transpose
+                         fliplr=True, flipud=True, transp=False,  # flags for horizontal and vertical flipping and transpose
                          count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 
                          ai=[0, 0.05, 0.1])  # angle of incidence in GID experiments (in degrees) or list of angles
 ```
