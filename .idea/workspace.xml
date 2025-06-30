@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="readme was changed">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="set_plot_defaults function was added, simulated peaks are sorted">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/conversion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/example/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
     </list>
@@ -68,7 +68,7 @@
       <option name="presentableId" value="Default" />
       <updated>1750091675549</updated>
       <workItem from="1750091676807" duration="5888000" />
-      <workItem from="1750152573544" duration="17461000" />
+      <workItem from="1750152573544" duration="23479000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -230,7 +230,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750670842959</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="set_plot_defaults function was added, simulated peaks are sorted">
+      <option name="closed" value="true" />
+      <created>1750856371613</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1750856371614</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -245,7 +253,8 @@
     <MESSAGE value="analysis groups are created, batch analysis fixed" />
     <MESSAGE value="converted_frame_num fixed" />
     <MESSAGE value="readme was changed" />
-    <option name="LAST_COMMIT_MESSAGE" value="readme was changed" />
+    <MESSAGE value="set_plot_defaults function was added, simulated peaks are sorted" />
+    <option name="LAST_COMMIT_MESSAGE" value="set_plot_defaults function was added, simulated peaks are sorted" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />

@@ -84,11 +84,11 @@ analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measure
 
 # Conversion
 
-analysis.det2q_gid(clims=(50, 8000), plot_result=True, return_result=False,
-                   save_result=True, path_to_save="result.h5",
+analysis.det2q_gid(plot_result=True, return_result=False,
+                   save_result=True, path_to_save="result.h5", clims=(50, 8000),
                    exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)
-analysis.det2pol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
-analysis.det2pseudopol_gid(clims=(50, 800), plot_result=True, return_result=False, save_result=False)
+analysis.det2pol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
+analysis.det2pseudopol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
 
 ```
 
@@ -249,8 +249,6 @@ x, y, img = analysis.plot_img_raw(
                                  return_result=True,  # if True, returns the image data and axes used for plotting. Default is False.                  
                                  plot_result=True,  # whether to display the plot. Default is True. 
                                  xlim=(None, None), ylim=(None, None),  # X and Y image limits
-                                 fontsize=14,  # font size for tick labels. Default is 14.
-                                 labelsize=18,  # font size for axis labels. Default is 18.  
                                  save_fig=False,  # whether to save the figure to a file. Default is False.
                                  path_to_save_fig="img.png",  # path to save the figure if save_fig is True. Default is "img.png".  
                                  )
@@ -275,9 +273,6 @@ analysis.det2q_gid(frame_num=[0, 1, 2],# frame number or list of numbers of load
                    plot_result=True,  # flag to plot the result
                    clims=(50, 8000),  # Tuple specifying color limits (vmin, vmax) for the image.
                    xlim=(None, None), ylim=(None, None),  # X and Y image limits
-                   fontsize=14,  # font size for tick labels. Default is 14.
-                   labelsize=18,  # font size for axis labels. Default is 18. 
-                   cmap='imferno',  # colormap used for plotting. Default is "inferno".
                    save_fig=False,  # flag to save the results as a picture
                    path_to_save_fig="graph.tiff",  # path to save the image
                    interp_type="INTER_LINEAR",  # interpolation method used for remapping. Default is "INTER_LINEAR".
@@ -361,8 +356,6 @@ q, intensity = analysis.radial_profile_gid(
                     smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
                     plot_result=True,                 # Display the radial profile plot
                     shift=0.5,                        # Vertical shift between plotted lines for clarity
-                    tick_size=None,                   # Font size for tick labels; default if None
-                    fontsize=None,                    # Font size for axis labels; default if None
                     xlim=None,                        # X-axis limits as (min, max); auto-scaled if None
                     ylim=None,                        # Y-axis limits as (min, max); auto-scaled if None
                     save_fig=False,                   # Save the figure if True
@@ -416,3 +409,46 @@ supports
 lists of path_to_cif, orientation, min_int and cmap. If numbers of elements in path_to_cif and orientation are equal,
 they will be used respectively. 
 
+### Set plot parameters 
+
+To change the global plotting parameters, use  Conversion.set_plot_defaults() function:
+```python
+analysis.set_plot_defaults(cmap = 'jet')
+```
+The whole list of keys:
+```python
+set_plot_defaults(
+    font_size=14,                  # Default font size for text elements (e.g., title, labels, ticks)
+    axes_titlesize=14,            # Font size for axes titles
+    axes_labelsize=18,            # Font size for axes labels (x and y)
+    grid=False,                   # Whether or not to display gridlines
+    grid_color='gray',            # Color of the gridlines
+    grid_linestyle='--',          # Line style of the gridlines (e.g., '--', '-', ':')
+    grid_linewidth=0.5,           # Width of the gridlines
+    xtick_labelsize=14,           # Font size for x-axis tick labels
+    ytick_labelsize=14,           # Font size for y-axis tick labels
+    legend_fontsize=12,           # Font size for the legend text
+    legend_loc='best',            # Location of the legend (e.g., 'best', 'upper right', 'lower left')
+    legend_frameon=True,          # Whether to display a frame around the legend
+    legend_borderpad=1.0,         # Padding between the legend's content and the legend's frame
+    legend_borderaxespad=1.0,     # Padding between the legend and axes
+    figure_titlesize=16,          # Font size for the figure title
+    figsize=(6.4, 4.8),           # Size of the figure in inches (e.g., (6, 6))
+    axes_linewidth=0.5,           # Width of the axes lines
+    savefig_dpi=600,              # DPI for saving the figure (higher DPI = better quality)
+    savefig_transparent=False,    # Whether the saved figure should have a transparent background
+    savefig_bbox_inches=None,     # Defines what part of the plot to save (e.g., 'tight' to crop extra whitespace)
+    savefig_pad_inches=0.1,       # Padding added around the figure when saving
+    line_linewidth=2,             # Line width for plot lines
+    line_color='blue',            # Color of the plot lines (e.g., 'blue', 'red')
+    line_linestyle='-',           # Line style (e.g., '-', '--', ':')
+    line_marker=None,             # Marker style for plot lines (e.g., 'o', 'x')
+    scatter_marker='o',           # Marker style for scatter plots (e.g., 'o', 'x')
+    scatter_edgecolors='black',   # Color for the edges of scatter plot markers
+    grid_major_linestyle='-',     # Style of major gridlines (e.g., '-', '--')
+    grid_minor_linestyle=':',     # Style of minor gridlines (e.g., ':')
+    grid_major_linewidth=0.7,     # Width of major gridlines
+    grid_minor_linewidth=0.3,     # Width of minor gridlines
+    cmap='inferno'                # Colormap for images (e.g., 'inferno', 'viridis')
+)
+```
