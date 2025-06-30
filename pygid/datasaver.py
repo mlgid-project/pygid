@@ -248,7 +248,7 @@ def save_matrix(root, h5_group, matrix, img_name):
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float32))
+                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis',  'units': '1/Angstrom'})
     if len(keys) == 2:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
     else:
