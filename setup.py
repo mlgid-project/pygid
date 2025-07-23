@@ -8,7 +8,7 @@ long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name='pygid',
-    version='0.1.12',
+    version='0.1.13',
     author='Ainur Abukaev',
     description='Fast Preprocessing of Grazing Incidence Diffraction Data',
     python_requires='>=3.8',

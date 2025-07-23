@@ -1617,7 +1617,8 @@ class Conversion:
         """
 
         if self.batch_activated:
-            res = self.Batch(path_to_save, "radial_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            remap_func = "radial_profile_gid" if key == "gid" else "radial_profile"
+            res = self.Batch(path_to_save, remap_func, h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
                              save_result, plot_result, return_result)
             self.batch_activated = True
@@ -1715,7 +1716,8 @@ class Conversion:
         """
 
         if self.batch_activated:
-            res = self.Batch(path_to_save, "azim_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+            remap_func = "azim_profile_gid" if key == "gid" else "azim_profile"
+            res = self.Batch(path_to_save, remap_func, h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
                              save_result, plot_result, return_result)
             self.batch_activated = True
