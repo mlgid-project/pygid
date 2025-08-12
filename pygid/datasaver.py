@@ -692,7 +692,7 @@ def fill_analysis_group(root, h5_group, img_number_to_add):
     subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
     img_number_current = len(subgroups)
     for i in range(img_number_current, img_number_current + img_number_to_add):
-        group_name = f"/{h5_group}/data/analysis/frame_{str(i).zfill(5)}"
+        group_name = f"/{h5_group}/data/analysis/frame{str(i).zfill(5)}"
         root.create_group(group_name)
         root[group_name].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
         # root.create_group(group_name + "/detected_peaks")
