@@ -6,12 +6,13 @@
   <component name="ChangeListManager">
     <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="axes are saved as float64">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/lib/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/conversion.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build/lib/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/pygid/datasaver.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,7 +71,9 @@
       <updated>1750091675549</updated>
       <workItem from="1750091676807" duration="5888000" />
       <workItem from="1750152573544" duration="26096000" />
-      <workItem from="1753266160534" duration="875000" />
+      <workItem from="1753266160534" duration="1469000" />
+      <workItem from="1753796432959" duration="641000" />
+      <workItem from="1754902174210" duration="2208000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -256,7 +259,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751272882841</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="axes are saved as float64">
+      <option name="closed" value="true" />
+      <created>1753269066983</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1753269066983</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

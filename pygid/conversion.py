@@ -1548,6 +1548,8 @@ class Conversion:
             else:
                 plt.close()
                 del fig, ax
+        if plot_result:
+            plt.show()
 
 
     def radial_profile_gid(self, **kwargs):

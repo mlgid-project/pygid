@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygid
-Version: 0.1.12
+Version: 0.1.14
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
 Home-page: https://github.com/mlgid-project/pygid
 Author: Ainur Abukaev
@@ -84,49 +84,14 @@ params = pygid.ExpParams(poni_path='LaB6_new.poni',
 # creation of coordinate matrix based on given parameters
 matrix = pygid.CoordMaps(params)
 
-# Description of the experiment and samples to save with converted images. OPTIONAL
-exp_metadata = pygid.ExpMetadata(
-    start_time=r"2021-03-29T15:51:41.343788",
-    source_type="synchrotron",
-    source_name="ESRF ID10",
-    detector_name="eiger4m",
-    instrument_name="ID10")
-
-data = {
-    "name": "240306_DIP",
-    "structure": {
-        "stack": "air | DIP 0-25| SiOx 1| Si",
-        "materials": {
-            "C60": {
-                "name": "Diindenoperylene DIP",
-                "thickness": 25,  # optional
-                "cif": "DIP.cif",  # optional
-                "type": "gradient film"  # optional /layer
-            },
-            "SiOx": {
-                "name": "native SiOx",
-                "thickness": 1,
-            },
-            "Si": {
-                "name": "Si wafer",
-            }
-        }
-    },
-    "preparation": "gradient thin film prepared by thermal evaporation",
-    "experimental_conditions": "standard conditions, on air"
-}
-smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
-
 # data loading
-
 data_path = "LaB6_0001.h5"
 analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measurement/eiger4m', frame_num=0)
 
 # Conversion
-
 analysis.det2q_gid(plot_result=True, return_result=False,
                    save_result=True, path_to_save="result.h5", clims=(50, 8000),
-                   exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)
+                   exp_metadata=None, smpl_metadata=None)
 analysis.det2pol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
 analysis.det2pseudopol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
 
@@ -232,7 +197,7 @@ matrix = pygid.CoordMaps(params,  # experimental parameters
                          ang_min=0, ang_max=90, dang=0.1,  # angle range and resolution (in degrees)
                          hor_positive=False, vert_positive=False,  # flags for only positive values of q in h
                          make_pol_corr=True,  # Flag to calculate polarization correction matrix
-                         pol_type=0.98,  # Polarization parameter from 0 to 1. 0.98 for synchrotrons, 0.5 for unpolorized tubes.
+                         pol_type=0.98,  # Polarization parameter from 0 to 1. 1 for the vertical polarization, 0.5 for unpolorized tubes.
                          make_solid_angle_corr=True,  # Flag to calculate solid angle correction matrix
                          make_air_attenuation_corr=False,  # Flag to calculate air attenuation correction matrix
                          air_attenuation_coeff=1,  # Linear coefficient for air attenuation correction (in 1/m)
@@ -407,8 +372,8 @@ chi, intensity = analysis.azim_profile_gid(radial_range = (1.34,1.4), angular_ra
 q_xy, intensity = analysis.horiz_profile_gid(q_xy_range = None, q_z_range = (0, 3), return_result = True, plot_result = True, shift = 1)
 
 
-q, intensity = analysis.radial_profile(plot_result = True)
-chi, intensity = analysis.azim_profile(plot_result = True)
+q, intensity = analysis.radial_profile(plot_result = True, return_result = True)
+chi, intensity = analysis.azim_profile(plot_result = True, return_result = True)
 
 ```
 

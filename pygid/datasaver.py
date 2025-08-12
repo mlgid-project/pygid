@@ -546,7 +546,7 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
                          'wavelength_spread', required=False)
     save_single_metadata(root[f"/{h5_group}/instrument/detector"], exp_metadata, 'name', 'detector_name',
                          required=False)
-    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=False)
+    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=True)
     save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True)
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
@@ -687,14 +687,15 @@ def fill_analysis_group(root, h5_group, img_number_to_add):
     analysis_path = f"/{h5_group}/data/analysis"
     if analysis_path not in root:
         root.create_group(analysis_path)
+        root[analysis_path].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
     group = root[analysis_path]
     subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
     img_number_current = len(subgroups)
     for i in range(img_number_current, img_number_current + img_number_to_add):
-        group_name = f"/{h5_group}/data/analysis/{str(i).zfill(5)}"
+        group_name = f"/{h5_group}/data/analysis/frame_{str(i).zfill(5)}"
         root.create_group(group_name)
-        root[group_name].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-        root.create_group(group_name + "/detected_peaks")
-        root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-        root.create_group(f"{group_name}/fitted_peaks")
-        root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+        root[group_name].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
+        # root.create_group(group_name + "/detected_peaks")
+        # root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+        # root.create_group(f"{group_name}/fitted_peaks")
+        # root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
