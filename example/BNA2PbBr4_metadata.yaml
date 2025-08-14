@@ -1,0 +1,60 @@
+data:
+  name: (BNA)2PbBr4
+  state: thin film
+  size: 0.01 x 0.01 x 0.0011
+  sample_history:
+  - - '20220610'
+    - plasma cleaning
+  - - '20220610'
+    - deposition
+  structure:
+    stack: nitrogen | (BNA)2PbBr4 | ITO | glass
+    materials:
+      (BNA)2PbBr4:
+        name: Benzylammonium lead bromide n = 1
+        CIF: (BNA)2PbBr4.cif
+        precursor:
+          CAS_number_1: 37488-40-7 - benzylammonium bromide
+          CAS_number_2: 10031-22-8 - lead bromide
+          solvents: DMF:DMSO
+          solvents_ratio: '4:1'
+          concentration_mM: '0.4'
+          volume_uL: '60'
+          additive: null
+        preparation:
+          deposition_method:
+            spin-coating_type: one-step
+            antisolvent: null
+            gas: null
+            spinning_start_time: 35
+            spinning_speed_1: 1000
+            spinning_time_1: 10
+            spinning_speed_2: 4000
+            spinning_time_2: 30
+            antisolvent_volume: null
+            antisolvent_drop_time: null
+            gas_start_time: null
+            gas_stop_time: null
+          annealing_procedure:
+            annealing_type: halogen lamp
+            lamp_to_sample_distance: 0.04
+            annealing_power_1: 150
+            annealing_time_1: 45
+            annealing_power_2: 85
+            annealing_time_2: 225
+            thickness: 3.0e-08
+        type: 2D perovskite film
+      ITO:
+        name: indium tin oxide
+        CAS_number: 50926-11-9 - indium tin oxide
+        thickness: 1.8e-07
+        preparation:
+          ultrasonic_bath: isopropanol 300 s, acetone 300 s
+          plasma_cleaning: 60s in Ar plasma
+        specification: CEC010S, </= 10 Ohm/sq
+        type: substrate
+      glass:
+        name: glass
+        type: substrate
+      preparation: perovskite thin film deposited by one-step spin-coating
+      experimental_conditions: nitrogen atmosphere
