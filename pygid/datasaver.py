@@ -117,6 +117,8 @@ class DataSaver:
     overwrite_group: bool = False
     exp_metadata: ExpMetadata = None
     smpl_metadata: SampleMetadata = None
+    img_container_detect: Any = None
+    img_container_fit: Any = None
 
     def __post_init__(self):
         self.matrix = self.sample.matrix[0]
@@ -208,7 +210,7 @@ class DataSaver:
 
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
-            fill_analysis_group(root, self.h5_group, len(data))
+            fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
         return
 
@@ -670,7 +672,7 @@ def fill_process_group(root, h5_group, matrix):
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
-def fill_analysis_group(root, h5_group, img_number_to_add):
+def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -685,6 +687,14 @@ def fill_analysis_group(root, h5_group, img_number_to_add):
             The name of the group within the HDF5 file where the analysis fields will be created.
         """
     analysis_path = f"/{h5_group}/data/analysis"
+
+    if img_container_detect is not None:
+        if not isinstance(img_container_detect, list):
+            img_container_detect = [img_container_detect]
+    if img_container_fit is not None:
+        if not isinstance(img_container_fit, list):
+            img_container_fit = [img_container_fit]
+
     if analysis_path not in root:
         root.create_group(analysis_path)
         root[analysis_path].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
@@ -695,7 +705,87 @@ def fill_analysis_group(root, h5_group, img_number_to_add):
         group_name = f"/{h5_group}/data/analysis/frame{str(i).zfill(5)}"
         root.create_group(group_name)
         root[group_name].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
+        if img_container_detect is not None and i < len(img_container_detect):
+            _save_img_container_detect(root, group_name, img_container_detect[i])
+        if img_container_fit is not None and i < len(img_container_fit):
+            _save_img_container_fit(root, group_name, img_container_fit[i])
         # root.create_group(group_name + "/detected_peaks")
         # root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
         # root.create_group(f"{group_name}/fitted_peaks")
         # root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+pygid_results_dtype = np.dtype([
+        ('amplitude', 'f4'),
+        ('angle', 'f4'),
+        ('angle_width', 'f4'),
+        ('radius', 'f4'),
+        ('radius_width', 'f4'),
+        ('q_xy', 'f4'),
+        ('q_z', 'f4'),
+        ('theta', 'f4'),
+        ('score', 'f4'),
+        ('A', 'f4'),
+        ('B', 'f4'),
+        ('C', 'i4'),
+        ('is_ring', 'bool'),
+        ('is_cut_qz', 'bool'),
+        ('is_cut_qxy', 'bool'),
+        ('visibility', 'i4'),
+        ('id', 'i4'),
+    ])
+
+def _save_img_container_detect(root, group_name, img_container_detect):
+    pass
+def _save_img_container_fit(root, group_name, img_container_fit):
+    results_array = get_results_array(img_container_fit)
+    results_err_array = get_results_err_array(img_container_fit)
+    group = root[group_name]
+    if 'fitted_peaks' in group:
+        del group['fitted_peaks']
+    group.create_dataset('fitted_peaks', data=results_array, dtype=pygid_results_dtype)
+    if 'fitted_peaks_errors' in group:
+        del group['fitted_peaks_errors']
+    group.create_dataset('fitted_peaks_errors', data=results_err_array, dtype=pygid_results_dtype)
+
+
+
+def get_results_array(img_container):
+    results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
+    results_array['amplitude'] = img_container.amplitude
+    results_array['angle'] = img_container.angle
+    results_array['angle_width'] = img_container.angle_width
+    results_array['radius'] = img_container.radius
+    results_array['radius_width'] = img_container.radius_width
+    results_array['q_z'] = img_container.qzqxyboxes[0]
+    results_array['q_xy'] = img_container.qzqxyboxes[1]
+    results_array['theta'] = img_container.theta
+    results_array['A'] = img_container.A
+    results_array['B'] = img_container.B
+    results_array['C'] = img_container.C
+    results_array['is_ring'] = img_container.is_ring
+    results_array['is_cut_qz'] = img_container.is_cut_qz
+    results_array['is_cut_qxy'] = img_container.is_cut_qxy
+    results_array['visibility'] = img_container.visibility
+    results_array['score'] = img_container.score
+    results_array['id'] = img_container.id
+    return results_array
+
+def get_results_err_array(img_container):
+    results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
+    results_array['amplitude'] = img_container.amplitude_err
+    results_array['angle'] = img_container.angle_err
+    results_array['angle_width'] = img_container.angle_width_err
+    results_array['radius'] = img_container.radius_err
+    results_array['radius_width'] = img_container.radius_width_err
+    results_array['q_z'] = img_container.qzqxyboxes_err[0]
+    results_array['q_xy'] = img_container.qzqxyboxes_err[1]
+    results_array['theta'] = img_container.theta_err
+    results_array['A'] = img_container.A_err
+    results_array['B'] = img_container.B_err
+    results_array['C'] = img_container.C_err
+    results_array['is_ring'] = img_container.is_ring
+    results_array['is_cut_qz'] = img_container.is_cut_qz
+    results_array['is_cut_qxy'] = img_container.is_cut_qxy
+    results_array['visibility'] = img_container.visibility
+    results_array['score'] = img_container.score
+    results_array['id'] = img_container.id
+    return results_array

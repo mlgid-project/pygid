@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="&quot;analysis&quot; folder organization and attributes were changed">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,6 +69,7 @@
       <workItem from="1753266160534" duration="1469000" />
       <workItem from="1753796432959" duration="641000" />
       <workItem from="1754902174210" duration="4570000" />
+      <workItem from="1755857359008" duration="7097000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -288,6 +291,16 @@
     <MESSAGE value="axes are saved as float64" />
     <MESSAGE value="&quot;analysis&quot; folder organization and attributes were changed" />
     <option name="LAST_COMMIT_MESSAGE" value="&quot;analysis&quot; folder organization and attributes were changed" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/pygid/datasaver.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
