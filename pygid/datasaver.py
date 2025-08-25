@@ -119,6 +119,7 @@ class DataSaver:
     smpl_metadata: SampleMetadata = None
     img_container_detect: Any = None
     img_container_fit: Any = None
+    matched_data: Any = None
 
     def __post_init__(self):
         self.matrix = self.sample.matrix[0]
@@ -210,7 +211,8 @@ class DataSaver:
 
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
-            fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit)
+            fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
+                                self.matched_data)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
         return
 
@@ -672,7 +674,7 @@ def fill_process_group(root, h5_group, matrix):
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
-def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit):
+def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, matched_data):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -694,6 +696,9 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
     if img_container_fit is not None:
         if not isinstance(img_container_fit, list):
             img_container_fit = [img_container_fit]
+    if matched_data is not None:
+        if not isinstance(matched_data, list):
+            matched_data = [matched_data]
 
     if analysis_path not in root:
         root.create_group(analysis_path)
@@ -709,23 +714,43 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
             _save_img_container_detect(root, group_name, img_container_detect[i])
         if img_container_fit is not None and i < len(img_container_fit):
             _save_img_container_fit(root, group_name, img_container_fit[i])
+        if matched_data is not None and i < len(matched_data):
+            _save_matched_data(root, group_name, matched_data[i])
         # root.create_group(group_name + "/detected_peaks")
         # root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
         # root.create_group(f"{group_name}/fitted_peaks")
         # root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+
+def _save_matched_data(root, group_name, matched_data):
+    group = root[group_name]
+    data_matched, unique_solutions = matched_data
+    key = list(unique_solutions.keys())[0]
+    for i, sol in enumerate(unique_solutions[key]):
+        indices, names = zip(*[(el[0], el[1] + ' ' + str(el[2])) for el in sol])
+        dtype_descr = [(n, np.float32) for n in names]
+        results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
+        cur_data = data_matched[key]
+        for idx, name in zip(indices, names):
+            cur_data = cur_data[idx]
+            results_array[name][cur_data['indices_real_matched_all']] = cur_data['probability']
+        if f"solution_{i}" in group:
+            del group[f"solution_{i}"]
+        group.create_dataset(f"solution_{i}", data=results_array, dtype=dtype_descr)
+
+
 pygid_results_dtype = np.dtype([
         ('amplitude', 'f4'),
         ('angle', 'f4'),
         ('angle_width', 'f4'),
         ('radius', 'f4'),
         ('radius_width', 'f4'),
-        ('q_xy', 'f4'),
         ('q_z', 'f4'),
+        ('q_xy', 'f4'),
         ('theta', 'f4'),
         ('score', 'f4'),
         ('A', 'f4'),
         ('B', 'f4'),
-        ('C', 'i4'),
+        ('C', 'f4'),
         ('is_ring', 'bool'),
         ('is_cut_qz', 'bool'),
         ('is_cut_qxy', 'bool'),
@@ -734,10 +759,38 @@ pygid_results_dtype = np.dtype([
     ])
 
 def _save_img_container_detect(root, group_name, img_container_detect):
-    pass
+    results_array = get_results_detect_array(img_container_detect)
+    group = root[group_name]
+    if 'detected_peaks' in group:
+        del group['detected_peaks']
+    group.create_dataset('detected_peaks', data=results_array, dtype=pygid_results_dtype)
+
+
+def get_results_detect_array(img_container):
+    results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
+    results_array['amplitude'] = [0] * len(img_container.radius_width)
+    results_array['angle'] = img_container.angle
+    results_array['angle_width'] = [abs(num) for num in img_container.angle_width]
+    results_array['radius'] = img_container.radius
+    results_array['radius_width'] = img_container.radius_width
+    results_array['q_z'] = img_container.qzqxyboxes[0]
+    results_array['q_xy'] = img_container.qzqxyboxes[1]
+    results_array['theta'] = [0] * len(img_container.radius_width)
+    results_array['A'] = [0] * len(img_container.radius_width)
+    results_array['B'] = [0] * len(img_container.radius_width)
+    results_array['C'] = [0] * len(img_container.radius_width)
+    results_array['is_ring'] = [0] * len(img_container.radius_width)
+    results_array['is_cut_qz'] = [0] * len(img_container.radius_width)
+    results_array['is_cut_qxy'] = [0] * len(img_container.radius_width)
+    results_array['visibility'] = [0] * len(img_container.radius_width)
+    results_array['score'] = img_container.scores
+    results_array['id'] = list(range(len(img_container.radius)))
+    return results_array
+
+
 def _save_img_container_fit(root, group_name, img_container_fit):
-    results_array = get_results_array(img_container_fit)
-    results_err_array = get_results_err_array(img_container_fit)
+    results_array = get_results_fit_array(img_container_fit)
+    results_err_array = get_results_fit_err_array(img_container_fit)
     group = root[group_name]
     if 'fitted_peaks' in group:
         del group['fitted_peaks']
@@ -748,7 +801,7 @@ def _save_img_container_fit(root, group_name, img_container_fit):
 
 
 
-def get_results_array(img_container):
+def get_results_fit_array(img_container):
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = img_container.amplitude
     results_array['angle'] = img_container.angle
@@ -769,7 +822,7 @@ def get_results_array(img_container):
     results_array['id'] = img_container.id
     return results_array
 
-def get_results_err_array(img_container):
+def get_results_fit_err_array(img_container):
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = img_container.amplitude_err
     results_array['angle'] = img_container.angle_err
