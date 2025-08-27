@@ -5,6 +5,10 @@
 The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the
 result as a NXsas file.
 
+<p align="center">
+  <img src="image/mlgid_logo_pygid.png" width="400" alt="pygid">
+</p>
+
 ## Installation
 
 ### Install using pip
