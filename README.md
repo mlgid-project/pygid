@@ -40,8 +40,8 @@ Below is a short example of how to use the package.
 import pygid
 
 # loading of poni-file and mask 
-params = pygid.ExpParams(poni_path='LaB6_new.poni',
-                         mask_path='mask.npy',
+params = pygid.ExpParams(poni_path='example/LaB6_new.poni',
+                         mask_path='example/mask.npy',
                          ai=0.1,
                          fliplr=True, flipud=True, transp=False)
 
@@ -56,8 +56,8 @@ analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measure
 analysis.det2q_gid(plot_result=True, return_result=False,
                    save_result=True, path_to_save="result.h5", clims=(50, 8000),
                    exp_metadata=None, smpl_metadata=None)
-analysis.det2pol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
-analysis.det2pseudopol_gid( plot_result=True, return_result=False, save_result=False, clims=(50, 800),)
+analysis.det2pol_gid(plot_result=True, return_result=False, save_result=False, clims=(50, 800), )
+analysis.det2pseudopol_gid(plot_result=True, return_result=False, save_result=False, clims=(50, 800), )
 
 ```
 
@@ -80,7 +80,7 @@ import pygid
 ```python
 # loading of poni-file and mask (optional)
 params = pygid.ExpParams(poni_path='LaB6.poni',  # poni file location
-                         mask_path='mask.npy',  # mask file location (edf/tiff/npy)
+                         mask_path='example/mask.npy',  # mask file location (edf/tiff/npy)
                          fliplr=True, flipud=True, transp=False,
                          # flags for horizontal and vertical flipping and transpose
                          count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 

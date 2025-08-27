@@ -3,7 +3,7 @@
 # in "stack" all layers of the sample should be listed
 
 data:
-  name: sample name
+  name: 240306_DIP
   structure:
     stack: air | DIP 0-25e-9| SiOx 1e-9| Si
     materials:
