@@ -267,6 +267,7 @@ class Conversion:
                     overwrite_group = False
                     exp_metadata = None
                     smpl_metadata = None
+                self.frame_num = None
                 if plot_result or return_result:
                     warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
                                   category=UserWarning)

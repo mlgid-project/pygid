@@ -31,7 +31,8 @@ setup(
         'joblib>=1.4.2,<2.0',
         'PyYAML>=6.0.1,<7.0',
         'adjustText>=1.3.0,<2.0',
-        'typing'
+        'typing',
+        'ipywidgets>=8.1.7,<9.0',
     ],
     extras_require={
         'test': [

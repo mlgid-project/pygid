@@ -492,9 +492,10 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
             data = getattr(metadata, data_name)
         else:
             data = str(data_name)
+        if data_name in root and not extend_list:
+            return
         if data is not None:
             if dataset_name in root:
-
                 if not extend_list:
                     del root[dataset_name]
                 else:

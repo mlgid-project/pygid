@@ -4,13 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="logo update">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="examples update">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LaB6_0001.edf" beforeDir="false" afterPath="$PROJECT_DIR$/example/LaB6_0001.edf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LaB6_new.poni" beforeDir="false" afterPath="$PROJECT_DIR$/example/LaB6_new.poni" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mask.npy" beforeDir="false" afterPath="$PROJECT_DIR$/example/mask.npy" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid example.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/example/pygid example.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,7 +79,7 @@
       <workItem from="1753796432959" duration="641000" />
       <workItem from="1754902174210" duration="4570000" />
       <workItem from="1755857359008" duration="8497000" />
-      <workItem from="1756111652333" duration="13559000" />
+      <workItem from="1756111652333" duration="23195000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -315,7 +313,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756307716368</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="examples update">
+      <option name="closed" value="true" />
+      <created>1756308969536</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1756308969536</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -337,7 +343,8 @@
     <MESSAGE value="img_container_fit saving was added" />
     <MESSAGE value="matched_data saving added" />
     <MESSAGE value="logo update" />
-    <option name="LAST_COMMIT_MESSAGE" value="logo update" />
+    <MESSAGE value="examples update" />
+    <option name="LAST_COMMIT_MESSAGE" value="examples update" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
