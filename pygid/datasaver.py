@@ -9,6 +9,7 @@ import h5py
 import re
 from datetime import datetime
 import warnings
+# from silx.io.h5py_utils import open_item
 
 if TYPE_CHECKING:
     from . import Conversion
@@ -120,6 +121,7 @@ class DataSaver:
     img_container_detect: Any = None
     img_container_fit: Any = None
     matched_data: Any = None
+    unit_cell_data: Any = None
 
     def __post_init__(self):
         self.matrix = self.sample.matrix[0]
@@ -174,6 +176,7 @@ class DataSaver:
         else:
             mode = 'a'
         with h5py.File(file_name, mode) as root:
+        # with open_item(file_name, "/", mode=mode, retry_timeout=1200, retry_period=0.1) as root:
             root.attrs["NX_class"] = "NXroot"
             if not self.overwrite_group and self.h5_group in root:
                 root.attrs["NX_class"] = "NXroot"
@@ -212,7 +215,7 @@ class DataSaver:
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
             fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
-                                self.matched_data)
+                                self.matched_data, self.unit_cell_data)
             print(f"Saved in {self.path_to_save} in group {self.h5_group}")
         return
 
@@ -252,7 +255,7 @@ def save_matrix(root, h5_group, matrix, img_name):
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis',  'units': '1/Angstrom'})
+                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
     if len(keys) == 2:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
     else:
@@ -555,9 +558,21 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
     save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True)
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
+    # add frame_idx, epoch, mon, watt0, transmission here:
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'frame_idx', 'frame_idx', required=False,
+                         extend_list=True)
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'epoch', 'epoch', required=False,
+                         extend_list=True)
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'mon', 'mon', required=False,
+                         extend_list=True)
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'watt0', 'watt0', required=False,
+                         extend_list=True)
+    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'transmission', 'transmission', required=False,
+                         extend_list=True)
+
     saved_attr = ['instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
                   'source_name', 'start_time', 'end_time', 'detector_name', 'detector', 'source',
-                  'filename']
+                  'filename', 'frame_idx', 'epoch', 'mon']
     for attr_name in exp_metadata.__dict__:
         if attr_name not in saved_attr:
             save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, attr_name, attr_name, extend_list=False)
@@ -675,7 +690,8 @@ def fill_process_group(root, h5_group, matrix):
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
-def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, matched_data):
+def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, matched_data,
+                        unit_cell_data):
     """
         Creates analysis-related fields in a specified group within an HDF5 file.
 
@@ -701,6 +717,10 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
         if not isinstance(matched_data, list):
             matched_data = [matched_data]
 
+    if unit_cell_data is not None:
+        if not isinstance(unit_cell_data, list):
+            unit_cell_data = [unit_cell_data]
+
     if analysis_path not in root:
         root.create_group(analysis_path)
         root[analysis_path].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
@@ -711,16 +731,72 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
         group_name = f"/{h5_group}/data/analysis/frame{str(i).zfill(5)}"
         root.create_group(group_name)
         root[group_name].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
-        if img_container_detect is not None and i < len(img_container_detect):
-            _save_img_container_detect(root, group_name, img_container_detect[i])
-        if img_container_fit is not None and i < len(img_container_fit):
-            _save_img_container_fit(root, group_name, img_container_fit[i])
-        if matched_data is not None and i < len(matched_data):
-            _save_matched_data(root, group_name, matched_data[i])
+        if img_container_detect is not None and i - img_number_current < len(img_container_detect):
+            _save_img_container_detect(root, group_name, img_container_detect[i - img_number_current])
+        if img_container_fit is not None and i - img_number_current < len(img_container_fit):
+            _save_img_container_fit(root, group_name, img_container_fit[i - img_number_current])
+        if matched_data is not None and i - img_number_current < len(matched_data):
+            _save_matched_data(root, group_name, matched_data[i - img_number_current])
+        if unit_cell_data is not None and i - img_number_current < len(unit_cell_data):
+            _save_unit_cell_data(root, group_name, unit_cell_data[i - img_number_current])
         # root.create_group(group_name + "/detected_peaks")
         # root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
         # root.create_group(f"{group_name}/fitted_peaks")
         # root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
+
+
+unit_cell_data_dtype = np.dtype([
+    ('h', 'i4'),
+    ('k', 'i4'),
+    ('l', 'i4'),
+    ('a', 'f4'),
+    ('b', 'f4'),
+    ('c', 'f4'),
+    ('alpha', 'f4'),
+    ('beta', 'f4'),
+    ('gamma', 'f4'),
+    ('a_err', 'f4'),
+    ('b_err', 'f4'),
+    ('c_err', 'f4'),
+    ('alpha_err', 'f4'),
+    ('beta_err', 'f4'),
+    ('gamma_err', 'f4'),
+    ('q_loss', 'f4'),
+    ('is_converged', 'bool'),
+    ('score', 'f4'),
+])
+
+
+def _save_unit_cell_data(root, group_name, unit_cell_data):
+    group = root[group_name]
+
+    orientation_array, unit_cells, unit_cell_errors, q_losses, is_converged, score = unit_cell_data
+    results_array = np.zeros(orientation_array.shape[0], dtype=unit_cell_data_dtype)
+    results_array['h'] = orientation_array[:, 0]
+    results_array['k'] = orientation_array[:, 1]
+    results_array['l'] = orientation_array[:, 2]
+
+    results_array['a'] = unit_cells[:, 0]
+    results_array['b'] = unit_cells[:, 1]
+    results_array['c'] = unit_cells[:, 2]
+    results_array['alpha'] = unit_cells[:, 3]
+    results_array['beta'] = unit_cells[:, 4]
+    results_array['gamma'] = unit_cells[:, 5]
+
+    results_array['a_err'] = unit_cell_errors[:, 0]
+    results_array['b_err'] = unit_cell_errors[:, 1]
+    results_array['c_err'] = unit_cell_errors[:, 2]
+    results_array['alpha_err'] = unit_cell_errors[:, 3]
+    results_array['beta_err'] = unit_cell_errors[:, 4]
+    results_array['gamma_err'] = unit_cell_errors[:, 5]
+
+    results_array['q_loss'] = q_losses
+    results_array['is_converged'] = is_converged
+    results_array['score'] = score
+    if f"unit_cell_data" in group:
+        del group[f"unit_cell_data"]
+    group.create_dataset(f"unit_cell_data", data=results_array, dtype=unit_cell_data_dtype)
+
 
 def _save_matched_data(root, group_name, matched_data):
     group = root[group_name]
@@ -728,8 +804,20 @@ def _save_matched_data(root, group_name, matched_data):
     key = list(unique_solutions.keys())[0]
     for i, sol in enumerate(unique_solutions[key]):
         indices, names = zip(*[(el[0], el[1] + ' ' + str(el[2])) for el in sol])
-        dtype_descr = [(n, np.float32) for n in names]
-        results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
+        # indices, names = zip(*list({(el[0], el[1] + ' ' + str(el[2])) for el in sol}))
+        print(f"Names = {names}")
+        dtype_descr = list({(n, np.float32) for n in names})
+        # dtype_descr = [(n, np.float32) for n in names]
+        print(dtype_descr)
+        try:
+            results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
+        except:
+            print(f"\n\n\n\nError is in line 752")
+            print(f"Names error = {names}")
+            print(f"Error sol = {sol}")
+            print(f"unique solutions = {unique_solutions}")
+            print(f"error data matched = {data_matched}\n\n\n\n")
+            raise
         cur_data = data_matched[key]
         for idx, name in zip(indices, names):
             cur_data = cur_data[idx]
@@ -740,24 +828,25 @@ def _save_matched_data(root, group_name, matched_data):
 
 
 pygid_results_dtype = np.dtype([
-        ('amplitude', 'f4'),
-        ('angle', 'f4'),
-        ('angle_width', 'f4'),
-        ('radius', 'f4'),
-        ('radius_width', 'f4'),
-        ('q_z', 'f4'),
-        ('q_xy', 'f4'),
-        ('theta', 'f4'),
-        ('score', 'f4'),
-        ('A', 'f4'),
-        ('B', 'f4'),
-        ('C', 'f4'),
-        ('is_ring', 'bool'),
-        ('is_cut_qz', 'bool'),
-        ('is_cut_qxy', 'bool'),
-        ('visibility', 'i4'),
-        ('id', 'i4'),
-    ])
+    ('amplitude', 'f4'),
+    ('angle', 'f4'),
+    ('angle_width', 'f4'),
+    ('radius', 'f4'),
+    ('radius_width', 'f4'),
+    ('q_z', 'f4'),
+    ('q_xy', 'f4'),
+    ('theta', 'f4'),
+    ('score', 'f4'),
+    ('A', 'f4'),
+    ('B', 'f4'),
+    ('C', 'f4'),
+    ('is_ring', 'bool'),
+    ('is_cut_qz', 'bool'),
+    ('is_cut_qxy', 'bool'),
+    ('visibility', 'i4'),
+    ('id', 'i4'),
+])
+
 
 def _save_img_container_detect(root, group_name, img_container_detect):
     results_array = get_results_detect_array(img_container_detect)
@@ -801,7 +890,6 @@ def _save_img_container_fit(root, group_name, img_container_fit):
     group.create_dataset('fitted_peaks_errors', data=results_err_array, dtype=pygid_results_dtype)
 
 
-
 def get_results_fit_array(img_container):
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = img_container.amplitude
@@ -822,6 +910,7 @@ def get_results_fit_array(img_container):
     results_array['score'] = img_container.score
     results_array['id'] = img_container.id
     return results_array
+
 
 def get_results_fit_err_array(img_container):
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
