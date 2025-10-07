@@ -805,23 +805,20 @@ def _save_matched_data(root, group_name, matched_data):
     for i, sol in enumerate(unique_solutions[key]):
         indices, names = zip(*[(el[0], el[1] + ' ' + str(el[2])) for el in sol])
         # indices, names = zip(*list({(el[0], el[1] + ' ' + str(el[2])) for el in sol}))
-        print(f"Names = {names}")
+        # print(f"Names = {names}")
         dtype_descr = list({(n, np.float32) for n in names})
         # dtype_descr = [(n, np.float32) for n in names]
-        print(dtype_descr)
+        # print("dtype_descr", dtype_descr)
         try:
             results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
+            # print("results_array", results_array)
         except:
-            print(f"\n\n\n\nError is in line 752")
-            print(f"Names error = {names}")
-            print(f"Error sol = {sol}")
-            print(f"unique solutions = {unique_solutions}")
-            print(f"error data matched = {data_matched}\n\n\n\n")
             raise
         cur_data = data_matched[key]
         for idx, name in zip(indices, names):
             cur_data = cur_data[idx]
             results_array[name][cur_data['indices_real_matched_all']] = cur_data['probability']
+            results_array[name][cur_data['indices_real_matched']] = cur_data['probability']
         if f"solution_{i}" in group:
             del group[f"solution_{i}"]
         group.create_dataset(f"solution_{i}", data=results_array, dtype=dtype_descr)

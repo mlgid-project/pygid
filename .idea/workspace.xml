@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="examples update">
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="saving of the unit cell added to the datasaver">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid.egg-info/requires.txt" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/requires.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,6 +46,7 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;web.server&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -80,6 +81,10 @@
       <workItem from="1754902174210" duration="4570000" />
       <workItem from="1755857359008" duration="8497000" />
       <workItem from="1756111652333" duration="23195000" />
+      <workItem from="1757930257289" duration="1986000" />
+      <workItem from="1758287522050" duration="244000" />
+      <workItem from="1759335770549" duration="2974000" />
+      <workItem from="1759847514179" duration="70000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -321,7 +326,15 @@
       <option name="project" value="LOCAL" />
       <updated>1756308969536</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="saving of the unit cell added to the datasaver">
+      <option name="closed" value="true" />
+      <created>1757941397414</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1757941397415</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -344,7 +357,8 @@
     <MESSAGE value="matched_data saving added" />
     <MESSAGE value="logo update" />
     <MESSAGE value="examples update" />
-    <option name="LAST_COMMIT_MESSAGE" value="examples update" />
+    <MESSAGE value="saving of the unit cell added to the datasaver" />
+    <option name="LAST_COMMIT_MESSAGE" value="saving of the unit cell added to the datasaver" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
