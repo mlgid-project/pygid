@@ -34,7 +34,7 @@ Below is a short example of how to use the package.
 import pygid
 
 # loading of poni-file and mask 
-params = pygid.ExpParams(poni_path='LaB6_new.poni',
+params = pygid.ExpParams(poni_path='LaB6.poni',
                          mask_path='mask.npy',
                          ai=0.1,
                          fliplr=True, flipud=True, transp=False)
@@ -44,34 +44,34 @@ matrix = pygid.CoordMaps(params)
 
 # Description of the experiment and samples to save with converted images. OPTIONAL
 exp_metadata = pygid.ExpMetadata(
-    start_time=r"2021-03-29T15:51:41.343788",
-    source_type="synchrotron",
-    source_name="ESRF ID10",
-    detector_name="eiger4m",
-    instrument_name="ID10")
+   start_time=r"2021-03-29T15:51:41.343788",
+   source_type="synchrotron",
+   source_name="ESRF ID10",
+   detector_name="eiger4m",
+   instrument_name="ID10")
 
 data = {
-    "name": "240306_DIP",
-    "structure": {
-        "stack": "air | DIP 0-25| SiOx 1| Si",
-        "materials": {
-            "C60": {
-                "name": "Diindenoperylene DIP",
-                "thickness": 25,  # optional
-                "cif": "DIP.cif",  # optional
-                "type": "gradient film"  # optional /layer
-            },
-            "SiOx": {
-                "name": "native SiOx",
-                "thickness": 1,
-            },
-            "Si": {
-                "name": "Si wafer",
-            }
-        }
-    },
-    "preparation": "gradient thin film prepared by thermal evaporation",
-    "experimental_conditions": "standard conditions, on air"
+   "name": "240306_DIP",
+   "structure": {
+      "stack": "air | DIP 0-25| SiOx 1| Si",
+      "materials": {
+         "C60": {
+            "name": "Diindenoperylene DIP",
+            "thickness": 25,  # optional
+            "cif": "DIP.cif",  # optional
+            "type": "gradient film"  # optional /layer
+         },
+         "SiOx": {
+            "name": "native SiOx",
+            "thickness": 1,
+         },
+         "Si": {
+            "name": "Si wafer",
+         }
+      }
+   },
+   "preparation": "gradient thin film prepared by thermal evaporation",
+   "experimental_conditions": "standard conditions, on air"
 }
 smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
 
@@ -83,7 +83,7 @@ analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measure
 # Conversion
 
 analysis.det2q_gid(frame_num=0, return_result=False,
-                   plot_result=True, clims=(50, 8000), 
+                   plot_result=True, clims=(50, 8000),
                    save_result=True, path_to_save="result.h5",
                    exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)
 analysis.det2pol_gid(plot_result=True, return_result=False, save_result=False)

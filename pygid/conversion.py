@@ -18,6 +18,8 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.ticker as ticker
 from adjustText import adjust_text
 import warnings
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -26,7 +28,8 @@ try:
     from pygidsim.experiment import ExpParameters
     from pygidsim.giwaxs_sim import GIWAXSFromCif
 except:
-    warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
+    pass
+    # warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
 
 @dataclass
 class Conversion:
@@ -345,7 +348,7 @@ class Conversion:
                 averaged_images.append(np.mean(self.img_raw[i:i + self.number_to_average], axis=0))
             remaining = num_images % self.number_to_average
             if remaining > 0:
-                print(f"Warning: {remaining} images left, averaging them separately.")
+                warnings.warn(f"{remaining} images left, averaging them separately.", UserWarning)
                 averaged_images.append(np.mean(self.img_raw[-remaining:], axis=0))
             self.img_raw = np.array(averaged_images)
 
@@ -451,13 +454,13 @@ class Conversion:
         if corr_matrices['dark_current'] is not None:
             for i in range(len(self.img_raw)):
                 self.img_raw[i] -= corr_matrices['dark_current']
-            print("dark_current is subtracted")
+            logging.info("Dark current is subtracted")
         for corr_matrix in corr_matrices:
             if corr_matrix != 'dark_current' and corr_matrices[corr_matrix] is not None:
                 if corr_matrix == 'absorption_corr_matrix' or corr_matrix == 'lorentz_corr_matrix':
                     for i, matrix in enumerate(self.matrix):
                         self.img_raw[i] /= matrix.corr_matrices.__dict__[corr_matrix]
-                print(corr_matrix, "was applied")
+                logging.info(f"{corr_matrix} was applied")
                 self.img_raw /= corr_matrices[corr_matrix]
 
     def save_nxs(self, **kwargs):
@@ -676,7 +679,7 @@ class Conversion:
                         plt.savefig(path_to_save_fig)
                     else:
                         plt.savefig(path_to_save_fig, bbox_inches='tight')
-                    print(f"Saved figure in {path_to_save_fig}")
+                    logging.info(f"Saved figure in {path_to_save_fig}")
                 else:
                     raise ValueError("path_to_save_fig is not defined.")
                 if not plot_result:
@@ -689,7 +692,7 @@ class Conversion:
                     plt.close()
                     del fig, ax
         else:
-            print("img_raw is not loaded")
+            raise ValueError("img_raw is not loaded")
 
         if return_result:
             return self.x, self.y, img
@@ -1541,7 +1544,7 @@ class Conversion:
             if path_to_save_fig is not None:
                 fig.canvas.draw()
                 plt.savefig(path_to_save_fig)
-                print(f"Saved figure in {path_to_save_fig}")
+                logging.info(f"Saved figure in {path_to_save_fig}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
             if plot_result:
@@ -1884,7 +1887,6 @@ class Conversion:
         np.ndarray
             The remapped image as a 2D array.
         """
-
         remap_image = fast_pixel_remap(img_raw, p_y, p_x, use_gpu=self.use_gpu, interp_type=interp_type,
                                        multiprocessing=multiprocessing)
         return remap_image
@@ -1938,7 +1940,7 @@ class Conversion:
                     plt.savefig(path_to_save_fig)
                 else:
                     plt.savefig(path_to_save_fig, bbox_inches='tight')
-                print(f"Saved figure in {path_to_save_fig}")
+                logging.info(f"Saved figure in {path_to_save_fig}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
             if not plot_result:
@@ -2009,6 +2011,11 @@ class Conversion:
             raise ValueError("pygidsim package is not installed.")
 
         path_to_cif = [path_to_cif] if not isinstance(path_to_cif, list) else path_to_cif
+
+        for path in path_to_cif:
+            if not os.path.isfile(path):
+                raise FileNotFoundError(f"File does not exist: {path}")
+
         min_int = [min_int] if not isinstance(min_int, list) else min_int
 
         if orientation is not None:
@@ -2062,7 +2069,7 @@ class Conversion:
             cb.ax.yaxis.labelpad = 1
             cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
             cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
-            print(f"frame_num = {frame_num} was plotted")
+            logging.info(f"frame_num = {frame_num} was plotted")
 
             if save_result:
 
@@ -2072,7 +2079,7 @@ class Conversion:
                     plt.savefig(path_to_save)
                 else:
                     plt.savefig(path_to_save, bbox_inches='tight')
-                print(f"Saved figure in {path_to_save}")
+                logging.info(f"Saved figure in {path_to_save}")
             plt.show()
         if return_result:
             simulated_data = sort_simul_data(simulated_data)
@@ -2252,7 +2259,6 @@ def fast_pixel_remap_cpu(original_image, new_coords_x, new_coords_y, interp_meth
     if original_image.ndim == 2:
         return cv2.remap(original_image, new_coords_y, new_coords_x, interp_method,
                          borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
-        return remapped_image
     else:
         raise ValueError("Input image must be 2D")
 
@@ -2297,8 +2303,35 @@ def fast_pixel_remap_gpu(original_image, new_coords_x, new_coords_y, interp_meth
 
 def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_range=[None, None, None, None],
                   count_range=None):
+    """
+        Process an image by applying a mask, count range limits, transposition, flips, and ROI selection.
+
+        Parameters
+        ----------
+        img : np.ndarray
+            Input image array.
+        mask : np.ndarray, optional
+            Boolean mask where True values will be replaced with NaN.
+        flipud : bool, optional
+            Flip image upside down.
+        fliplr : bool, optional
+            Flip image left to right.
+        transp : bool, optional
+            Transpose the image.
+        roi_range : tuple of 4 ints, optional
+            Region of interest as (y_start, y_end, x_start, x_end). None means full range.
+        count_range : tuple of 2 numbers, optional
+            Pixel value limits; values outside are set to NaN.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+        """
+
+    if img.dtype != np.float32:
+        img = img.astype(np.float32)
     if mask is not None:
-        img = img.astype(float)
         mask = mask[roi_range[0]:roi_range[1], roi_range[2]:roi_range[3]]
         img[mask] = np.nan
     if count_range is not None:
@@ -2314,6 +2347,23 @@ def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_
 
 
 def add_frame_number(filename, frame_num):
+    """
+        Appends a zero-padded frame number to a filename before its extension.
+
+        Parameters
+        ----------
+        filename : str
+            Original filename.
+        frame_num : int
+            Frame number to append.
+
+        Returns
+        -------
+        str
+            Filename with frame number appended, e.g. 'file_0001.ext'.
+        None
+            If filename is None.
+        """
     if filename is None:
         return
     file_root, file_ext = os.path.splitext(filename)
@@ -2322,6 +2372,19 @@ def add_frame_number(filename, frame_num):
 
 
 def change_clim_format(s):
+    """
+        Converts a numeric string to scientific notation with simplified exponent format.
+
+        Parameters
+        ----------
+        s : str or float
+            Input number.
+
+        Returns
+        -------
+        str
+            Number in format like '1e3', '2.5e-2'.
+    """
     f = f"{float(s):.0e}"
     base, exp = f.split('e')
     exp = exp.lstrip('+0') or '0'
@@ -2329,6 +2392,19 @@ def change_clim_format(s):
 
 
 def select_best_array(arrays):
+    """
+        Selects the "best" array from a list based on sum of squares and element magnitudes.
+
+        Parameters
+        ----------
+        arrays : list of ndarray
+            List of arrays to choose from.
+
+        Returns
+        -------
+        ndarray
+            The array with the minimal sum of squares, breaking ties by element magnitude.
+        """
     def sort_key(arr):
         return (
             np.sum(arr ** 2),
@@ -2339,5 +2415,20 @@ def select_best_array(arrays):
 
 
 def make_numbered_filename(base_filename, frame_num):
+    """
+        Generates a filename with a zero-padded frame number appended.
+
+        Parameters
+        ----------
+        base_filename : str
+            Original filename.
+        frame_num : int
+            Frame number to append.
+
+        Returns
+        -------
+        str
+            Filename with frame number appended, e.g. 'base_0001.ext'.
+        """
     name, ext = os.path.splitext(base_filename)
     return f"{name}_{frame_num:04d}{ext}"

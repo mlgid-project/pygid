@@ -9,6 +9,8 @@ import h5py
 import re
 from datetime import datetime
 import warnings
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 # from silx.io.h5py_utils import open_item
 
 if TYPE_CHECKING:
@@ -17,14 +19,28 @@ if TYPE_CHECKING:
 
 class ExpMetadata:
     """
-    The class to store sample and experment metadata.
+    Container class for storing sample and experimental metadata.
+
+    This class is designed to hold arbitrary experimental parameters, such as
+    sample name, substrate type, growth conditions, and instrument settings.
+    All stored attributes are intended to be saved in the `sample` group of
+    an HDF5 file for later retrieval or data analysis.
+
+    Examples
+    --------
+    meta = pygid.ExpMetadata(sample_name="CuPc", substrate="SiO2", temperature=300)
+    print(meta)
+    ExpMetadata({'sample_name': 'CuPc', 'substrate': 'SiO2', 'temperature': 300})
 
     Attributes
     ----------
-    All attributes are variable that will be saved in sample gruop in h5-file
+    **kwargs : dict
+        Arbitrary keyword arguments defining the metadata fields.
+        Each key–value pair becomes an attribute of the instance.
     """
 
     def __init__(self, **kwargs):
+        # Dynamically assign all provided keyword arguments as attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -32,10 +48,65 @@ class ExpMetadata:
         self.__dict__[name] = value
 
     def __repr__(self):
+        # Compact string representation for easy inspection
         return f"{self.__class__.__name__}({self.__dict__})"
 
 
 class SampleMetadata:
+    """
+        Class for managing sample metadata: loading from and saving to files.
+
+        This class provides a lightweight interface for reading and writing sample
+        metadata to text or YAML files. Metadata is stored internally as a dictionary
+        (`self.data`). Upon initialization, it can automatically load from an existing
+        file or save to a specified path.
+
+        Parameters
+        ----------
+        path_to_save : str or None, optional
+            Path where metadata should be saved. If provided, `save()` is called automatically.
+        path_to_load : str or None, optional
+            Path from which metadata should be loaded. If provided, `load()` is called automatically.
+        data : dict or None, optional
+            Dictionary containing metadata key–value pairs. If None, an empty dictionary is created.
+
+        Attributes
+        ----------
+        data : dict
+            Metadata storage dictionary. All loaded or manually added fields are stored here.
+        path_to_save : str or None
+            Path used for saving metadata.
+        path_to_load : str or None
+            Path used for loading metadata.
+
+        Examples
+        --------
+        data = {
+            "name": "240306_DIP",
+            "structure": {
+                "stack": "air | DIP 0-25| SiOx 1| Si",
+                "materials": {
+                    "C60": {
+                        "name": "Diindenoperylene DIP",
+                        "thickness": 25,  # optional
+                        "cif": "DIP.cif",  # optional
+                        "type": "gradient film"  # optional /layer
+                    },
+                    "SiOx": {
+                        "name": "native SiOx",
+                        "thickness": 1,
+                    },
+                    "Si": {
+                        "name": "Si wafer",
+                    }
+                }
+            },
+            "preparation": "gradient thin film prepared by thermal evaporation",
+            "experimental_conditions": "standard conditions, on air"
+        }
+        smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
+        """
+
     def __init__(self, *, path_to_save=None, path_to_load=None, data=None):
         self.path_to_save = path_to_save
         self.path_to_load = path_to_load
@@ -63,13 +134,14 @@ class SampleMetadata:
             with open(filepath, 'w') as f:
                 for key, value in self.data.items():
                     f.write(f"{key}={value}\n")
-
-        print("Saved sample metadata to", filepath)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+        self.logger.info(f"Saved sample metadata to {filepath}")
 
     def load(self, filepath=None):
         filepath = filepath or self.path_to_load
         if filepath is None:
-            raise ValueError("Filepath is not defined for loading.")
+            raise ValueError("File path is not defined for loading.")
 
         ext = os.path.splitext(filepath)[1].lower()
 
@@ -95,22 +167,42 @@ class SampleMetadata:
 @dataclass
 class DataSaver:
     """
-    A class to save processed data.
+    Class for saving processed experimental or sample data to HDF5 files.
 
-    Attributes:
-    -----------
+    This class provides a structured interface for storing processed data,
+    metadata, and analysis results in HDF5 format. It supports saving
+    sample images, fitted results, matched data, and unit cell parameters,
+    along with associated experimental and sample metadata.
+
+    Attributes
+    ----------
     sample : Conversion
-        An instance of the `Conversion` class, representing the sample data to be saved.
+        An instance of the `Conversion` class representing the sample data
+        to be saved.
     path_to_save : str, optional
-        The path inclufing file name where the data should be saved. Default is None. The file format should be .h5
+        Full path including the file name where the data should be saved.
+        The file format should be `.h5`. Default is None.
     h5_group : str, optional
-        The specific group in the HDF5 file where the data will be stored. Default is {file name}_0000.
+        The specific group in the HDF5 file where the data will be stored.
+        Default is `{file name}_0000`.
     overwrite_file : bool, optional
-        Whether to overwrite an existing file. Default is True.
-    metadata : Metadata, optional
-        'Metadata' class instance related to the samples or experiment. Default is None.
-
+        Whether to overwrite an existing HDF5 file. Default is True.
+    overwrite_group : bool, optional
+        Whether to overwrite an existing group within an HDF5 file. Default is False.
+    exp_metadata : ExpMetadata, optional
+        An instance of `ExpMetadata` containing experimental metadata. Default is None.
+    smpl_metadata : SampleMetadata, optional
+        An instance of `SampleMetadata` containing sample-related metadata. Default is None.
+    img_container_detect : Any, optional
+        Container for detected boxes from mlgidDETECT. Default is None.
+    img_container_fit : Any, optional
+        Container for fitted peaks from pygidFIT. Default is None.
+    matched_data : Any, optional
+        Data resulting from matching from mlgidMATCH. Default is None.
+    unit_cell_data : Any, optional
+        Data containing unit cell parameters from mlgidMATCH. Default is None.
     """
+
     sample: Conversion
     path_to_save: str = None
     h5_group: str = None
@@ -124,28 +216,46 @@ class DataSaver:
     unit_cell_data: Any = None
 
     def __post_init__(self):
+        """
+        Post-initialization to prepare the DataSaver instance for saving.
+
+        This method extracts relevant data and parameters from the provided `sample`
+        (Conversion instance) and prepares the HDF5 saving configuration. It also
+        saves the first available dataset from the sample and removes it from memory.
+        """
+
+        # Create an instance-level logger
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+
+        # Extract the first matrix and its parameters
         self.matrix = self.sample.matrix[0]
         self.params = self.matrix.params
 
+        # Store original path if it exists
         if hasattr(self.sample, 'path'):
             self.original_path = self.sample.path
 
+        # Ensure the list of incident angles exists
         if hasattr(self.sample, 'ai_list'):
             self.ai_list = self.sample.ai_list
         else:
             raise ValueError("conversion process is not correct. ai_list was not calculated")
 
+        # Ensure the converted frame number exists
         if hasattr(self.sample, 'converted_frame_num'):
             self.frame_num = self.sample.converted_frame_num
         else:
             raise ValueError("conversion process is not correct. converted_frame_num was not calculated")
 
+        # Set default save path and entry group if none provided
         if self.path_to_save is None:
             self.path_to_save = "result.h5"
         if self.h5_group is None:
             self.h5_group = os.path.basename(os.path.splitext(self.path_to_save)[0])
             self.h5_group = modify_string('entry', first_modification=True)
 
+        # List of potential data attributes to save from the sample
         keys = [
             "img_gid_q", "img_q", "img_gid_pol",
             "img_pol", "img_gid_pseudopol", "img_pseudopol",
@@ -153,31 +263,54 @@ class DataSaver:
             "rad_cut", "azim_cut"
         ]
 
+        # Find the first available attribute in the sample to save
         name, data = next(
             ((key, getattr(self.sample, key)) for key in keys if hasattr(self.sample, key)),
             (None, None)
         )
 
+        # Save the data and remove it from the sample to free memory
         self._save_data_(name, data)
         delattr(self.sample, name)
 
     def _save_data_(self, name, data):
         """
-        Saves converted images to HDF5 file.
-        """
-        folder_to_save = os.path.dirname(self.path_to_save)
-        file_name = self.path_to_save
+        Save converted sample data and associated metadata to an HDF5 file.
 
+        This method handles creation of the HDF5 file and its internal groups,
+        saving experimental parameters, sample metadata, processed images,
+        and analysis results. It supports automatic group creation, appending,
+        and overwriting based on the instance configuration.
+
+        Parameters
+        ----------
+        name : str
+            Name of the dataset to save (usually derived from the sample attribute).
+        data : np.ndarray or None
+            Image or processed data array to be saved. If None, only metadata is saved.
+
+        Notes
+        -----
+        - Automatically creates parent directories if they do not exist.
+        - Sets `NX_class` attributes for NeXus compliance.
+        - Checks for group existence and type/shape mismatches, creating new groups if needed.
+        - Saves experimental parameters, incident angles, frame numbers, and optional metadata.
+        - Calls helper functions to save images, matrices, and analysis results.
+        """
+
+        # Ensure the folder exists
+        folder_to_save = os.path.dirname(self.path_to_save)
         if not os.path.exists(folder_to_save) and folder_to_save != "":
             os.makedirs(folder_to_save)
+        file_name = self.path_to_save
 
-        if os.path.exists(file_name) and self.overwrite_file:
-            mode = 'w'
-        else:
-            mode = 'a'
+        # Determine HDF5 file mode: overwrite or append
+        mode = 'w' if os.path.exists(file_name) and self.overwrite_file else 'a'
+
+        # Open HDF5 file
         with h5py.File(file_name, mode) as root:
-        # with open_item(file_name, "/", mode=mode, retry_timeout=1200, retry_period=0.1) as root:
             root.attrs["NX_class"] = "NXroot"
+            # Handle existing group: check for overwrite or shape mismatch
             if not self.overwrite_group and self.h5_group in root:
                 root.attrs["NX_class"] = "NXroot"
                 new_h5_group = change_h5_group(root, self.h5_group, name, data[0].shape)
@@ -187,52 +320,72 @@ class DataSaver:
                         category=UserWarning
                     )
                     self.h5_group = new_h5_group
-
             else:
                 if self.h5_group in root:
-                    del root[self.h5_group]
+                    del root[self.h5_group]  # Overwrite group if requested
 
+            # Create group if it does not exist
             if self.h5_group not in root:
                 _make_groups_(root, self.h5_group)
                 save_single_data(root[f"/{self.h5_group}"], 'definition', 'NXsas')
                 save_single_data(root[f"/{self.h5_group}"], 'title', str(self.h5_group))
                 save_expparams(root, self.h5_group, self.params)
+
+            # Save incident angles and frame numbers
             save_single_data(root[f"/{self.h5_group}/instrument"], 'angle_of_incidence', self.ai_list, extend_list=True)
             save_single_data(root[f"/{self.h5_group}/data"], 'frame_num', self.frame_num, extend_list=True)
 
+            # Save experimental metadata
             if self.exp_metadata is None:
                 self.exp_metadata = ExpMetadata(filename=self.original_path)
             if not hasattr(self.exp_metadata, "filename"):
                 self.exp_metadata.filename = self.original_path
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
 
+            # Save sample metadata
             if self.smpl_metadata is not None:
                 save_smpl_metadata(root, self.smpl_metadata, self.h5_group)
 
+            # Save processed data
             if data is not None:
                 create_dataset(root, self.h5_group, name, data)
 
+            # Save matrix and associated analysis results
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
             fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
                                 self.matched_data, self.unit_cell_data)
-            print(f"Saved in {self.path_to_save} in group {self.h5_group}")
+            self.logger.info(f"Saved in {self.path_to_save} in group {self.h5_group}")
         return
 
 
 def save_matrix(root, h5_group, matrix, img_name):
     """
-    Saves coordinate maps data to HDF5 file.
+    Save coordinate map data (matrix) to an HDF5 file.
+
+    This function extracts relevant coordinate arrays from the provided `matrix`
+    object based on the image type (`img_name`) and saves them under the
+    `/data` subgroup in the specified HDF5 group. Attributes for interpretation
+    and units are added for NeXus/SAS compliance.
 
     Parameters
     ----------
     root : h5py.File
-        The root object of the opened HDF5 file where the matrix will be saved.
+        The root HDF5 file object where the matrix will be saved.
     h5_group : str
-        The name of the group within the HDF5 file under which the matrix data will be stored.
-    matrix : numpy.ndarray
-        The matrix data to be saved.
+        Name of the group within the HDF5 file under which the matrix data will be stored.
+    matrix : object
+        An object containing coordinate arrays as attributes. Typically the
+        `matrix` attribute of a Conversion instance.
+    img_name : str
+        The name of the image/data type. Determines which coordinate keys are saved.
+
+    Notes
+    -----
+    - Adds 'signal' and 'axes' attributes to the saved data for proper NeXus conventions.
+    - Only attributes existing on `matrix` are saved; missing keys are skipped.
     """
+    # Mapping of image names to expected coordinate attributes
     keys_map = {
         "img_gid_q": ["q_xy", "q_z"],
         "img_q": ["q_x", "q_y"],
@@ -247,15 +400,20 @@ def save_matrix(root, h5_group, matrix, img_name):
         "horiz_cut_gid": ["q_xy"]
     }
 
+    # Determine which keys to save for this image type
     keys = keys_map.get(img_name, [])
 
+    # Extract existing attributes from the matrix
     coords_dict = {key: getattr(matrix, key) for key in keys if hasattr(matrix, key)}
     keys = list(coords_dict.keys())
-    # print("keys", "keys")
+
+    # Save each coordinate array as float32 with proper NeXus attributes
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
+                         np.array(data, dtype=np.float32), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
+
+    # Add 'signal' and 'axes' attributes for NeXus compliance and silx visualisation
     if len(keys) == 2:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
     else:
@@ -293,8 +451,6 @@ def read_dataset_size(root, h5_group):
             The root object of the opened HDF5 file.
         h5_group : str
             The name of the group within the HDF5 file containing the datasets.
-        names : list of str
-            The names of datasets whose shapes are to be read.
     """
 
     datashape_dict = {}
@@ -316,27 +472,46 @@ def read_dataset_size(root, h5_group):
 
 def change_h5_group(root, h5_group, name, data_shape):
     """
-       Checks if the shapes of the datasets in the given HDF5 group match the shapes of the provided images.
-       If there is a mismatch, modifies the group name and recursively checks the next group.
+    Check if the dataset shapes in the given HDF5 group match the provided data.
+    If a mismatch is detected, generate a new group name recursively until a compatible
+    group is found.
 
-       Parameters
-       ----------
-       root : h5py.File or h5py.Group
-           The root object of the opened HDF5 file.
-       h5_group : str
-           The name of the group within the HDF5 file to check.
-       images : dict
-           conveted images to be saved
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object containing the group to check.
+    h5_group : str
+        Name of the group within the HDF5 file to verify.
+    name : str
+        Name of the dataset to be saved.
+    data_shape : tuple
+        Shape of the new dataset intended to be saved.
+
+    Returns
+    -------
+    str
+        A valid HDF5 group name where the dataset can be safely saved.
+
+    Notes
+    -----
+    - Recursively modifies the group name using `modify_string` until the shapes
+      of existing datasets do not conflict with the new data.
     """
-
+    # Get shapes of existing datasets in the group
     data_old = read_dataset_size(root, h5_group)
+
+    # Check if any dataset has a different shape or a different name
     change = any(
         key != name or data_shape_old != data_shape
         for key, data_shape_old in data_old.items()
     )
+
+    # If there is a mismatch, generate a new group name recursively
     if change:
         new_h5_group = modify_string(h5_group, first_modification=False)
         return change_h5_group(root, new_h5_group, name, data_shape)
+
+    # Otherwise, return the current group name
     return h5_group
 
 
@@ -371,7 +546,6 @@ def create_dataset(root, h5_group, name, data):
 
     else:
         maxshape = (None,) + data.shape[1:]
-        print()
         root[f'/{h5_group}/data'].create_dataset(
             name=name,
             data=data,
@@ -556,9 +730,9 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
                          required=False)
     save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=True)
     save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True)
+    # metadata that shold be extended
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
-    # add frame_idx, epoch, mon, watt0, transmission here:
     save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'frame_idx', 'frame_idx', required=False,
                          extend_list=True)
     save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'epoch', 'epoch', required=False,
@@ -579,6 +753,24 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
 
 
 def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
+    """
+        Save sample metadata to an HDF5 file under the specified group.
+
+        This function recursively writes all key-value pairs from a `SampleMetadata`
+        instance into the `/sample` subgroup of the given HDF5 group. Nested dictionaries
+        are stored as subgroups. Non-array values that cannot be directly saved in
+        HDF5 are converted to strings.
+
+        Parameters
+        ----------
+        root : h5py.File or h5py.Group
+            The root HDF5 object where the metadata will be saved.
+        smpl_metadata : SampleMetadata
+            Instance containing sample metadata to save.
+        h5_group : str, optional
+            HDF5 group under which the metadata will be stored. Default is "entry".
+    """
+    # Ensure a valid SampleMetadata instance is provided
     if smpl_metadata is None or not isinstance(smpl_metadata, SampleMetadata):
         raise ValueError("Valid SampleMetadata instance must be provided.")
 
@@ -586,19 +778,26 @@ def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
     group = root.require_group(h5_path)
 
     def write_dict_to_group(h5grp, data):
+        """Recursively write a dictionary to an HDF5 group."""
         for key, value in data.items():
             if isinstance(value, dict):
+                # Create a subgroup for nested dictionaries
                 subgrp = h5grp.require_group(key)
                 write_dict_to_group(subgrp, value)
             else:
+                # Remove existing dataset if it exists
                 if key in h5grp:
                     del h5grp[key]
+                # Try to save value; fallback to string if necessary
                 try:
                     h5grp.create_dataset(key, data=value)
                 except TypeError:
                     h5grp.create_dataset(key, data=str(value))
 
+    # Write the SampleMetadata dictionary to the HDF5 group
     write_dict_to_group(group, smpl_metadata.data)
+
+    # Warn if a 'name' attribute is missing
     if "name" not in root[h5_path]:
         warnings.warn("SampleMetadata does not contain a 'name' attribute.")
 
@@ -663,13 +862,37 @@ def check_correction(corr_matrices, attr):
 
 
 def fill_process_group(root, h5_group, matrix):
+    """
+        Fill the 'process' subgroup of an HDF5 group with processing metadata.
+
+        This function records information about the program, version, timestamp,
+        and all intensity corrections applied to the sample data. Each correction
+        is documented with relevant parameters from the `matrix` object.
+
+        Parameters
+        ----------
+        root : h5py.File or h5py.Group
+            The root HDF5 object containing the target group.
+        h5_group : str
+            Name of the HDF5 group under which the 'process' subgroup exists.
+        matrix : CoordMaps object
+            Stroes corrections imformation
+
+        Notes
+        -----
+        - Saves the program name, version, and current timestamp.
+        - Summarizes all intensity corrections applied with relevant parameters.
+        - Stores the summary in the 'NOTE' dataset under the 'process' subgroup.
+    """
     corr_matrices = matrix.corr_matrices
     h5_group = "/" + h5_group
     group = root[h5_group + '/process']
+    # Save program metadata
     save_single_data(group, 'program', "pygid", extend_list=False)
     from . import __version__ as pygid_version
     save_single_data(group, 'version', pygid_version, extend_list=False)
     save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=False)
+    # Construct detailed note on intensity corrections
     NOTE = (
         "Intensity corrections applied:\n"
         f"  - dark_current: {check_correction(corr_matrices, 'dark_current')}\n"
@@ -687,26 +910,44 @@ def fill_process_group(root, h5_group, matrix):
         f"(powder_dim = {matrix.powder_dim})\n"
     )
 
+    # Save the corrections summary
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
 def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, matched_data,
                         unit_cell_data):
     """
-        Creates analysis-related fields in a specified group within an HDF5 file.
+    Create analysis-related fields in a specified HDF5 group.
 
-        This function ensures that the necessary fields for analysis are present in the HDF5 file.
-        It will create new datasets or groups as needed within the provided group.
+    This function ensures that all necessary datasets and subgroups for analysis
+    are present in the HDF5 file. It can create new groups for additional frames
+    and save detected images, fitted images, matched data, and unit cell data
+    for each frame.
 
-        Parameters
-        ----------
-        root : h5py.File
-            The root or parent group of the HDF5 file.
-        h5_group : str
-            The name of the group within the HDF5 file where the analysis fields will be created.
-        """
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object or parent group where analysis fields will be created.
+    h5_group : str
+        Name of the group within the HDF5 file where analysis datasets are stored.
+    img_number_to_add : int
+        Number of new analysis frames (subgroups) to add.
+    img_container_detect : array-like or list, optional
+        Detected images to store in the new analysis frames. If not a list, it will
+        be converted to a single-item list.
+    img_container_fit : array-like or list, optional
+        Fitted images to store in the new analysis frames. If not a list, it will
+        be converted to a single-item list.
+    matched_data : array-like or list, optional
+        Matched data to store in the new analysis frames. If not a list, it will
+        be converted to a single-item list.
+    unit_cell_data : array-like or list, optional
+        Unit cell data to store in the new analysis frames. If not a list, it will
+        be converted to a single-item list.
+    """
     analysis_path = f"/{h5_group}/data/analysis"
 
+    # Convert single items to lists for consistent indexing
     if img_container_detect is not None:
         if not isinstance(img_container_detect, list):
             img_container_detect = [img_container_detect]
@@ -721,12 +962,17 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
         if not isinstance(unit_cell_data, list):
             unit_cell_data = [unit_cell_data]
 
+    # Create the main analysis group if it does not exist
     if analysis_path not in root:
         root.create_group(analysis_path)
         root[analysis_path].attrs.update({'NX_class': 'NXparameters', 'EX_required': 'true'})
     group = root[analysis_path]
+
+    # Count existing frames
     subgroups = [name for name in group if isinstance(group[name], h5py.Group)]
     img_number_current = len(subgroups)
+
+    # Create new frames and store provided data
     for i in range(img_number_current, img_number_current + img_number_to_add):
         group_name = f"/{h5_group}/data/analysis/frame{str(i).zfill(5)}"
         root.create_group(group_name)
@@ -739,10 +985,6 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
             _save_matched_data(root, group_name, matched_data[i - img_number_current])
         if unit_cell_data is not None and i - img_number_current < len(unit_cell_data):
             _save_unit_cell_data(root, group_name, unit_cell_data[i - img_number_current])
-        # root.create_group(group_name + "/detected_peaks")
-        # root[f"{group_name}/detected_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
-        # root.create_group(f"{group_name}/fitted_peaks")
-        # root[f"{group_name}/fitted_peaks"].attrs.update({'NX_class': 'NXdata', 'EX_required': 'true'})
 
 
 unit_cell_data_dtype = np.dtype([
@@ -768,14 +1010,38 @@ unit_cell_data_dtype = np.dtype([
 
 
 def _save_unit_cell_data(root, group_name, unit_cell_data):
+    """
+    Save unit cell analysis results to a specified HDF5 group.
+
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object containing the target group.
+    group_name : str
+        The name of the HDF5 group where the unit cell data will be stored.
+    unit_cell_data : tuple
+        A tuple containing:
+        - orientation_array : ndarray of shape (N, 3), Miller indices (h, k, l)
+        - unit_cells : ndarray of shape (N, 6), lattice parameters (a, b, c, alpha, beta, gamma)
+        - unit_cell_errors : ndarray of shape (N, 6), errors for lattice parameters
+        - q_losses : ndarray of shape (N,), loss values
+        - is_converged : ndarray of shape (N,), convergence flags
+        - score : ndarray of shape (N,), scoring metric
+    """
     group = root[group_name]
 
+    # Unpack the unit cell data
     orientation_array, unit_cells, unit_cell_errors, q_losses, is_converged, score = unit_cell_data
+
+    # Initialize structured array for results
     results_array = np.zeros(orientation_array.shape[0], dtype=unit_cell_data_dtype)
+
+    # Save Miller indices
     results_array['h'] = orientation_array[:, 0]
     results_array['k'] = orientation_array[:, 1]
     results_array['l'] = orientation_array[:, 2]
 
+    # Save lattice parameters
     results_array['a'] = unit_cells[:, 0]
     results_array['b'] = unit_cells[:, 1]
     results_array['c'] = unit_cells[:, 2]
@@ -783,6 +1049,7 @@ def _save_unit_cell_data(root, group_name, unit_cell_data):
     results_array['beta'] = unit_cells[:, 4]
     results_array['gamma'] = unit_cells[:, 5]
 
+    # Save lattice parameter errors
     results_array['a_err'] = unit_cell_errors[:, 0]
     results_array['b_err'] = unit_cell_errors[:, 1]
     results_array['c_err'] = unit_cell_errors[:, 2]
@@ -790,37 +1057,63 @@ def _save_unit_cell_data(root, group_name, unit_cell_data):
     results_array['beta_err'] = unit_cell_errors[:, 4]
     results_array['gamma_err'] = unit_cell_errors[:, 5]
 
+    # Save additional parameters
     results_array['q_loss'] = q_losses
     results_array['is_converged'] = is_converged
     results_array['score'] = score
+
+    # Overwrite existing dataset if it exists
     if f"unit_cell_data" in group:
         del group[f"unit_cell_data"]
+
+    # Create new dataset in HDF5 group
     group.create_dataset(f"unit_cell_data", data=results_array, dtype=unit_cell_data_dtype)
 
 
 def _save_matched_data(root, group_name, matched_data):
+    """
+        Save mlgidMATCH data results to an HDF5 group.
+
+        Parameters
+        ----------
+        root : h5py.File or h5py.Group
+            The root HDF5 object containing the target group.
+        group_name : str
+            The HDF5 group where matched data will be stored.
+        matched_data : tuple
+            A tuple containing:
+            - data_matched : dict
+                Dictionary containing probability data for peaks.
+            - unique_solutions : dict
+                Dictionary mapping keys to lists of unique solutions.
+    """
+
     group = root[group_name]
     data_matched, unique_solutions = matched_data
+
+    # Take the first key
     key = list(unique_solutions.keys())[0]
+
+    # Iterate over all solutions for this key
     for i, sol in enumerate(unique_solutions[key]):
         indices, names = zip(*[(el[0], el[1] + ' ' + str(el[2])) for el in sol])
-        # indices, names = zip(*list({(el[0], el[1] + ' ' + str(el[2])) for el in sol}))
-        # print(f"Names = {names}")
+
         dtype_descr = list({(n, np.float32) for n in names})
-        # dtype_descr = [(n, np.float32) for n in names]
-        # print("dtype_descr", dtype_descr)
-        try:
-            results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
-            # print("results_array", results_array)
-        except:
-            raise
+        # Initialize structured array to store results
+        results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
+
         cur_data = data_matched[key]
+
+        # Fill structured array with probabilities
         for idx, name in zip(indices, names):
             cur_data = cur_data[idx]
             results_array[name][cur_data['indices_real_matched_all']] = cur_data['probability']
             results_array[name][cur_data['indices_real_matched']] = cur_data['probability']
+
+        # Overwrite existing dataset if it exists
         if f"solution_{i}" in group:
             del group[f"solution_{i}"]
+        # Create dataset for the solution
         group.create_dataset(f"solution_{i}", data=results_array, dtype=dtype_descr)
 
 
@@ -846,14 +1139,40 @@ pygid_results_dtype = np.dtype([
 
 
 def _save_img_container_detect(root, group_name, img_container_detect):
+    """
+    Save detected data from mlgidDETECT to the HDF5 group.
+
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object containing the target group.
+    group_name : str
+        The name of the HDF5 group where detected peaks will be stored.
+    img_container_detect : mlgidDETECT.ImageContainer
+        Container of detected image results to be saved.
+    """
+    # Convert detected images to structured array
     results_array = get_results_detect_array(img_container_detect)
     group = root[group_name]
+
+    # Remove existing dataset if it exists
     if 'detected_peaks' in group:
         del group['detected_peaks']
+
+    # Create dataset for detected peaks
     group.create_dataset('detected_peaks', data=results_array, dtype=pygid_results_dtype)
 
 
 def get_results_detect_array(img_container):
+    """
+        Convert detected image container data into a structured NumPy array.
+
+        Parameters
+        ----------
+        img_container : object
+            An object containing detected image properties. Expected to have attributes:
+            - radius_width, angle, angle_width, radius, qzqxyboxes, scores
+    """
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = [0] * len(img_container.radius_width)
     results_array['angle'] = img_container.angle
@@ -876,18 +1195,45 @@ def get_results_detect_array(img_container):
 
 
 def _save_img_container_fit(root, group_name, img_container_fit):
+    """
+    Save fitted peaks data from pygidFIT and associated errors to an HDF5 group.
+
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object containing the target group.
+    group_name : str
+        The HDF5 group where fitted peaks and errors will be stored.
+    img_container_fit : pygidFIT.ImageContainer object
+        Container of fitted image results.
+    """
+
+    # Convert fitted images to structured arrays
     results_array = get_results_fit_array(img_container_fit)
     results_err_array = get_results_fit_err_array(img_container_fit)
     group = root[group_name]
+
+    # Remove existing datasets if they exist
     if 'fitted_peaks' in group:
         del group['fitted_peaks']
-    group.create_dataset('fitted_peaks', data=results_array, dtype=pygid_results_dtype)
     if 'fitted_peaks_errors' in group:
         del group['fitted_peaks_errors']
+    # Create datasets for fitted peaks and errors
+    group.create_dataset('fitted_peaks', data=results_array, dtype=pygid_results_dtype)
     group.create_dataset('fitted_peaks_errors', data=results_err_array, dtype=pygid_results_dtype)
 
 
 def get_results_fit_array(img_container):
+    """
+        Convert fitted image container data into a structured NumPy array.
+
+        Parameters
+        ----------
+        img_container : pygidFIT.ImageContainer object
+            Container of fitted image results. Expected to have attributes:
+            amplitude, angle, angle_width, radius, radius_width, qzqxyboxes,
+            theta, A, B, C, is_ring, is_cut_qz, is_cut_qxy, visibility, score, id
+    """
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = img_container.amplitude
     results_array['angle'] = img_container.angle
@@ -910,6 +1256,17 @@ def get_results_fit_array(img_container):
 
 
 def get_results_fit_err_array(img_container):
+    """
+        Convert fitted image container error data into a structured NumPy array.
+
+        Parameters
+        ----------
+        img_container : pygidFIT.ImageContainer object
+            Container of fitted peaks errors. Expected to have attributes:
+            amplitude_err, angle_err, angle_width_err, radius_err, radius_width_err,
+            qzqxyboxes_err, theta_err, A_err, B_err, C_err, is_ring, is_cut_qz,
+            is_cut_qxy, visibility, score, id
+    """
     results_array = np.zeros(len(img_container.radius_width), dtype=pygid_results_dtype)
     results_array['amplitude'] = img_container.amplitude_err
     results_array['angle'] = img_container.angle_err

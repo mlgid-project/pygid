@@ -52,7 +52,7 @@ class ExpParams:
             The dimensions of the image (e.g., width and height in pixels).
         k : float, optional
             A wave vector. Calculated automatically from wavelength.
-        ai: float, optional
+        ai: float or list, optional
             Angle of incidence in GID experiments (in degrees) (default is 0).
         scan: str, optional
             A command that was called for the measurement of the angular scan.
@@ -63,7 +63,7 @@ class ExpParams:
     Example:
         --------
         exp_config = ExpParams( poni_path = 'LaB6.poni',
-                        mask_path = 'mask_new.npy',
+                        mask_path = 'mask.npy',
                         fliplr = True, flipud = True, transp = False, count_range = [0,1000],  ai = 0)
        """
 
@@ -91,7 +91,19 @@ class ExpParams:
     scan: str = None
 
     def __post_init__(self):
+        """Post-initialization hook to prepare experimental parameters.
 
+            This method performs several setup operations after dataclass initialization:
+            - Parses and constructs the incident angle (`ai`) list from the scan string.
+            - Loads a detector mask from either a `.npy` or image-based mask file.
+            - Reads experimental geometry parameters from a PONI file if provided.
+            - Updates experimental parameters based on image dimensions.
+            - Performs a final parameter consistency check.
+
+            Raises:
+                ValueError: If a specified mask file cannot be found or read.
+            """
+        # Parse and generate the list of incident angles if scan information is provided
         if self.scan is not None:
             parts = self.scan.split()
             if len(parts) != 3:
@@ -99,8 +111,9 @@ class ExpParams:
             else:
                 start, end, num_points = float(parts[0]), float(parts[1]), int(parts[2])
             self.ai = np.round(np.linspace(start, end, num_points + 1), 4).tolist()
-            print(f"ai list: {self.ai}")
+            print(f"ai list calculated: {self.ai}")
 
+        # Load the detector mask (supports .npy or Fabio-compatible image formats)
         if self.mask_path is not None:
             extension = os.path.splitext(self.mask_path)[1]
             if extension == '.npy':
@@ -110,17 +123,19 @@ class ExpParams:
                     self.mask = fabio.open(self.mask_path).data.astype(bool)
                 except:
                     raise ValueError("Mask file not found.")
-
+        # Load geometry calibration parameters from the PONI file
         if self.poni_path is not None:
             self.read_from_file(self.poni_path)
+
+        # Update experimental parameters if image dimensions are defined
         if self.img_dim is not None:
             self._exp_params_update_()
-
+        # Validation to ensure all parameters are consistent and correctly set
         self.check_params()
 
     def check_params(self):
         """
-                Checks if all necessary parameters are provided
+                Validation to ensure all parameters are consistent and correctly set
         """
         if self.px_size is None:
             raise ValueError('px_size is not set and Detector was not recognized. Please provide.')

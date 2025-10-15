@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pygid
-Version: 0.1.15
+Version: 0.1.16
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
 Home-page: https://github.com/mlgid-project/pygid
 Author: Ainur Abukaev
@@ -28,6 +28,16 @@ Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # pygid
 

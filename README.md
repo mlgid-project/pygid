@@ -40,7 +40,7 @@ Below is a short example of how to use the package.
 import pygid
 
 # loading of poni-file and mask 
-params = pygid.ExpParams(poni_path='example/LaB6_new.poni',
+params = pygid.ExpParams(poni_path='example/LaB6.poni',
                          mask_path='example/mask.npy',
                          ai=0.1,
                          fliplr=True, flipud=True, transp=False)
