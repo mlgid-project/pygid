@@ -314,11 +314,11 @@ averages along angle or radial axes, respectively.
 Horizontal profile horiz_profile_gid() makes transformation to the GID coordinates and averages in the given q_z range.
 
 For the transmission geometry use radial_profile() and azim_profile() functions.
-
+The functions return x-axis (q_abs, ang or q_xy) and list of profiles. 
 ```python
 
 q, intensity = analysis.radial_profile_gid(
-                    frame_num=None,                   # Frame number(s) to analyze; if None, all are processed
+                    frame_num=None,                   # Frame number(s) or list of numbers to analyse; if None, all are processed
                     radial_range=(0,4),               # Radial q-range (min, max) in Å⁻¹; full range if None
                     angular_range=(0, 90),            # Angular range in degrees (min, max) for integration
                     dang=0.5,                         # Angular resolution in degrees for binning

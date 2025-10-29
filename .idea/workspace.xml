@@ -5,19 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="Comments and Docstring were added">
-      <change afterPath="$PROJECT_DIR$/pygid/visualization.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/DIP_metadata.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/LaB6.poni" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/LaB6_0001.edf" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/mask.npy" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/pygid example.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/example/pygid example.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/coordmaps.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/coordmaps.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/dataloader.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -103,7 +93,7 @@
       <workItem from="1760626933275" duration="5408000" />
       <workItem from="1761048643164" duration="703000" />
       <workItem from="1761132082024" duration="11204000" />
-      <workItem from="1761214359179" duration="34287000" />
+      <workItem from="1761214359179" duration="34889000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -377,7 +367,15 @@
       <option name="project" value="LOCAL" />
       <updated>1760547451327</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="Comments and Docstring were added">
+      <option name="closed" value="true" />
+      <created>1761749826472</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1761749826472</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
