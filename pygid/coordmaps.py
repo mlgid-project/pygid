@@ -154,6 +154,7 @@ class CoordMaps:
     path_to_save: str = None
     path_to_load: str = None
     sub_matrices: Any = None
+    logger: Any = None
 
     def __post_init__(self):
         """

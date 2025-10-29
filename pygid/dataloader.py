@@ -252,7 +252,7 @@ class DataLoader:
                 return root[dataset][:, roi[0], roi[1]].astype('float32') if len(dataset_shape) == 3 else root[dataset][
                     roi[0], roi[1]].astype('float32')
 
-            elif isinstance(frame_num, list):
+            elif isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
                 if len(frame_num) > self.batch_size:
                     print(
                         f"Number of frames is more than {self.batch_size}. The batch processing has been activated.")
@@ -269,44 +269,46 @@ class DataLoader:
         Stitches together individual detector image pieces into a full Lambda detector image (DESY).
         """
 
-        if isinstance(self.path, list):
-            translation = []
-            data = []
-            flatfield = []
-            mask = []
-
-            for file in self.path:
-                with h5py.File(file, 'r') as root:
-                    translation.append(root['entry/instrument/detector/translation/distance'][:])
-                    data.append(root['entry/instrument/detector/data'][:].astype(np.float32))
-                    flatfield.append(root['entry/instrument/detector/flatfield'][:].astype(np.float32))
-                    mask.append(root['entry/instrument/detector/pixel_mask'][:])
-
-            translation = np.array(translation).astype(np.int32)
-            data_shape = np.array([d.shape for d in data])
-            max_translation = translation.max(axis=0)
-            max_translation = np.array(max_translation)[::-1]
-            max_data_shape = data_shape.max(axis=0)
-
-            lmbd_img = np.full((
-                int(max_data_shape[0] + max_translation[0]),
-                int(max_data_shape[1] + max_translation[1]),
-                int(max_data_shape[2] + max_translation[2])
-            ), -1, dtype=np.float32)
-
-            for i, (d, ff, m, t) in enumerate(zip(data, flatfield, mask, translation)):
-                t = t[::-1]
-                slices = tuple(slice(t[j], t[j] + d.shape[j]) for j in range(3))
-                lmbd_img[slices] = d * ff
-                lmbd_img[slices][:, (m[0, :, :]).astype(bool)] = -1
-            lmbd_img[lmbd_img < 0] = np.nan
-            image = fabio.tifimage.TifImage(lmbd_img[0])
-            image.write("reconstructed_image.tiff")
-            print("Reconstructed image saved to reconstructed_image.tiff")
-            del translation, data, flatfield, mask
-            return lmbd_img
-        else:
+        if not isinstance(self.path, list):
             raise ValueError('path should be a list of strings, when build_image_P03 is True')
+
+        translation = []
+        data = []
+        flatfield = []
+        mask = []
+
+        for file in self.path:
+            with h5py.File(file, 'r') as root:
+                translation.append(root['entry/instrument/detector/translation/distance'][:])
+                data.append(root['entry/instrument/detector/data'][:].astype(np.float32))
+                flatfield.append(root['entry/instrument/detector/flatfield'][:].astype(np.float32))
+                mask.append(root['entry/instrument/detector/pixel_mask'][:])
+
+        translation = np.array(translation).astype(np.int32)
+        data_shape = np.array([d.shape for d in data])
+        max_translation = translation.max(axis=0)
+        max_translation = np.array(max_translation)[::-1]
+        max_data_shape = data_shape.max(axis=0)
+
+        lmbd_img = np.full((
+            int(max_data_shape[0] + max_translation[0]),
+            int(max_data_shape[1] + max_translation[1]),
+            int(max_data_shape[2] + max_translation[2])
+        ), -1, dtype=np.float32)
+
+        for i, (d, ff, m, t) in enumerate(zip(data, flatfield, mask, translation)):
+            t = t[::-1]
+            slices = tuple(slice(t[j], t[j] + d.shape[j]) for j in range(3))
+            lmbd_img[slices] = d * ff
+            lmbd_img[slices][:, (m[0, :, :]).astype(bool)] = -1
+        lmbd_img[lmbd_img < 0] = np.nan
+        image = fabio.tifimage.TifImage(lmbd_img[0])
+        image.write("reconstructed_image.tiff")
+        print("Reconstructed image saved to reconstructed_image.tiff")
+        del translation, data, flatfield, mask
+        return lmbd_img
+
+
 
 
 def check_file_exists(filepath):

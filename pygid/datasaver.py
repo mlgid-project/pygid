@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import os
+from pathlib import Path
 import yaml
 from dataclasses import dataclass
 from typing import Any
@@ -43,6 +44,8 @@ class ExpMetadata:
         # Dynamically assign all provided keyword arguments as attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
+        if not hasattr(self, 'extend_fields'):
+            self.extend_fields = []
 
     def __setattr__(self, name, value):
         self.__dict__[name] = value
@@ -136,7 +139,7 @@ class SampleMetadata:
                     f.write(f"{key}={value}\n")
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
-        self.logger.info(f"Saved sample metadata to {filepath}")
+        self.logger.info(f"Saved sample metadata to {Path(filepath).resolve()}")
 
     def load(self, filepath=None):
         filepath = filepath or self.path_to_load
@@ -340,6 +343,8 @@ class DataSaver:
                 self.exp_metadata = ExpMetadata(filename=self.original_path)
             if not hasattr(self.exp_metadata, "filename"):
                 self.exp_metadata.filename = self.original_path
+            if not 'filename' in self.exp_metadata.extend_fields:
+                self.exp_metadata.extend_fields.append('filename')
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
 
             # Save sample metadata
@@ -355,7 +360,7 @@ class DataSaver:
             fill_process_group(root, self.h5_group, self.matrix)
             fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
                                 self.matched_data, self.unit_cell_data)
-            self.logger.info(f"Saved in {self.path_to_save} in group {self.h5_group}")
+            self.logger.info(f"Saved in {Path(self.path_to_save).resolve()} in group {self.h5_group}")
         return
 
 
@@ -411,7 +416,7 @@ def save_matrix(root, h5_group, matrix, img_name):
     for name in coords_dict:
         data = coords_dict[name]
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float32), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
+                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
 
     # Add 'signal' and 'axes' attributes for NeXus compliance and silx visualisation
     if len(keys) == 2:
@@ -728,28 +733,31 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
                          'wavelength_spread', required=False)
     save_single_metadata(root[f"/{h5_group}/instrument/detector"], exp_metadata, 'name', 'detector_name',
                          required=False)
-    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=True)
-    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True)
+    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'start_time', 'start_time', "NX_DATE_TIME", required=True,
+                         extend_list=True if 'start_time' in exp_metadata.extend_fields else False)
+    save_single_metadata(root[f"/{h5_group}"], exp_metadata, 'end_time', 'end_time', "NX_DATE_TIME", required=True,
+                         extend_list=True if 'end_time' in exp_metadata.extend_fields else False)
     # metadata that shold be extended
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'frame_idx', 'frame_idx', required=False,
-                         extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'epoch', 'epoch', required=False,
-                         extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'mon', 'mon', required=False,
-                         extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'watt0', 'watt0', required=False,
-                         extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'transmission', 'transmission', required=False,
-                         extend_list=True)
+    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'frame_idx', 'frame_idx', required=False,
+    #                      extend_list=True)
+    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'epoch', 'epoch', required=False,
+    #                      extend_list=True)
+    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'mon', 'mon', required=False,
+    #                      extend_list=True)
+    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'watt0', 'watt0', required=False,
+    #                      extend_list=True)
+    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'transmission', 'transmission', required=False,
+    #                      extend_list=True)
 
-    saved_attr = ['instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
+    saved_attr = ['extend_fields','instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
                   'source_name', 'start_time', 'end_time', 'detector_name', 'detector', 'source',
-                  'filename', 'frame_idx', 'epoch', 'mon']
+                  'filename']
     for attr_name in exp_metadata.__dict__:
         if attr_name not in saved_attr:
-            save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, attr_name, attr_name, extend_list=False)
+            save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, attr_name, attr_name,
+                                 extend_list=True if attr_name in exp_metadata.extend_fields else False)
 
 
 def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):

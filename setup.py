@@ -18,7 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=[
-        'numpy>=1.21.0,<2.0',
+        'numpy>=1.21.0,<3.0',
         'h5py>=3.12.1,<4.0',
         'fabio>=2024.9.0,<2025.0',
         'tifffile>=2023.7.18,<2024.0',

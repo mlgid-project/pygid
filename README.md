@@ -13,8 +13,14 @@ result as a NXsas file.
 
 ### Install using pip
 
+[//]: # (```bash)
+
+[//]: # (pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid)
+
+[//]: # (```)
+
 ```bash
-pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid
+pip install pygid
 ```
 
 ### Install from source
@@ -120,9 +126,11 @@ exp_metadata = pygid.ExpMetadata(
     start_time=r"2021-03-29T15:51:41.343788",
     end_time=r"2021-03-29T15:52:45.235658",
     source_type="synchrotron",
-    source_name="ESRF ID10",
+    source_name="ESRF",
     detector_name="eiger4m",
-    instrument_name="ID10")
+    instrument_name="ID10",
+    monitor = 1.1e6,
+    extend_fields = ['start_time', 'monitor'])
 
 data = {
     "name": "240306_DIP",
@@ -149,7 +157,7 @@ data = {
 }
 smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
 ```
-
+If extend_fields is provided as a list of field names, the corresponding parameters will be appended to the existing dataset as they change dynamically. Otherwise, each parameter will overwrite the previous value. 
 Sample metadata can be saved as an YAML file using path_to_save and loaded from an YAML file using path_to_load.
 
 4. Create CoordMaps instance based on ExpParams. If ExpParams instance (params) consists of a list of incident angles,
@@ -386,11 +394,11 @@ analysis.set_plot_defaults(cmap = 'jet')
 ```
 The whole list of keys:
 ```python
-set_plot_defaults(
-    font_size=14,                  # Default font size for text elements (e.g., title, labels, ticks)
+analysis.set_plot_defaults(
+    font_size=14,                 # Default font size for text elements (e.g., title, labels, ticks)
     axes_titlesize=14,            # Font size for axes titles
     axes_labelsize=18,            # Font size for axes labels (x and y)
-    grid=False,                   # Whether or not to display gridlines
+    grid=False,                   # Whether to display gridlines
     grid_color='gray',            # Color of the gridlines
     grid_linestyle='--',          # Line style of the gridlines (e.g., '--', '-', ':')
     grid_linewidth=0.5,           # Width of the gridlines
@@ -414,10 +422,6 @@ set_plot_defaults(
     line_marker=None,             # Marker style for plot lines (e.g., 'o', 'x')
     scatter_marker='o',           # Marker style for scatter plots (e.g., 'o', 'x')
     scatter_edgecolors='black',   # Color for the edges of scatter plot markers
-    grid_major_linestyle='-',     # Style of major gridlines (e.g., '-', '--')
-    grid_minor_linestyle=':',     # Style of minor gridlines (e.g., ':')
-    grid_major_linewidth=0.7,     # Width of major gridlines
-    grid_minor_linewidth=0.3,     # Width of minor gridlines
     cmap='inferno'                # Colormap for images (e.g., 'inferno', 'viridis')
 )
 ```
