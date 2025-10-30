@@ -10,11 +10,12 @@ import warnings
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format="%(levelname)s - %(message)s"
 )
-
 
 @dataclass
 class CorrMaps:
@@ -63,25 +64,16 @@ class CoordMaps:
     ----------
     params : ExpParams, optional
         Experimental parameters.
-    ai : float, optional
-        Incident angle (in degrees). Each matrix should have only one ai;
-        otherwise, sub_matrices are created automatically.
-    q_max : np.ndarray, optional
-        Maximum q-vector values. Can be provided or calculated from the raw image frame.
-    q_min : np.ndarray, optional
-        Minimum q-vector values.
-    img_dim : np.ndarray, optional
-        Dimensions of the raw image frame.
     hor_positive : bool, default=False
         Flag to use only positive horizontal axis values relative to the direct beam.
     vert_positive : bool, default=False
         Flag to use only positive vertical axis values relative to the direct beam.
-    ang_min : float, optional
-        Minimum azimuthal angle (in degrees). Default is 0.
-    ang_max : float, optional
-        Maximum azimuthal angle (in degrees, CCW from horizon). Default is 90.
+    img_dim : np.ndarray, optional
+        Dimensions of the raw image frame.
     q_xy_range, q_z_range, q_x_range, q_y_range : optional
         Q-space ranges for GID or transmission experiments.
+    radial_range, angular_range : optional
+        q- and angle- ranges.
     dq : float, optional
         Step size in q-space.
     dang : float, default=0.3
@@ -107,6 +99,9 @@ class CoordMaps:
         Path from which coordinate map will be loaded (.pkl format).
     sub_matrices : Any, optional
         Automatically created if `params` contains a list of incident angles.
+    ai : float, optional
+        Incident angle (in degrees). Each matrix should have only one ai;
+        otherwise, sub_matrices are created automatically.
 
     Example
     -------
@@ -121,19 +116,16 @@ class CoordMaps:
     """
 
     params: ExpParams = None
-    ai: float = None
-    q_max: Optional[np.array] = None
-    q_min: Optional[np.array] = None
     img_dim: Optional[np.array] = None
     hor_positive: bool = False
     vert_positive: bool = False
-    ang_min: float = None
-    ang_max: float = None
-    q_xy_range: Any = None
-    q_z_range: Any = None
-    q_x_range: Any = None
-    q_y_range: Any = None
+    q_xy_range: tuple = None
+    q_z_range: tuple = None
+    q_x_range: tuple = None
+    q_y_range: tuple = None
     dq: float = None
+    radial_range: tuple = None
+    angular_range: tuple = None
     dang: float = 0.3
     corr_matrices: CorrMaps = None
     make_pol_corr: bool = False
@@ -155,6 +147,7 @@ class CoordMaps:
     path_to_load: str = None
     sub_matrices: Any = None
     logger: Any = None
+    ai: float = None
 
     def __post_init__(self):
         """
@@ -199,6 +192,9 @@ class CoordMaps:
             for angle in self.ai:
                 attrs["ai"] = angle
                 self.sub_matrices.append(CoordMaps(**attrs))
+
+        if self.path_to_save is not None:
+            self.save_instance()
 
     def save_instance(self):
         """
@@ -253,7 +249,6 @@ class CoordMaps:
         """
         # calculate ranges if they are not already defined
         if self.q_xy_range is None or self.q_z_range is None:
-
             # Convert pixel positions to lab-frame q-vectors if not done yet
             if not hasattr(self, 'q_lab_from_p'):
                 self.q_lab_from_p = self._p_to_q_lab_(calc_type="corner")
@@ -280,60 +275,47 @@ class CoordMaps:
             self.q_z_range[0] = self.q_z_range[0] if not self.vert_positive else np.maximum(self.q_z_range[0], 0)
 
         # Only calculate if q_min or q_max are not already defined
-        if self.q_max is None or self.q_min is None:
-            # Convert pixel positions to lab-frame q-vectors if not done yet
+
+        if self.radial_range is None:
             if not hasattr(self, 'q_lab_from_p'):
                 self.q_lab_from_p = self._p_to_q_lab_(calc_type="corner")
-
-            # Convert lab-frame q to sample-frame q and compute absolute range
             q_min, q_max = self._find_q_abs_(
                 self._q_lab_to_q_smpl_(
                     self.q_lab_from_p,
                     ai=self.ai
                 )
             )
-            if self.q_min is None:
-                self.q_min = q_min
-            if self.q_max is None:
-                self.q_max = q_max
-
-            # Update radial range for convenience
-            self.radial_range = [self.q_min, self.q_max]
+            self.radial_range = (q_min, q_max)
 
     def _find_ang_ranges_(self):
         """
             Calculate angular range (ang_min, ang_max) for the sample.
 
-            Updates self.ang_min, self.ang_max, and self.angular_range based on
+            Updates self.angular_range based on
             pixel positions and experimental parameters. Applies horizontal
             or vertical positivity constraints if specified.
         """
         # Only calculate if ang_min or ang_max are not already defined
-        if self.ang_max is None or self.ang_min is None:
-            # Convert pixel positions to lab-frame q-vectors if not done yet
-            if not hasattr(self, 'q_lab_from_p'):
+        if self.angular_range is not None:
+            return
+
+        if not hasattr(self, 'q_lab_from_p'):
+            self.q_lab_from_p = self._p_to_q_lab_(calc_type="frame")
+        else:
+            # Recalculate if q has certain shapes (corner cases)
+            if len(self.q) in [4, 6, 8]:
                 self.q_lab_from_p = self._p_to_q_lab_(calc_type="frame")
-            else:
-                # Recalculate if q has certain shapes (corner cases)
-                if len(self.q) in [4, 6, 8]:
-                    self.q_lab_from_p = self._p_to_q_lab_(calc_type="frame")
-            # Compute angular range from q_lab_from_p
-            ang_min, ang_max = self._find_ang_()
-            if self.ang_min is None:
-                self.ang_min = ang_min
-            if self.ang_max is None:
-                self.ang_max = ang_max
+        ang_min, ang_max = self._find_ang_()
+        # Apply horizontal/vertical positivity constraints
+        if self.hor_positive:
+            ang_min = max(ang_min, -90)
+            ang_max = min(ang_max, 90)
+        if self.vert_positive:
+            ang_min = max(ang_min, 0)
+            ang_max = min(ang_max, 180)
+        # Update angular range
+        self.angular_range = (ang_min, ang_max)
 
-            # Apply horizontal/vertical positivity constraints
-            if self.hor_positive:
-                self.ang_min = max(self.ang_min, -90)
-                self.ang_max = min(self.ang_max, 90)
-            if self.vert_positive:
-                self.ang_min = max(self.ang_min, 0)
-                self.ang_max = min(self.ang_max, 180)
-
-            # Update angular range
-            self.angular_range = [ang_max, ang_min]
 
     def _find_ang_(self):
         """
@@ -572,16 +554,16 @@ class CoordMaps:
             Parameters
             ----------
             radial_range : tuple[float, float], optional
-                Radial q-range (default: (self.q_min, self.q_max)).
+                Radial q-range (default: self.radial_range ).
             angular_range : tuple[float, float], optional
-                Angular range in degrees (default: (self.ang_min, self.ang_max)).
+                Angular range in degrees (default: self.angular_range).
             dang : float, optional
                 Angular step in degrees (default: self.dang).
             dq : float, optional
                 Radial q-step (default: self.dq).
         """
-        radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
-        angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        radial_range = self.radial_range if radial_range is None else radial_range
+        angular_range = self.angular_range if angular_range is None else angular_range
         dang = self.dang if dang is None else dang
         self.dang = dang
         dq = self.dq if dq is None else dq
@@ -682,16 +664,16 @@ class CoordMaps:
             Parameters
             ----------
             radial_range : tuple[float, float], optional
-                Range of radial q values (Å⁻¹). Defaults to (self.q_min, self.q_max).
+                Range of radial q values (Å⁻¹). Defaults to self.radial_range.
             angular_range : tuple[float, float], optional
-                Range of azimuthal angles (degrees). Defaults to (self.ang_min, self.ang_max).
+                Range of azimuthal angles (degrees). Defaults to self.angular_range.
             dang : float, optional
                 Step size in azimuthal angle (degrees). Defaults to self.dang.
             dq : float, optional
                 Step size in radial q (Å⁻¹). Defaults to self.dq.
             """
-        radial_range = (self.q_min, self.q_max) if radial_range is None else radial_range
-        angular_range = (self.ang_min, self.ang_max) if angular_range is None else angular_range
+        radial_range = self.radial_range if radial_range is None else radial_range
+        angular_range = self.angular_range if angular_range is None else angular_range
         dang = self.dang if dang is None else dang
         self.dang = dang
         dq = self.dq if dq is None else dq
@@ -1101,15 +1083,15 @@ class CoordMaps:
             Q_z : ndarray
                 Out-of-plane q-values in Cartesian coordinates (Å⁻¹).
         """
-        q_rad = np.arange(self.q_min, self.q_max, dq)
-        ang_range = [self.ang_min, self.ang_max]
+        q_rad = np.arange(self.radial_range[0], self.radial_range[1], dq)
+        ang_range = self.angular_range
         if not hasattr(self, 'phi'):
             self._find_ang_()
         q = self.q
         q_abs = np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2 + q[..., 2] ** 2)
         phi = np.arctan2(q[..., 2], np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2) * np.sign(-q[..., 1]))
-        phi[phi > np.radians(self.ang_max)] = np.nan
-        phi[phi < np.radians(self.ang_min)] = np.nan
+        phi[phi > np.radians(self.angular_range[1])] = np.nan
+        phi[phi < np.radians(self.angular_range[0])] = np.nan
         self.q_rad, self.phi = q_rad, phi
         q_phi = q_abs * phi
         if q_gid_rad_range is not None:
@@ -1157,8 +1139,8 @@ class CoordMaps:
 
         q = self.q
         q_abs = np.linalg.norm(q, axis=-1)
-        q_rad = np.arange(self.q_min, self.q_max, dq)
-        ang_range = [self.ang_min, self.ang_max]
+        q_rad = np.arange(self.radial_range[0], self.radial_range[1], dq)
+        ang_range = self.angular_range
         phi = np.arctan2(q[..., 2], -q[..., 1])
         phi[phi > np.radians(ang_range[1])] = np.nan
         phi[phi < np.radians(ang_range[0])] = np.nan

@@ -412,27 +412,24 @@ class Conversion:
             q_z_range.append(self.matrix[ai_min_index].q_z_range[0])
             corr_matrices = self.matrix[ai_min_index].corr_matrices
             q = self.matrix[ai_min_index].q
-            q_min = self.matrix[ai_min_index].q_min
-            ang_min = self.matrix[ai_min_index].ang_min
-            ang_max = self.matrix[ai_min_index].ang_max
+            q_min = self.matrix[ai_min_index].radial_range[0]
+            ang_min = self.matrix[ai_min_index].angular_range[0]
+            ang_max = self.matrix[ai_min_index].angular_range[1]
             q_lab_from_p = self.matrix[ai_min_index].q_lab_from_p
 
             ai_max_index = np.argmax([matrix.ai for matrix in self.matrix])
             self.matrix[ai_max_index].corr_matrices = []
-            self.matrix[ai_max_index].ang_min = ang_min
-            self.matrix[ai_max_index].ang_max = ang_max
+            self.matrix[ai_max_index].angular_range = (ang_min, ang_max)
             self.matrix[ai_max_index]._coordmaps_update_()
             q_xy_range.append(self.matrix[ai_max_index].q_xy_range[1])
             q_z_range.append(self.matrix[ai_max_index].q_z_range[1])
-            q_max = self.matrix[ai_max_index].q_max
+            q_max = self.matrix[ai_max_index].radial_range[1]
 
             for matrix in self.matrix:
                 matrix.q_xy_range = q_xy_range
                 matrix.q_z_range = q_z_range
-                matrix.q_max = q_max
-                matrix.q_min = q_min
-                matrix.ang_max = ang_max
-                matrix.ang_min = ang_min
+                matrix.radial_range = (q_min, q_max)
+                matrix.angular_range = (ang_min, ang_max)
                 matrix.q = q
                 matrix.corr_matrices = []
                 matrix._coordmaps_update_()
@@ -1033,10 +1030,10 @@ class Conversion:
             return res
 
         # Determine whether recalculation of coordinate transformation matrices is required
-        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+        recalc = ((determine_recalc_key(angular_range, self.matrix[0].angular_range,
                                         self.matrix[0].ang_pol, self.matrix[0].dang) \
                        if hasattr(self.matrix[0], "ang_pol") else True) or
-                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                  (determine_recalc_key(radial_range, self.matrix[0].radial_range,
                                         self.matrix[0].q_pol, self.matrix[0].dq) \
                        if hasattr(self.matrix[0], "q_pol") else True))
         if dq is not None:
@@ -1173,10 +1170,10 @@ class Conversion:
             return res
 
         # Determine whether recalculation of GID polar coordinate matrices is required
-        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+        recalc = ((determine_recalc_key(angular_range, self.matrix[0].angular_range,
                                         self.matrix[0].ang_gid_pol, self.matrix[0].dang) \
                        if hasattr(self.matrix[0], "ang_gid_pol") else True) or
-                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                  (determine_recalc_key(radial_range, self.matrix[0].radial_range,
                                         self.matrix[0].q_gid_pol, self.matrix[0].dq) \
                        if hasattr(self.matrix[0], "q_gid_pol") else True))
         if dq is not None:

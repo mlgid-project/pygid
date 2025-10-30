@@ -7,8 +7,9 @@
     <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="Comments and Docstring were added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example/pygid example.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/example/pygid example.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/coordmaps.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/coordmaps.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -93,7 +94,7 @@
       <workItem from="1760626933275" duration="5408000" />
       <workItem from="1761048643164" duration="703000" />
       <workItem from="1761132082024" duration="11204000" />
-      <workItem from="1761214359179" duration="34889000" />
+      <workItem from="1761214359179" duration="48006000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -375,7 +376,15 @@
       <option name="project" value="LOCAL" />
       <updated>1761749826472</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="Comments and Docstring were added">
+      <option name="closed" value="true" />
+      <created>1761750327281</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1761750327281</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
