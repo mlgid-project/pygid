@@ -16,6 +16,13 @@ Key features:
   <img src="docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
 </p>
 
+Usage examples can be found in [`example/pygid_example.ipynb`](example/pygid_example.ipynb) and on [https://doi.org/10.5281/zenodo.17466183](https://doi.org/10.5281/zenodo.17466183)
+
+### Citation
+
+Abukaev, A., Völter, C., Romodin, M., Schwartzkopff, S., Bertram, F., Konovalov, O., Hinderhofer, A., Lapkin, D., & Schreiber, F. (2025). *pygid: Fast Preprocessing of Grazing Incidence Diffraction Data (GID). Usage examples.*  
+[Data set]. Zenodo. [https://doi.org/10.5281/zenodo.17466183](https://doi.org/10.5281/zenodo.17466183)
+
 ## Installation
 
 ### Install using pip

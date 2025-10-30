@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="ang_min and ang_max parameters are changed to angular_range">
-      <change beforePath="$PROJECT_DIR$/tests/test_coordmaps.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_coordmaps.py" afterDir="false" />
+    <list default="true" id="a4f2fe58-d919-452c-b7b9-d10b87419f5a" name="Changes" comment="unique solutions are fixed in _save_matched_data">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +91,7 @@
       <workItem from="1760626933275" duration="5408000" />
       <workItem from="1761048643164" duration="703000" />
       <workItem from="1761132082024" duration="11204000" />
-      <workItem from="1761214359179" duration="48279000" />
+      <workItem from="1761214359179" duration="51302000" />
     </task>
     <task id="LOCAL-00001" summary="Added tests">
       <option name="closed" value="true" />
@@ -388,7 +389,23 @@
       <option name="project" value="LOCAL" />
       <updated>1761830898799</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="ang_min and ang_max parameters are changed to angular_range">
+      <option name="closed" value="true" />
+      <created>1761831137431</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1761831137431</updated>
+    </task>
+    <task id="LOCAL-00039" summary="unique solutions are fixed in _save_matched_data">
+      <option name="closed" value="true" />
+      <created>1761833751705</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1761833751705</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -414,7 +431,8 @@
     <MESSAGE value="saving of the unit cell added to the datasaver" />
     <MESSAGE value="Comments and Docstring were added" />
     <MESSAGE value="ang_min and ang_max parameters are changed to angular_range" />
-    <option name="LAST_COMMIT_MESSAGE" value="ang_min and ang_max parameters are changed to angular_range" />
+    <MESSAGE value="unique solutions are fixed in _save_matched_data" />
+    <option name="LAST_COMMIT_MESSAGE" value="unique solutions are fixed in _save_matched_data" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pygid$md.coverage" NAME="md Coverage Results" MODIFIED="1750154399646" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
