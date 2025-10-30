@@ -1106,7 +1106,7 @@ def _save_matched_data(root, group_name, matched_data):
     for i, sol in enumerate(unique_solutions[key]):
         indices, names = zip(*[(el[0], el[1] + ' ' + str(el[2])) for el in sol])
 
-        dtype_descr = list({(n, np.float32) for n in names})
+        dtype_descr = list({(n, np.float32) for n in np.unique(names)})
         # Initialize structured array to store results
         results_array = np.zeros(len(data_matched[key]['peaks']), dtype=np.dtype(dtype_descr))
 
@@ -1115,8 +1115,10 @@ def _save_matched_data(root, group_name, matched_data):
         # Fill structured array with probabilities
         for idx, name in zip(indices, names):
             cur_data = cur_data[idx]
-            results_array[name][cur_data['indices_real_matched_all']] = cur_data['probability']
-            results_array[name][cur_data['indices_real_matched']] = cur_data['probability']
+            mask = np.where(results_array[name] == 0)
+            results_array[name][np.intersect1d(mask, cur_data['indices_real_matched_all'])] = cur_data['probability']
+            mask = np.where(results_array[name] == 0)
+            results_array[name][np.intersect1d(mask, cur_data['indices_real_matched'])] = cur_data['probability']
 
         # Overwrite existing dataset if it exists
         if f"solution_{i}" in group:
