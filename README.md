@@ -27,17 +27,17 @@ Abukaev, A., Völter, C., Romodin, M., Schwartzkopff, S., Bertram, F., Konovalov
 
 ### Install using pip
 
-```bash
-
-pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid
-
-```
-
 [//]: # (```bash)
 
-[//]: # (pip install pygid)
+[//]: # ()
+[//]: # (pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid)
 
+[//]: # ()
 [//]: # (```)
+
+```bash
+pip install pygid
+```
 
 ### Install from source
 
@@ -54,7 +54,7 @@ cd pygid
 pip install -e .
 ```
 
-### How to use
+## How to use
 
 ## Short version
 Below is a minimal working example demonstrating how to use `pygid` to convert 2D detector images 

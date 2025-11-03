@@ -45,8 +45,7 @@ def test_coordmaps(test_data_paths):
     assert matrix.dq == 0.002, "dq changed"
     assert hasattr(matrix, "p_x_gid"), "p_x_gid was not calculated"
     assert hasattr(matrix, "p_y_gid"), "p_y_gid was not calculated"
-    assert matrix.q_max is not None, "q_max was not calculated"
-    assert matrix.q_min is not None, "q_min was not calculated"
+    assert matrix.radial_range is not None, "radial_range was not calculated"
     assert matrix.q_xy_range[0] < 0 and matrix.q_xy_range[1] > 0, "q_xy_range was not calculated correctly"
 
 def test_coordmaps_pos(test_data_paths):
@@ -81,8 +80,7 @@ def test_coordmaps_pos(test_data_paths):
     assert matrix.dq == 0.002, "dq changed"
     assert hasattr(matrix, "p_x_gid"), "p_x_gid was not calculated"
     assert hasattr(matrix, "p_y_gid"), "p_y_gid was not calculated"
-    assert matrix.q_max is not None, "q_max was not calculated"
-    assert matrix.q_min is not None, "q_min was not calculated"
+    assert matrix.radial_range is not None, "radial_range was not calculated"
     assert matrix.q_xy_range[0] == 0 and matrix.q_xy_range[1] > 0, "q_xy_range was not calculated correctly"
     assert matrix.q_z_range[0] == 0 and matrix.q_z_range[1] > 0, "q_z_range was not calculated correctly"
 

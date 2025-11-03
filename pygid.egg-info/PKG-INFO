@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygid
-Version: 0.1.16
+Version: 0.2.0
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
 Home-page: https://github.com/mlgid-project/pygid
 Author: Ainur Abukaev
@@ -8,7 +8,7 @@ Author-email: ainurabukaev@gmail.com
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<2.0,>=1.21.0
+Requires-Dist: numpy<3.0,>=1.21.0
 Requires-Dist: h5py<4.0,>=3.12.1
 Requires-Dist: fabio<2025.0,>=2024.9.0
 Requires-Dist: tifffile<2024.0,>=2023.7.18
@@ -41,21 +41,43 @@ Dynamic: summary
 
 # pygid
 
-## Fast Preprocessing of Grazing Incidence Diffraction Data (GID)
+## Fast Preprocessing of Grazing Incidence Diffraction (GID) Data 
 
-The package converts raw detector images into cylindrical, Cartesian, polar, and pseudopolar coordinates and saves the
-result as a NXsas file.
+The `pygid` package converts raw detector images into **cylindrical, Cartesian, polar, and pseudopolar coordinates** and saves the results in **NXsas (NeXus) format**.  
+
+Key features:
+- Supports **GID (reflection) and transmission geometries**.  
+- Performs **radial and azimuthal integration** to extract 1D line profiles.  
+- Handles **single frames, multiple frames, and batch processing**.  
+- Provides **polarization, solid angle, absorption, Lorentz, and detector corrections**.  
+- Integrates **simulation of GIWAXS patterns** using CIF crystal structure files (via `pygidSIM`).  
+- Allows you to **manage and save experimental and sample metadata** along with the converted data in NXsas (HDF5) files.
 
 <p align="center">
   <img src="docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
 </p>
 
+Usage examples can be found in [`example/pygid_example.ipynb`](example/pygid_example.ipynb) and on [https://doi.org/10.5281/zenodo.17466183](https://doi.org/10.5281/zenodo.17466183)
+
+### Citation
+
+Abukaev, A., Völter, C., Romodin, M., Schwartzkopff, S., Bertram, F., Konovalov, O., Hinderhofer, A., Lapkin, D., & Schreiber, F. (2025). *pygid: Fast Preprocessing of Grazing Incidence Diffraction Data (GID). Usage examples.*  
+[Data set]. Zenodo. [https://doi.org/10.5281/zenodo.17466183](https://doi.org/10.5281/zenodo.17466183)
+
 ## Installation
 
 ### Install using pip
 
+[//]: # (```bash)
+
+[//]: # ()
+[//]: # (pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid)
+
+[//]: # ()
+[//]: # (```)
+
 ```bash
-pip install --index-url https://test.pypi.org/simple --extra-index-url https://pypi.org/simple pygid
+pip install pygid
 ```
 
 ### Install from source
@@ -75,70 +97,83 @@ pip install -e .
 
 ## How to use
 
-Below is a short example of how to use the package.
+## Short version
+Below is a minimal working example demonstrating how to use `pygid` to convert 2D detector images 
+to reciprocal space coordinates in a grazing-incidence diffraction (GID) geometry.
+
 
 ```python
 import pygid
 
-# loading of poni-file and mask 
-params = pygid.ExpParams(poni_path='example/LaB6_new.poni',
-                         mask_path='example/mask.npy',
-                         ai=0.1,
-                         fliplr=True, flipud=True, transp=False)
+# Define file paths and experimental data
+data_path = r"eiger4m_0000_240124_PEN_DIP.edf"
+poni_path = r"LaB6_2024_07_ESRF_ID10.poni"
+mask_path = r"mask_2024_07_ESRF_ID10.npy"
 
-# creation of coordinate matrix based on given parameters
-matrix = pygid.CoordMaps(params)
+# Load experimental parameters from the PONI file
+params = pygid.ExpParams(
+    poni_path=poni_path,
+    mask_path=mask_path,
+    fliplr=True,
+    flipud=True,
+    transp=False,
+    ai=0.075,  # angle of incidence in degrees
+)
 
-# data loading
-data_path = "LaB6_0001.h5"
-analysis = pygid.Conversion(matrix=matrix, path=data_path, dataset='/1.1/measurement/eiger4m', frame_num=0)
+# Create coordinate maps based on geometry and experimental setup
+matrix = pygid.CoordMaps(
+    params,
+    vert_positive=True,
+    hor_positive=True,
+)
 
-# Conversion
-analysis.det2q_gid(plot_result=True, return_result=False,
-                   save_result=True, path_to_save="result.h5", clims=(50, 8000),
-                   exp_metadata=None, smpl_metadata=None)
-analysis.det2pol_gid(plot_result=True, return_result=False, save_result=False, clims=(50, 800), )
-analysis.det2pseudopol_gid(plot_result=True, return_result=False, save_result=False, clims=(50, 800), )
+# Initialize conversion instance and load the detector image
+analysis = pygid.Conversion(
+    matrix=matrix,
+    path=data_path,
+)
 
+# Perform GID geometry conversion and plot the result
+q_xy, q_z, img = analysis.det2q_gid(
+    plot_result=True,                            # plot the result of conversion
+    clims=(600, 1e5),                            # image color limits
+    save_fig=True, path_to_save_fig="240124_PEN_DIP_polar.png",  # save figure
+    return_result=True,                          # return arrays
+    save_result=True, path_to_save="240124_PEN_DIP_result.h5",   # save data as HDF5 (NXsas format)
+    overwrite_file=False,                        # append to existing file if present
+)
 ```
 
-### Detailed overview of package usage:
+## Detailed overview:
 
-1. Import pygid
+### 1. Import pygid
 
 ```python
 import pygid
 ```
 
-2. Create an instance of ExpParams, the class which contains the experimental parameters. Load poni-file and mask.edf(
-   .npy, .tiff) (optional).
-   Use the fliplr and flipud options to flip the raw image vertically and horizontally, respectively. Use the rot option
-   to transpose the image relative to the left bottom corner.
-   Define angle of incidence (ai) as a float value or a list of angles. Use scan option for angular scans, e.g. scan = "
-   ascan om 0.0400 0.1000 12 3" or scan = "0.0400 0.1000 12" (start, stop, number-1).
-   The ai list will be calculated automatically.
+### 2. Experimental parameters 
 
-```python
-# loading of poni-file and mask (optional)
-params = pygid.ExpParams(poni_path='LaB6.poni',  # poni file location
-                         mask_path='example/mask.npy',  # mask file location (edf/tiff/npy)
-                         fliplr=True, flipud=True, transp=False,
-                         # flags for horizontal and vertical flipping and transpose
-                         count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 
-                         ai=[0, 0.05, 0.1])  # angle of incidence in GID experiments (in degrees) or list of angles
-```
-
-It is also possible to manually add experimental parameters. You should provide values for (poni1 and poni2) in meters
-or for beam positions (centerX and centerY) in pixels (relative to the bottom left corner) in the raw image.
+Create an instance of `ExpParams`, the class which contains the experimental parameters. 
+The parameters can be loaded from a PONI file (**poni_path**):
 
 ```python
 params = pygid.ExpParams(
-    SDD=0.3271661836504515,  # Sample-to-detector distance (in meters)
+   poni_path='LaB6.poni',  # poni file location
+   mask_path='example/mask.npy',  # mask file location (edf/tiff/npy)
+   fliplr=True, flipud=True, transp=False, # horizontal and vertical flipping and transpose
+   count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 
+   ai=[0, 0.05, 0.1])  # angle of incidence in GID experiments (in degrees) or list of angles
+```
+or manually 
+```python
+params = pygid.ExpParams(
+    SDD=0.32716,  # Sample-to-detector distance (in meters)
     wavelength=0.6199,  # Wavelength (in angstroms)
     rot1=-0.00263,  # Detector rotation angle along the horizontal direction (X axis) (in radians)
     rot2=-0.00465,  # Detector rotation angle along the vertical direction (Y axis) (in radians)
-    centerX=2000,  # Beam position in the horizontal direction (in pixels)
-    centerY=2145,  # Beam position in the vertical direction (in pixels)
+    poni1=0.148,  # Beam position in the vertical direction (in m) OR use centerY (pixels)
+    poni2=0.144,  # Beam position in the horizontal direction (in m) OR use centerX (pixels)
     px_size=75e-6,  # Detector pixel size (in meters)
     count_range=(10, 10000),  # the intensity range is used to mask hot and dead pixels 
     ai=0,  # angle of incidence in GID experiments (in degrees) or list of angles 
@@ -147,24 +182,122 @@ params = pygid.ExpParams(
     transp=False,  # Flag for applying rotation
 )
 ```
+Instead of using **poni1** and **poni2**, a user can define beam center using **centerX** and **centerY** in pixels relative to the bottom left corner. 
 
-Creation of poni-file based on a calibrant image using pyFAi-calib2 GUI is described in
+Other parameters
+
+- **fliplr** and **flipud** – flip the raw image horizontally and vertically, respectively.  
+- **transp** – transpose the image relative to the bottom-left corner.  
+- **mask_path** – path to the mask file (`.edf`, `.tiff`, `.npy`). Values: `1` = mask, `0` = ignore.  
+- **ai** – angle of incidence, can be a single float or a list of angles.  
+
+**OR**  
+
+- **scan** – angular scan command for multiple incidence angles. Example:  
+  `"ascan om 0.0400 0.1000 12"` or `"0.0400 0.1000 12"`  
+  (start, stop, number-1). The corresponding `ai` list will be calculated automatically.
+
+The definition of the coordinates (poni1, poni2) and an example of creating a .poni calibration file 
+based on a calibrant image using the pyFAI-calib2 GUI are described in the
 Ref.: https://www.silx.org/doc/pyFAI/latest/usage/cookbook/calib-gui/index.html
-please use the Detector_config with the orientation set to 3 for the script to work correctly.
+Please ensure that the Detector_config has the orientation set to 3 for the script to work correctly.
 
-3. Create instances of ExpMetadata and SampleMetadata classes with a description of the experiment and the samples that
-   you want to save with converted images in an NeXus format.
-   All fields as well as the class element are optional. However, we highly recommend to add the following metadata:
+### 3. Coordinate maps
 
+
+Create a `CoordMaps` instance based on an `ExpParams` object.  
+
+- If the `ExpParams` instance (`params`) contains a **list of incident angles**, multiple coordinate matrices will be created, one for each angle.  
+- Users can define **q- and angle-ranges**:  
+  - `q_xy_range`, `q_z_range` – for GID geometry and cylindrical conversion (Å⁻¹)  
+  - `q_x_range`, `q_y_range` – for transmission geometry (Å⁻¹)  
+  - `radial_range`, `angular_range` – for polar conversion (Å⁻¹ and degrees)  
+- The **resolution** of the converted image can be adjusted using:  
+  - `dq` – q-resolution (Å⁻¹ per pixel)  
+  - `dang` – angular resolution (degrees per pixel)  
+
+#### Correction and geometry flags
+- `hor_positive`, `vert_positive` – keep only positive values of q in horizontal or vertical directions  
+- `make_pol_corr` – calculate polarization correction matrix  
+- `pol_type` – polarization parameter (0–1). `1` = vertical polarization, `0.5` = unpolarized tube  
+- `make_solid_angle_corr` – calculate solid angle correction matrix  
+- `make_air_attenuation_corr` – calculate air attenuation correction matrix  
+- `air_attenuation_coeff` – linear coefficient for air attenuation (1/m)  
+- `make_sensor_attenuation_corr` – calculate sensor attenuation correction matrix  
+- `sensor_attenuation_coeff` – linear coefficient for sensor attenuation (1/m)  
+- `sensor_thickness` – detector sensor thickness (m)  
+- `make_absorption_corr` – calculate sample absorption correction matrix  
+- `sample_attenuation_coeff` – linear coefficient for sample absorption (1/m)  
+- `sample_thickness` – sample thickness (m)  
+- `make_lorentz_corr` – calculate Lorentz correction matrix  
+- `powder_dim` – powder dimension for Lorentz correction (2 or 3)  
+
+#### Dark and flat field corrections
+- `dark_current` – array of dark current values  
+- `flat_field` – array of flat field correction values  
+
+#### Save / Load
+- `path_to_save` – path to save the coordinate map (`.pkl`)  
+- `path_to_load` – path to load an existing coordinate map (`.pkl`)  
+
+```python
+matrix = pygid.CoordMaps(params,  # experimental parameters
+                         q_xy_range=(0, 4), q_z_range=(0, 4),   # q-range for GID geometry (in A-1) (optional)
+                         q_x_range=(0, 4), q_y_range=(0, 4), # q-range for transmission geometry and resolution (in A-1) (optional)
+                         dq=0.003, # q-resolution (in A-1) (optional)
+                         radial_range=(0, 4), # q_abs range for polar conversion
+                         angular_range=(0, 90), # angular range for polar conversion (in degrees) (optional)
+                         dang=0.3,  # resolution (in degrees) (optional)
+                         hor_positive=False, vert_positive=False,  # flags for only positive values of q in h
+                         make_pol_corr=True,  # Flag to calculate polarization correction matrix
+                         pol_type=0.98,  # Polarization parameter from 0 to 1. 1 for the vertical polarization, 0.5 for unpolorized tubes.
+                         make_solid_angle_corr=True,  # Flag to calculate solid angle correction matrix
+                         make_air_attenuation_corr=False,  # Flag to calculate air attenuation correction matrix
+                         air_attenuation_coeff=1,  # Linear coefficient for air attenuation correction (in 1/m)
+                         make_sensor_attenuation_corr=False,  # Flag to calculate sensor attenuation correction matrix
+                         sensor_attenuation_coeff=1,  # Linear coefficient for sensor attenuation correction (in 1/m)
+                         sensor_thickness=0.1,  # Thickness of the detector sensor (in m)
+                         make_absorption_corr=False,  # Flag to calculate absorption correction matrix
+                         sample_attenuation_coeff=1,  # Linear coefficient for sample attenuation correction (in 1/m)
+                         sample_thickness=200e-9,  # Thickness of the sample (in m)
+                         make_lorentz_corr=False,  # Flag to calculate Lorentz correction matrix
+                         powder_dim=3,  # Dimension of powder for Lorentz correction: 2 or 3
+                         dark_current=None,  # Array for dark current values
+                         flat_field=None,  # Array for flat field correction values
+                         path_to_save='matrix.pkl',  # Path where coordinate map will be saved. Path format should be '.pkl'
+                         path_to_load=None  # Path from which coordinate map will be loaded. Path format should be '.pkl'
+                         )       
+```
+Load the saved matrix:
+
+```python
+matrix = pygid.CoordMaps(
+    path_to_load='matrix.pkl')  # Path from which coordinate map will be loaded. Path format should be '.pkl'
+```
+
+### 4. Experimental and Sample metadata
+Create instances of the `ExpMetadata` and `SampleMetadata` classes 
+to describe the experiment and the samples that you want to save along with 
+the converted images in NXsas format. 
+All fields, as well as the class itself, are optional. 
+However, we highly recommend including the following metadata:
+- Experimental metadata
 ```python
 exp_metadata = pygid.ExpMetadata(
     start_time=r"2021-03-29T15:51:41.343788",
-    end_time=r"2021-03-29T15:52:45.235658",
+    end_time=r"2024-07-12T08:26:22Z",
     source_type="synchrotron",
     source_name="ESRF ID10",
-    detector_name="eiger4m",
-    instrument_name="ID10")
+    detector="eiger4m",
+    monitor = 1.1e5,
+    extend_fields = ['monitor'] # list of fields to de appended to the existing data in the NXsas file
+)
+```
+All fields except those listed in **extend_fields** will be overwritten in the NXsas file. 
+Parameters in **extend_fields** will be appended to the existing fields.
 
+- Sample metadata
+```python
 data = {
     "name": "240306_DIP",
     "structure": {
@@ -190,50 +323,42 @@ data = {
 }
 smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
 ```
-
 Sample metadata can be saved as an YAML file using path_to_save and loaded from an YAML file using path_to_load.
 
-4. Create CoordMaps instance based on ExpParams. If ExpParams instance (params) consists of a list of incident angles,
-   multiple matrices will be created for each angle.
-
 ```python
-matrix = pygid.CoordMaps(params,  # experimental parameters
-                         q_xy_range=None, q_z_range=None, dq=0.003,  # q-range and resolution (in A-1)
-                         ang_min=0, ang_max=90, dang=0.1,  # angle range and resolution (in degrees)
-                         hor_positive=False, vert_positive=False,  # flags for only positive values of q in h
-                         make_pol_corr=True,  # Flag to calculate polarization correction matrix
-                         pol_type=0.98,  # Polarization parameter from 0 to 1. 1 for the vertical polarization, 0.5 for unpolorized tubes.
-                         make_solid_angle_corr=True,  # Flag to calculate solid angle correction matrix
-                         make_air_attenuation_corr=False,  # Flag to calculate air attenuation correction matrix
-                         air_attenuation_coeff=1,  # Linear coefficient for air attenuation correction (in 1/m)
-                         make_sensor_attenuation_corr=False,  # Flag to calculate sensor attenuation correction matrix
-                         sensor_attenuation_coeff=1,  # Linear coefficient for sensor attenuation correction (in 1/m)
-                         sensor_thickness=0.1,  # Thickness of the detector sensor (in m)
-                         make_absorption_corr=False,  # Flag to calculate absorption correction matrix
-                         sample_attenuation_coeff=1,  # Linear coefficient for sample attenuation correction (in 1/m)
-                         sample_thickness=200e-9,  # Thickness of the sample (in m)
-                         make_lorentz_corr=False,  # Flag to calculate Lorentz correction matrix
-                         powder_dim=3,  # Dimension of powder for Lorentz correction: 2 or 3
-                         dark_current=None,  # Array for dark current values
-                         flat_field=None,  # Array for flat field correction values
-                         path_to_save='matrix.pkl',  # Path where coordinate map will be saved. Path format should be '.pkl'
-                         path_to_load=None  # Path from which coordinate map will be loaded. Path format should be '.pkl'
-                         )       
+smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
 ```
 
-One can save the coordinate matrices as pkl-file using path_to_save and load them by using path_to_load. However, the
-saving- and loading time is comparable with the calculation time
+OR 
 
 ```python
-matrix = pygid.CoordMaps(
-    path_to_load='matrix.pkl')  # Path from which coordinate map will be loaded. Path format should be '.pkl'
+smpl_metadata = pygid.SampleMetadata(path_to_load="sample.yaml")
 ```
 
-4. Create Conversion class instance based on raw data file (edf/tiff/cbf/h5) or list of files.
-   In the case of h5 files, add dataset key like 'measurement/eiger4m' which is a root to the raw data in h5 file.
-   The key frame_num is used for choosing several raw images in the dataset. It can be None (all images will be loaded),
-   integer (single image) or list of numbers.
-   In case of angular scans, number of ai in experimental parameters should be equal to number of loaded images.
+
+
+### 5. Raw image loading and plotting
+
+Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, `.cbf`, `.h5`) or a list of files.  
+
+- In the case of **HDF5 files**, specify the `dataset` key (e.g., `'measurement/eiger4m'`) that points to the raw data in the file.  
+- `frame_num` can be:  
+  - `None` – load all images  
+  - `int` – load a single frame  
+  - `list` – load a list of frames  
+- For **angular scans**, the number of angles (`ai`) in `ExpParams` should match the number of loaded images.  
+
+#### Parameters
+
+- `matrix` – `CoordMaps` instance 
+- `path` – path to the data file or list of files  
+- `dataset` – HDF5 dataset key pointing to the raw data  
+- `frame_num` – frame(s) to load (None, int, or list)  
+- `average_all` – if `True`, average all frames  
+- `number_to_average` – number of frames to average for partial averaging  
+- `roi_range` – region of interest in the raw image `[y_min, y_max, x_min, x_max]`  
+- `multiprocessing` – enable multiprocessing mode (`True` or `False`)  
+- `batch_size` – batch size for batch processing mode  
 
 ```python
 data_path = "LaB6_0001.h5"
@@ -248,138 +373,251 @@ analysis = pygid.Conversion(matrix=matrix,  # coordinate map
                             multiprocessing=False,  # key for multiprocessing mode activation
                             batch_size=32,  # Size of the batches in the Batch processing mode
                             )
-```
+                            
+```                         
+Use the `plot_img_raw` method to visualize detector images in pixel coordinates.
+#### Parameters
 
-5. Raw image plotting
+- `frame_num` – number of the frame to plot (int).  
+- `clims` – tuple `(vmin, vmax)` specifying color scale limits for the image intensity.  
+- `return_result` – if `True`, returns the image data and axes (`x`, `y`, `img`). Default is `False`.  
+- `plot_result` – whether to display the plot (`True`/`False`). Default is `True`.  
+- `xlim`, `ylim` – tuples specifying X and Y axis limits, e.g. `(0, 500)`. Default is `(None, None)`.  
+- `save_fig` – whether to save the figure to a file. Default is `False`.  
+- `path_to_save_fig` – path to save the figure if `save_fig=True`. Default is `"img.png"`.  
 
 ```python
 x, y, img = analysis.plot_img_raw(
-                                 frame_num=0,  # number of frame to plot                               
-                                 clims=(0.1, 100),  # tuple specifying color limits (vmin, vmax) for the image.
-                                 return_result=True,  # if True, returns the image data and axes used for plotting. Default is False.                  
-                                 plot_result=True,  # whether to display the plot. Default is True. 
-                                 xlim=(None, None), ylim=(None, None),  # X and Y image limits
-                                 save_fig=False,  # whether to save the figure to a file. Default is False.
-                                 path_to_save_fig="img.png",  # path to save the figure if save_fig is True. Default is "img.png".  
-                                 )
+    frame_num=0,                 # number of frame to plot
+    clims=(0.1, 100),            # color limits (vmin, vmax)
+    return_result=True,          # return image data and axes
+    plot_result=True,            # display the plot
+    xlim=(None, None), ylim=(None, None),  # X and Y axis limits
+    save_fig=False,              # save figure flag
+    path_to_save_fig="img.png",  # path to save the figure
+)
+
+```
+### 6. Conversion
+
+The `Conversion` class provides several remapping functions for transforming detector images into reciprocal or polar coordinates.  
+These methods convert raw detector data into physically meaningful quantities such as q_xy,q_z, or q_abs.  
+All remapping functions use similar parameters. The dataset in memory is automatically deleted after saving.
+
+
+#### Parameters (for all remapping functions)
+
+
+- `frame_num` – frame index or list of frame numbers to convert. If `None`, all loaded images are converted.
+- `return_result` – if `True`, returns converted image and axes arrays. Default is `False`.  
+- `save_result` – whether to save the result as an HDF5 file in NXsas format.  
+- `path_to_save` – output path for the HDF5 result file.  
+- `h5_group` – name of the NXentry dataset within the HDF5 file.  
+- `overwrite_file` – if `True`, overwrites existing HDF5 file. Default is `True`.  
+- `overwrite_group` – if `True`, overwrites existing NXentry group. Default is `True`.  
+- `exp_metadata` – `ExpMetadata` instance containing experimental information.  
+- `smpl_metadata` – `SampleMetadata` instance containing sample information.  
+- `plot_result` – whether to plot the remapped image.  
+- `clims` – tuple `(vmin, vmax)` defining color scale limits.  
+- `xlim`, `ylim` – tuples defining X and Y axis limits for the plot.  
+- `save_fig` – whether to save the plotted image to a file.  
+- `path_to_save_fig` – path to save the plot (e.g. `.png`, `.tiff`).  
+- `interp_type` – interpolation method for remapping (`"INTER_LINEAR"`, `"INTER_NEAREST"`, etc.). Default: `"INTER_LINEAR"`.  
+- `multiprocessing` – flag to enable multiprocessing. If `None`, uses the default defined in the `Conversion` class.  
+
+Additionally, q_xy_range, q_z_range, q_x_range, q_y_range, radial_range, angular_range can be changed at this step. 
+
+#### Reciprocal Space Conversion (GID Geometry)
+
+```python
+q_xy, q_z, img = analysis.det2q_gid(
+    frame_num=[0, 1, 2],           # frames to convert; None = all images
+    q_xy_range=(0, 4),             # q_xy range (Å⁻¹)
+    q_z_range=(0, 4),              # q_z range (Å⁻¹)
+    return_result=True,            # return data arrays
+    save_result=True,              # save result as NXsas file
+    path_to_save="result.h5",      # path for output file
+    h5_group="entry_0000",         # HDF5 dataset name
+    overwrite_file=True,           # overwrite existing file
+    overwrite_group=False,         # keep existing NXentry group
+    exp_metadata=exp_metadata,     # experiment metadata
+    smpl_metadata=smpl_metadata,   # sample metadata
+    plot_result=True,              # plot result
+    clims=(50, 8000),              # color limits
+    xlim=(None, None), ylim=(None, None),  # plot limits
+    save_fig=False,                # save plot flag
+    path_to_save_fig="graph.tiff", # save plot path
+    interp_type="INTER_LINEAR",    # interpolation method
+    multiprocessing=None,          # multiprocessing flag
+)
+
+```
+#### Polar and Pseudopolar Coordinate Conversion (GID Geometry)
+
+```python
+q_abs, ang, img = analysis.det2pol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
+q_rad, q_azim, img = analysis.det2pseudopol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
 
 ```
 
-6. Remapping to reciprocal/polar/pseudopolar coordinates in reflection (GIWAXS) geometry. For all remapping functions
-   the parameters are same. Dataset is automatically deleted after saving.
+#### Remapping to reciprocal/polar/pseudopolar coordinates in transmission geometry
 
 ```python
-analysis.det2q_gid(frame_num=[0, 1, 2],# frame number or list of numbers of loaded raw images to convert. If None, will convert all loaded images 
-                   q_xy_range=(0, 4),  # tuple specifying the min and max of q_xy range. If None, uses full range.
-                   q_z_range=(0, 4),  # tuple specifying the min and max of q_z range. If None, uses full range.
-                   return_result=False,  # if True, returns the image data and corresponding axes. Default is False.
-                   save_result=True,  # flag to save the result as a NeXus (HDF5) file
-                   path_to_save="result.h5",  # path to save the result with experimental params.
-                   h5_group="entry_0000",  # dataset name in the h5-file
-                   overwrite_file=True,  # whether to overwrite existing HDF5 file. Default is True.
-                   overwrite_group=False,  # whether to overwrite NXentry group in the HDF5 file. Default is True
-                   exp_metadata=exp_metadata,  # experiment metadata that will be saved with result
-                   smpl_metadata=smpl_metadata,  # sample metadata that will be saved with result
-                   plot_result=True,  # flag to plot the result
-                   clims=(50, 8000),  # Tuple specifying color limits (vmin, vmax) for the image.
-                   xlim=(None, None), ylim=(None, None),  # X and Y image limits
-                   save_fig=False,  # flag to save the results as a picture
-                   path_to_save_fig="graph.tiff",  # path to save the image
-                   interp_type="INTER_LINEAR",  # interpolation method used for remapping. Default is "INTER_LINEAR".
-                   multiprocessing=None, # key for multiprocessing mode activation. If None, uses default setting defined in Conversion class instance creation.
-                   )
-analysis.det2pol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
-analysis.det2pseudopol_gid(plot_result=True, return_result=False, frame_num=0, save_result=False)
-
-```
-
-Remapping to reciprocal/polar/pseudopolar coordinates in transmission geometry
-
-```python
-analysis.det2q(clims=clims, frame_num=0, plot_result=False)
-analysis.det2pol(clims=clims, frame_num=0, plot_result=False)
-analysis.det2pseudopol(clims=clims, frame_num=0, plot_result=False)
+q_x, q_y, img =  analysis.det2q(plot_result=True, return_result=True)
+q_abs, ang, img = analysis.det2pol( plot_result=True, return_result=True)
+q_rad, q_azim, img = analysis.det2pseudopol(plot_result=True, return_result=True)
 ```
 
 Table 1. Conversion functions with description
 
 | Function              | Description                                          | Name of Output Image | Corresponding Matrix Coordinates |
 |-----------------------|------------------------------------------------------|----------------------|----------------------------------|
-| `det2q_gid()`         | GIWAXS coordinates                                   | `img_gid_q`          | `q_xy`, `q_z`                    |
+| `det2q_gid()`         | GID coordinates                                      | `img_gid_q`          | `q_xy`, `q_z`                    |
 | `det2pol_gid()`       | polar coordinates for GID experiments                | `img_gid_pol`        | `q_gid_pol`, `ang_gid_pol`       |
 | `det2pseudopol_gid()` | pseudopolar coordinates for GID experiments          | `img_gid_pseudopol`  | `q_gid_azimuth`, `q_gid_rad`     |
 | `det2q()`             | Cartesian coordinates for transmission experiments   | `img_q`              | `q_x`, `q_y`                     |
 | `det2pol()`           | polar coordinates for transmission experiments       | `img_pol`            | `q_pol`, `ang_pol`               |
 | `det2pseudopol()`     | pseudopolar coordinates for transmission experiments | `img_pseudopol`      | `q_azimuth`, `q_rad`             |
 
-7. Manual saving of NeXus (HDF5) file with converted data. Can be useful if one wants to change the result of conversion
-   before saving.
+
+## Batch Analysis
+
+If you need to process more data files than the defined `batch_size` (default: 32),  
+the `Batch()` function is automatically activated.  
+
+At the initialization step (`analysis = pygid.Conversion(...)`), **images are not loaded into memory**.  
+When the conversion functions (`det2q_gid`, `det2pol_gid`, etc.) are called,  
+the raw data paths are divided into batches and processed sequentially.
+
+In batch mode:
+- Converted images **will not be plotted**.  
+- The **results cannot be returned** directly to the workspace.  
+- Only **saving to disk** is supported, except when `average_all=True`,  
+  in which case the averaged result can be accessed.
+
+#### Parameters
+
+- `batch_size` – maximum number of frames or files processed per batch. Default is 32.  
+- `multiprocessing` – enables multiprocessing for faster batch execution.  
+- `plot_result` – should be set to `False` (plotting is disabled in batch mode).  
+- `save_result` – must be `True` to store converted data in HDF5/NXsas format.  
+- `path_to_save` – path where converted data will be saved.  
+- `overwrite_file` – whether to overwrite the existing result file.
+
+#### Example
 
 ```python
-analysis.save_nxs(path_to_save="result.h5",
-                  # location with the name (.h5) to save, or the key_to_change of the raw image path otherwise it will be saved to the same directory 
-                  overwrite_file=False,  # the existing file will be overwritten if True
-                  exp_metadata=exp_metadata, smpl_metadata=smpl_metadata)  # Metadata class element
+analysis = pygid.Conversion(
+    matrix=matrix,
+    path=data_path,
+    img_loc_hdf5='1.1/measurement/eiger4m',
+    batch_size=32,  # maximum batch size (default = 32)
+)
+
+analysis.det2pol_gid(
+    plot_result=False,              # disable plotting
+    return_result=False,            # no data returned in batch mode
+    multiprocessing=True,           # enable multiprocessing
+    save_result=True,               # save converted data
+    path_to_save=r"result_converted.h5",  # output file path
+    overwrite_file=True,            # overwrite existing file
+)
+
 ```
 
-### Batch analysis
+## Line Profiles and 1D Integration
 
-If you want to process more than batch_size (32 default), the Batch() function activates.
-At the initialization step analysis = pygid.Conversion(...), the images will not be loaded.
-When conversion functions are used, the raw data paths will be divided into batches and processed one-by-one.
-In this case, the functionality of the code is limited,
-converted images will not be plotted, result cannot be returned, only saving is possible, except the case of
-average_all = True.
+The `radial_profile_gid()` and `azim_profile_gid()` functions perform **polar integration** of GIWAXS data:  
+- `radial_profile_gid()` averages intensity **over the angular range**, producing a 1D **radial profile** \( I(q_{abs}) \).  
+- `azim_profile_gid()` averages intensity **over the radial range**, producing an **azimuthal profile** \( I(\chi) \).  
+
+The `horiz_profile_gid()` function transforms data into **GID coordinates** and averages over the specified \( q_z \) range, producing a **horizontal cut** \( I(q_{xy}) \).  
+
+For **transmission geometry**, use:
+- `radial_profile()` — for radial integration I(q_abs) 
+- `azim_profile()` — for azimuthal integration I(chi)
+
+All functions return the **x-axis values** (`q_abs`, `ang`, or `q_xy`) and the corresponding list of intensity profiles.
+
+#### Parameters
+
+- `frame_num` – frame index or list of frames to process. If `None`, all are processed.  
+- `radial_range` – tuple `(min, max)` for the radial \( q \)-range in Å⁻¹. If `None`, uses the full range.  
+- `angular_range` – tuple `(min, max)` for the angular range in degrees.  
+- `dang` – angular bin size (degrees).  
+- `dq` – radial bin width (Å⁻¹).  
+- `return_result` – if `True`, returns computed x-axis and intensity arrays.  
+- `save_result` – if `True`, saves the result to an HDF5 file in NXsas format.  
+- `path_to_save` – output path for the HDF5 result.  
+- `h5_group` – group name inside the HDF5 file.  
+- `overwrite_file` – whether to overwrite an existing HDF5 file.  
+- `overwrite_group` – whether to overwrite an existing NXentry group.  
+- `exp_metadata` – experimental metadata (`ExpMetadata` instance).  
+- `smpl_metadata` – sample metadata (`SampleMetadata` instance).  
+- `plot_result` – whether to plot the integrated profile.  
+- `shift` – vertical offset applied to separate multiple plotted curves.  
+- `xlim`, `ylim` – x- and y-axis limits as `(min, max)`; auto-scaled if `None`.  
+- `save_fig` – if `True`, saves the plotted figure.  
+- `path_to_save_fig` – output path for the saved figure.  
+- `multiprocessing` – enables multiprocessing for faster computation.
+#### Example — Radial profile in GIWAXS Geometry
 
 ```python
-analysis = pygid.Conversion(matrix=matrix, path=data_path, img_loc_hdf5='1.1/measurement/eiger4m',
-                            batch_size=32,  # maximum size of the batch (32 default)
-                            )
-analysis.det2pol_gid(plot_result=False, return_result=False, multiprocessing=True,
-                     save_result=True, path_to_save=r"result_converted.h5", overwrite_file=True)
-
-```
-
-### Line profiles and 1D integration
-
-radial_profile_gid() and azim_profile_gid() functions takes radial and angular ranges, performs polar integration and
-averages along angle or radial axes, respectively.
-Horizontal profile horiz_profile_gid() makes transformation to the GID coordinates and averages in the given q_z range.
-
-For the transmission geometry use radial_profile() and azim_profile() functions.
-
-```python
-
 q, intensity = analysis.radial_profile_gid(
-                    frame_num=None,                   # Frame number(s) to analyze; if None, all are processed
-                    radial_range=(0,4),               # Radial q-range (min, max) in Å⁻¹; full range if None
-                    angular_range=(0, 90),            # Angular range in degrees (min, max) for integration
-                    dang=0.5,                         # Angular resolution in degrees for binning
-                    dq=None,                          # Radial bin width in Å⁻¹; default binning if None
-                    return_result=True,               # Return computed q-values, intensity profile
-                    save_result=True,                 # Save computed profile to an NeXus (HDF5) file if True
-                    path_to_save="result.h5",         # Path to save the result file
-                    h5_group=None,                    # Group name in the HDF5 file; default if None
-                    overwrite_file=False,             # Overwrite existing HDF5 file if True
-                    overwrite_group=False,  # whether to overwrite NXentry group in the HDF5 file. Default is True
-                    exp_metadata = exp_metadata,      # experiment metadata that will be saved with result
-                    smpl_metadata = smpl_metadata,    # sample metadata that will be saved with result
-                    plot_result=True,                 # Display the radial profile plot
-                    shift=0.5,                        # Vertical shift between plotted lines for clarity
-                    xlim=None,                        # X-axis limits as (min, max); auto-scaled if None
-                    ylim=None,                        # Y-axis limits as (min, max); auto-scaled if None
-                    save_fig=False,                   # Save the figure if True
-                    path_to_save_fig="graph.tiff",    # Path to save the figure
-                    multiprocessing=None,             # Use multiprocessing for faster computation if True
-                )
+    frame_num=None,                   # Frame(s) to analyse; all if None
+    radial_range=(0, 4),              # Radial q-range in Å⁻¹
+    angular_range=(0, 90),            # Angular range in degrees
+    dang=0.5,                         # Angular resolution (degrees)
+    dq=None,                          # Radial bin width (Å⁻¹)
+    return_result=True,               # Return computed q and intensity
+    save_result=True,                 # Save result to HDF5
+    path_to_save="result.h5",         # Output path
+    h5_group=None,                    # Group name in HDF5
+    overwrite_file=False,             # Overwrite HDF5 file
+    overwrite_group=False,            # Overwrite NXentry group
+    exp_metadata=exp_metadata,        # Experimental metadata
+    smpl_metadata=smpl_metadata,      # Sample metadata
+    plot_result=True,                 # Plot the radial profile
+    shift=0.5,                        # Vertical offset between curves
+    xlim=None, ylim=None,             # Axis limits
+    save_fig=False,                   # Save figure flag
+    path_to_save_fig="graph.tiff",    # Figure save path
+    multiprocessing=None,             # Use multiprocessing
+)
+```
 
-chi, intensity = analysis.azim_profile_gid(radial_range = (1.34,1.4), angular_range = (0,180), return_result = True, plot_result = True, shift = 0.5)
-q_xy, intensity = analysis.horiz_profile_gid(q_xy_range = None, q_z_range = (0, 3), return_result = True, plot_result = True, shift = 1)
+#### Example — Azimuthal profile in GIWAXS Geometry
+```python
+chi, intensity = analysis.azim_profile_gid(
+    radial_range=(1.34, 1.4),
+    angular_range=(0, 180),
+    return_result=True,
+    plot_result=True,
+    shift=0.5,
+)
+```
 
+#### Example — Horizontal Integration in GIWAXS Geometry
+```python
+q_xy, intensity = analysis.horiz_profile_gid(
+    q_xy_range=None,
+    q_z_range=(0, 3),
+    return_result=True,
+    plot_result=True,
+    shift=1,
+)
+```
+#### Example — Transmission Geometry Integration
+```python
+q, intensity = analysis.radial_profile(
+    plot_result=True,
+    return_result=True,
+)
 
-q, intensity = analysis.radial_profile(plot_result = True, return_result = True)
-chi, intensity = analysis.azim_profile(plot_result = True, return_result = True)
-
+chi, intensity = analysis.azim_profile(
+    plot_result=True,
+    return_result=True,
+)
 ```
 
 Table 2. Conversion line profile functions
@@ -392,73 +630,97 @@ Table 2. Conversion line profile functions
 | `azim_profile()`       | `azim_cut`       | `ang_pol`     | Makes polar remapping and averages in the given radial range (transmission geometry)  |
 | `horiz_profile_gid()`  | `horiz_cut_gid`  | `q_xy`        | Makes cylindrical remapping and averages in the given $q_z$ range (GID geometry)      |
 
-### GID pattern simulation
+## GID pattern simulation
 
-This part is based on pygidSIM package that simulates GIWAXS patterns based on a CIF file with crystal structure.   
-The function make_simulation() plots the simulated data and converted experimental image.
+This part uses the **pygidSIM** package to simulate GIWAXS patterns based on a **CIF file** containing the crystal structure.  
+The function `make_simulation()` overlays the simulated diffraction peaks onto the experimental GIWAXS image.
+
+#### Parameters
+
+- `frame_num` – frame number of the experimental data to plot.  
+- `clims` – tuple `(vmin, vmax)` specifying intensity limits for the experimental image.  
+- `path_to_cif` – path to the `.cif` file defining the crystal structure. Can also be a list of paths for multiple simulations.  
+- `orientation` – crystal orientation in the lab frame as `[u, v, w]`; set to `None` for random orientation. Can also be a list for multiple simulations.  
+- `min_int` – minimum intensity threshold for displaying simulated reflections. Can also be a list for multiple simulations.  
+- `plot_result` – if `True`, displays the overlay of simulated peaks on experimental data.  
+- `cmap` – colormap (matplotlib) for the simulated diffraction peaks. Can also be a list for multiple simulations.  
+- `vmin`, `vmax` – normalization range for color scaling of simulated peaks.  
+- `linewidth` – line width of the simulated diffraction peaks.  
+- `radius` – radius of the simulated peaks in display units.  
+- `plot_mi` – if `True`, annotate simulated peaks with Miller indices (hkl).  
+- `return_result` – if `True`, returns a simulation result object.  
 
 ```python
 result = analysis.make_simulation(
-    frame_num=0,  # Frame number of the experimental data to plot
-    clims=(30, 8000),  # Intensity limits for the color scale of the experimental image
-    path_to_cif="struct.cif",  # Path to the .cif file defining the crystal structure
-    orientation=[1, 0, 0],  # Crystal orientation in the lab frame; set to None for random orientation
-    min_int=5e-1,  # Minimum intensity threshold for displaying simulated reflections
-    plot_result=True,  # Display the simulation overlay on experimental data if True
-    cmap=cm.Blues,  # Colormap (matplotlib) used for the simulated diffraction peaks 
-    vmin=0.5, vmax=1,  # Normalization range for simulated peak intensity color scaling
-    linewidth=1.5,  # Line width of the simulated diffraction peaks
-    radius=0.1,  # Radius of simulated diffraction peaks in display units
-    plot_mi=False,  # If True, annotate simulated peaks with Miller indices (hkl)
-    return_result=True  # If True, return simulation result object
+    frame_num=0,                  # Frame of experimental data
+    clims=(30, 8000),             # Color scale limits for experimental image
+    path_to_cif="struct.cif",     # Path to crystal structure CIF
+    orientation=[1, 0, 0],        # Crystal orientation in lab frame
+    min_int=5e-1,                 # Minimum intensity for reflections
+    plot_result=True,             # Display simulation overlay
+    cmap=cm.Blues,                # Colormap for simulated peaks
+    vmin=0.5, vmax=1,             # Color normalization range
+    linewidth=1.5,                # Line width of peaks
+    radius=0.1,                   # Peak radius
+    plot_mi=False,                # Annotate peaks with Miller indices
+    return_result=True            # Return simulation result
 )
 ```
+#### Multiple Simulations
+
+To plot multiple simulated patterns from different CIF files or orientations, `make_simulation()` accepts **lists** for the following parameters:
+
+- `path_to_cif` – list of CIF file paths  
+- `orientation` – list of crystal orientations  
+- `min_int` – list of minimum intensity thresholds for reflections  
+- `cmap` – list of colormaps for simulated peaks  
+
+**Behavior:**  
+- If the numbers of elements in `path_to_cif` and `orientation` are equal, they will be **paired** and used sequentially for the simulations.  
+- Lists of `min_int` and `cmap` will be applied correspondingly to each simulation.
 
 In order to plot multiple simulated patterns based on different orientations or CIF files, make_simulation() function
 supports
 lists of path_to_cif, orientation, min_int and cmap. If numbers of elements in path_to_cif and orientation are equal,
 they will be used respectively. 
 
-### Set plot parameters 
+## Set Plot Parameters
 
-To change the global plotting parameters, use  Conversion.set_plot_defaults() function:
+To change global plotting parameters for all plots, use the `Conversion.set_plot_defaults()` function:
+
 ```python
-analysis.set_plot_defaults(cmap = 'jet')
+analysis.set_plot_defaults(cmap='jet')  # Example: set global colormap
 ```
 The whole list of keys:
 ```python
-set_plot_defaults(
-    font_size=14,                  # Default font size for text elements (e.g., title, labels, ticks)
+analysis.set_plot_defaults(
+    font_size=14,                 # Default font size for text elements (titles, labels, ticks)
     axes_titlesize=14,            # Font size for axes titles
     axes_labelsize=18,            # Font size for axes labels (x and y)
-    grid=False,                   # Whether or not to display gridlines
-    grid_color='gray',            # Color of the gridlines
-    grid_linestyle='--',          # Line style of the gridlines (e.g., '--', '-', ':')
-    grid_linewidth=0.5,           # Width of the gridlines
+    grid=False,                   # Display gridlines (True/False)
+    grid_color='gray',            # Gridline color
+    grid_linestyle='--',          # Gridline style ('--', '-', ':')
+    grid_linewidth=0.5,           # Gridline width
     xtick_labelsize=14,           # Font size for x-axis tick labels
     ytick_labelsize=14,           # Font size for y-axis tick labels
-    legend_fontsize=12,           # Font size for the legend text
-    legend_loc='best',            # Location of the legend (e.g., 'best', 'upper right', 'lower left')
-    legend_frameon=True,          # Whether to display a frame around the legend
-    legend_borderpad=1.0,         # Padding between the legend's content and the legend's frame
-    legend_borderaxespad=1.0,     # Padding between the legend and axes
-    figure_titlesize=16,          # Font size for the figure title
-    figsize=(6.4, 4.8),           # Size of the figure in inches (e.g., (6, 6))
-    axes_linewidth=0.5,           # Width of the axes lines
-    savefig_dpi=600,              # DPI for saving the figure (higher DPI = better quality)
-    savefig_transparent=False,    # Whether the saved figure should have a transparent background
-    savefig_bbox_inches=None,     # Defines what part of the plot to save (e.g., 'tight' to crop extra whitespace)
-    savefig_pad_inches=0.1,       # Padding added around the figure when saving
+    legend_fontsize=12,           # Font size for legend text
+    legend_loc='best',            # Legend location ('best', 'upper right', etc.)
+    legend_frameon=True,          # Display frame around legend (True/False)
+    legend_borderpad=1.0,         # Padding between legend content and frame
+    legend_borderaxespad=1.0,     # Padding between legend and axes
+    figure_titlesize=16,          # Font size for figure title
+    figsize=(6.4, 4.8),           # Figure size in inches
+    axes_linewidth=0.5,           # Axes line width
+    savefig_dpi=600,              # DPI for saving figures
+    savefig_transparent=False,    # Save figure with transparent background
+    savefig_bbox_inches=None,     # Portion of figure to save ('tight' to crop)
+    savefig_pad_inches=0.1,       # Padding around figure when saving
     line_linewidth=2,             # Line width for plot lines
-    line_color='blue',            # Color of the plot lines (e.g., 'blue', 'red')
-    line_linestyle='-',           # Line style (e.g., '-', '--', ':')
-    line_marker=None,             # Marker style for plot lines (e.g., 'o', 'x')
-    scatter_marker='o',           # Marker style for scatter plots (e.g., 'o', 'x')
-    scatter_edgecolors='black',   # Color for the edges of scatter plot markers
-    grid_major_linestyle='-',     # Style of major gridlines (e.g., '-', '--')
-    grid_minor_linestyle=':',     # Style of minor gridlines (e.g., ':')
-    grid_major_linewidth=0.7,     # Width of major gridlines
-    grid_minor_linewidth=0.3,     # Width of minor gridlines
-    cmap='inferno'                # Colormap for images (e.g., 'inferno', 'viridis')
+    line_color='blue',            # Default line color
+    line_linestyle='-',           # Line style for plot lines
+    line_marker=None,             # Marker style for line plots
+    scatter_marker='o',           # Marker style for scatter plots
+    scatter_edgecolors='black',   # Edge color for scatter plot markers
+    cmap='inferno'                # Colormap for images ('inferno', 'viridis', etc.)
 )
 ```

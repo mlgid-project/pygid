@@ -1,23 +1,19 @@
 from . import CoordMaps
 from . import DataLoader
 from . import DataSaver, SampleMetadata, ExpMetadata
+from .visualization import (get_plot_context, get_plot_params, plot_img_raw, _plot_single_image,
+                            plot_simul_data, _plot_profile)
 import os
 from typing import Optional, Any
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.colors import Normalize
-from matplotlib import colors
-from matplotlib.cm import ScalarMappable
 import cv2
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm.notebook import tqdm as log_progress
-from matplotlib.ticker import LogLocator
-from matplotlib.ticker import MaxNLocator
-import matplotlib.ticker as ticker
-from adjustText import adjust_text
 import warnings
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -26,7 +22,9 @@ try:
     from pygidsim.experiment import ExpParameters
     from pygidsim.giwaxs_sim import GIWAXSFromCif
 except:
-    warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
+    pass
+    # warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
+
 
 @dataclass
 class Conversion:
@@ -83,15 +81,20 @@ class Conversion:
     number_to_average: int = None
     batch_activated: bool = False
     build_image_P03: bool = False
+    plot_params = get_plot_params()
 
     def __post_init__(self):
         """
-        Calls data loader if imgage if not provided. Applies flipping of raw image, calls q- and angular
-        ranges calculation. Calculates correction maps and applies corrections. Activates batch analysis.
+        Initializes the object after dataclass creation.
+
+        If no image is provided, this method automatically loads the data. It then applies
+        flipping to the raw image, computes the q-range and angular range, generates
+        correction maps, and applies the necessary corrections. Finally, it activates
+        batch analysis if applicable.
         """
 
         # set default settings fot figures
-        self.set_plot_defaults()
+        # plot_params = type(self).plot_params.update(get_plot_params())
 
         if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
             self.matrix_to_save = self.matrix
@@ -267,6 +270,7 @@ class Conversion:
                     overwrite_group = False
                     exp_metadata = None
                     smpl_metadata = None
+                self.frame_num = None
                 if plot_result or return_result:
                     warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
                                   category=UserWarning)
@@ -344,7 +348,7 @@ class Conversion:
                 averaged_images.append(np.mean(self.img_raw[i:i + self.number_to_average], axis=0))
             remaining = num_images % self.number_to_average
             if remaining > 0:
-                print(f"Warning: {remaining} images left, averaging them separately.")
+                warnings.warn(f"{remaining} images left, averaging them separately.", UserWarning)
                 averaged_images.append(np.mean(self.img_raw[-remaining:], axis=0))
             self.img_raw = np.array(averaged_images)
 
@@ -393,52 +397,50 @@ class Conversion:
         if len(self.matrix) == 1:
             if self.matrix[0].img_dim is None:
                 self.matrix[0]._coordmaps_update_()
+            return
+
+        q_xy_ranges = [matrix.q_xy_range for matrix in self.matrix]
+        q_z_ranges = [matrix.q_z_range for matrix in self.matrix]
+        if any(q_xy is None for q_xy in q_xy_ranges) or any(q_z is None for q_z in q_z_ranges) or \
+                any(q_xy != q_xy_ranges[0] for q_xy in q_xy_ranges) or \
+                any(q_z != q_z_ranges[0] for q_z in q_z_ranges):
+
+            q_xy_range, q_z_range = [], []
+            ai_min_index = np.argmin([matrix.ai for matrix in self.matrix])
+            self.matrix[ai_min_index]._coordmaps_update_()
+            q_xy_range.append(self.matrix[ai_min_index].q_xy_range[0])
+            q_z_range.append(self.matrix[ai_min_index].q_z_range[0])
+            corr_matrices = self.matrix[ai_min_index].corr_matrices
+            q = self.matrix[ai_min_index].q
+            q_min = self.matrix[ai_min_index].radial_range[0]
+            ang_min = self.matrix[ai_min_index].angular_range[0]
+            ang_max = self.matrix[ai_min_index].angular_range[1]
+            q_lab_from_p = self.matrix[ai_min_index].q_lab_from_p
+
+            ai_max_index = np.argmax([matrix.ai for matrix in self.matrix])
+            self.matrix[ai_max_index].corr_matrices = []
+            self.matrix[ai_max_index].angular_range = (ang_min, ang_max)
+            self.matrix[ai_max_index]._coordmaps_update_()
+            q_xy_range.append(self.matrix[ai_max_index].q_xy_range[1])
+            q_z_range.append(self.matrix[ai_max_index].q_z_range[1])
+            q_max = self.matrix[ai_max_index].radial_range[1]
+
+            for matrix in self.matrix:
+                matrix.q_xy_range = q_xy_range
+                matrix.q_z_range = q_z_range
+                matrix.radial_range = (q_min, q_max)
+                matrix.angular_range = (ang_min, ang_max)
+                matrix.q = q
+                matrix.corr_matrices = []
+                matrix._coordmaps_update_()
+                matrix.q_lab_from_p = q_lab_from_p
+            self.matrix[0].corr_matrices = corr_matrices
         else:
-            q_xy_ranges = [matrix.q_xy_range for matrix in self.matrix]
-            q_z_ranges = [matrix.q_z_range for matrix in self.matrix]
-            if any(q_xy is None for q_xy in q_xy_ranges) or any(q_z is None for q_z in q_z_ranges) or \
-                    any(q_xy != q_xy_ranges[0] for q_xy in q_xy_ranges) or \
-                    any(q_z != q_z_ranges[0] for q_z in q_z_ranges):
-
-                q_xy_range, q_z_range = [], []
-                ai_min_index = np.argmin([matrix.ai for matrix in self.matrix])
-                self.matrix[ai_min_index]._coordmaps_update_()
-                q_xy_range.append(self.matrix[ai_min_index].q_xy_range[0])
-                q_z_range.append(self.matrix[ai_min_index].q_z_range[0])
-                corr_matrices = self.matrix[ai_min_index].corr_matrices
-                q = self.matrix[ai_min_index].q
-                q_min = self.matrix[ai_min_index].q_min
-                ang_min = self.matrix[ai_min_index].ang_min
-                ang_max = self.matrix[ai_min_index].ang_max
-                q_lab_from_p = self.matrix[ai_min_index].q_lab_from_p
-
-                ai_max_index = np.argmax([matrix.ai for matrix in self.matrix])
-                self.matrix[ai_max_index].corr_matrices = []
-                self.matrix[ai_max_index].ang_min = ang_min
-                self.matrix[ai_max_index].ang_max = ang_max
-                self.matrix[ai_max_index]._coordmaps_update_()
-                q_xy_range.append(self.matrix[ai_max_index].q_xy_range[1])
-                q_z_range.append(self.matrix[ai_max_index].q_z_range[1])
-                q_max = self.matrix[ai_max_index].q_max
-
-                for matrix in self.matrix:
-                    matrix.q_xy_range = q_xy_range
-                    matrix.q_z_range = q_z_range
-                    matrix.q_max = q_max
-                    matrix.q_min = q_min
-                    matrix.ang_max = ang_max
-                    matrix.ang_min = ang_min
-                    matrix.q = q
-                    matrix.corr_matrices = []
-                    matrix._coordmaps_update_()
-                    matrix.q_lab_from_p = q_lab_from_p
-                self.matrix[0].corr_matrices = corr_matrices
-            else:
-                self.matrix[0]._coordmaps_update_()
-                corr_matrices = self.matrix[0].corr_matrices
-                for i in range(1, len(self.matrix)):
-                    self.matrix[i].corr_matrices = corr_matrices
-                    self.matrix[i]._coordmaps_update_()
+            self.matrix[0]._coordmaps_update_()
+            corr_matrices = self.matrix[0].corr_matrices
+            for i in range(1, len(self.matrix)):
+                self.matrix[i].corr_matrices = corr_matrices
+                self.matrix[i]._coordmaps_update_()
 
     def _apply_corrections_(self):
         """
@@ -450,13 +452,13 @@ class Conversion:
         if corr_matrices['dark_current'] is not None:
             for i in range(len(self.img_raw)):
                 self.img_raw[i] -= corr_matrices['dark_current']
-            print("dark_current is subtracted")
+            logging.info("Dark current is subtracted")
         for corr_matrix in corr_matrices:
             if corr_matrix != 'dark_current' and corr_matrices[corr_matrix] is not None:
                 if corr_matrix == 'absorption_corr_matrix' or corr_matrix == 'lorentz_corr_matrix':
                     for i, matrix in enumerate(self.matrix):
                         self.img_raw[i] /= matrix.corr_matrices.__dict__[corr_matrix]
-                print(corr_matrix, "was applied")
+                logging.info(f"{corr_matrix} was applied")
                 self.img_raw /= corr_matrices[corr_matrix]
 
     def save_nxs(self, **kwargs):
@@ -472,14 +474,14 @@ class Conversion:
         DataSaver(self, **kwargs)
         return
 
-    def set_plot_defaults(self, font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
+    @classmethod
+    def set_plot_defaults(cls, font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
                           grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=14, ytick_labelsize=14,
                           legend_fontsize=12, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
-                          legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6.4, 4.8), axes_linewidth = 0.5,
+                          legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6.4, 4.8), axes_linewidth=0.5,
                           savefig_dpi=600, savefig_transparent=False, savefig_bbox_inches=None,
                           savefig_pad_inches=0.1, line_linewidth=2, line_color='blue', line_linestyle='-',
-                          line_marker=None, scatter_marker='o', scatter_edgecolors='black', grid_major_linestyle='-',
-                          grid_minor_linestyle=':', grid_major_linewidth=0.7, grid_minor_linewidth=0.3,
+                          line_marker=None, scatter_marker='o', scatter_edgecolors='black',
                           cmap='inferno'):
         """
         Sets the default settings for various parts of a Matplotlib plot, including font sizes, gridlines,
@@ -513,60 +515,19 @@ class Conversion:
         - line_marker (str): Marker style for plot lines (e.g., 'o', 'x').
         - scatter_marker (str): Marker style for scatter plots (e.g., 'o', 'x').
         - scatter_edgecolors (str): Color for the edges of scatter plot markers (e.g., 'black').
-        - grid_major_linestyle (str): Style of major gridlines (e.g., '-', '--').
-        - grid_minor_linestyle (str): Style of minor gridlines (e.g., ':').
-        - grid_major_linewidth (float): Width of major gridlines.
-        - grid_minor_linewidth (float): Width of minor gridlines.
         - cmap (str): Image colormap
         """
-        # Font settings
-        plt.rc('font', size=font_size)  # Controls default text sizes
-        plt.rc('axes', titlesize=axes_titlesize)  # Font size for axes title
-        plt.rc('axes', labelsize=axes_labelsize)  # Font size for axes labels (x and y)
-        plt.rc('xtick', labelsize=xtick_labelsize)  # Font size for x-axis tick labels
-        plt.rc('ytick', labelsize=ytick_labelsize)  # Font size for y-axis tick labels
-        plt.rc('legend', fontsize=legend_fontsize)  # Font size for legend text
-        plt.rc('figure', titlesize=figure_titlesize)  # Font size for figure title
-
-        # Axes settings
-        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
-        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
-        plt.rcParams['axes.linewidth'] = axes_linewidth
-        plt.rcParams['grid.color'] = grid_color  # Grid line color
-        plt.rcParams['grid.linestyle'] = grid_linestyle  # Grid line style
-        plt.rcParams['grid.linewidth'] = grid_linewidth  # Grid line width
-
-        plt.rcParams['legend.loc'] = legend_loc  # Legend location
-        plt.rcParams['legend.frameon'] = legend_frameon  # Enable or disable legend frame
-        plt.rcParams['legend.borderpad'] = legend_borderpad  # Padding inside the legend box
-        plt.rcParams['legend.borderaxespad'] = legend_borderaxespad  # Padding between legend and axes
-
-        # Figure settings
-        plt.rcParams['figure.figsize'] = figsize  # Default figure size
-        plt.rcParams['savefig.dpi'] = savefig_dpi  # DPI when saving figure
-        plt.rcParams['savefig.transparent'] = savefig_transparent  # Transparent background for saved figure
-        plt.rcParams['savefig.bbox'] = savefig_bbox_inches  # Bounding box for saving figure
-        plt.rcParams['savefig.pad_inches'] = savefig_pad_inches  # Padding when saving figure
-
-        # Line settings
-        plt.rc('lines', linewidth=line_linewidth)  # Line width for plot lines
-        plt.rc('lines', color=line_color)  # Line color for plot lines
-        plt.rc('lines', linestyle=line_linestyle)  # Line style for plot lines
-        if line_marker is not None:
-            plt.rc('lines', marker=line_marker)  # Marker style for plot lines
-
-        # Scatter settings
-        plt.rc('scatter', marker=scatter_marker)  # Marker style for scatter plot
-        plt.rcParams['scatter.edgecolors'] = scatter_edgecolors  # Edge color for scatter markers
-
-        # Set grid settings
-        plt.rcParams['axes.grid'] = grid  # Enable or disable grid
-        plt.rcParams['grid.color'] = grid_color  # Grid line color
-        plt.rcParams['grid.linestyle'] = grid_linestyle  # Grid line style
-        plt.rcParams['grid.linewidth'] = grid_linewidth  # Grid line width
-
-        # Image colormap
-        plt.rcParams['image.cmap'] = cmap
+        cls.plot_params.update(get_plot_params(font_size, axes_titlesize, axes_labelsize, grid, grid_color,
+                                               grid_linestyle, grid_linewidth, xtick_labelsize,
+                                               ytick_labelsize,
+                                               legend_fontsize, legend_loc, legend_frameon, legend_borderpad,
+                                               legend_borderaxespad, figure_titlesize, figsize,
+                                               axes_linewidth,
+                                               savefig_dpi, savefig_transparent, savefig_bbox_inches,
+                                               savefig_pad_inches, line_linewidth, line_color, line_linestyle,
+                                               line_marker, scatter_marker, scatter_edgecolors,
+                                               cmap))
+        # type(self).plot_params.update()
 
     def plot_raw_image(self, **kwargs):
         """
@@ -607,91 +568,10 @@ class Conversion:
         img : 2D-array or list of 2D-arrays
             The raw image data plotted.
         """
-
-        if self.img_raw is None:
-            raise AttributeError("img_raw is not loaded")
-        if not isinstance(self.img_raw, np.ndarray):
-            self.img_raw = np.array(self.img_raw)
-
-        if frame_num is None and self.img_raw.shape[0] != 1:
-            frame_num = np.arange(1, self.img_raw.shape[0],1)
-        if isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
-            img_list = []
-            for num in frame_num:
-                x, y, img = self.plot_img_raw(return_result=True, frame_num=num, plot_result=plot_result,
-                             clims=clims, xlim=xlim, ylim=ylim, save_fig=save_fig,
-                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num))
-                img_list.append(img)
-            if return_result:
-                return self.x, self.y, img_list
-            return
-
-        if frame_num is None:
-            frame_num = 0
-        img = np.array(self.img_raw[frame_num])
-
-        if clims is None:
-            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
-
-        if self.img_raw is not None:
-
-            def fill_limits(lim, data):
-                return [np.nanmin(data) if lim[0] is None else lim[0],
-                        np.nanmax(data) if lim[1] is None else lim[1]]
-
-            xlim = fill_limits(xlim, self.x)
-            ylim = fill_limits(ylim, self.y)
-
-            fig, ax = plt.subplots()
-            plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
-            img[img < 0] = clims[0]
-            log_img = np.log(img / clims[1])
-            log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
-                                    neginf=np.log(clims[0] / clims[1]))
-
-            p = ax.imshow(log_img,
-                          vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                          extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
-                          aspect='equal',
-                          origin='lower')
-
-            ax.set_xlabel(r'$y$ [px]')
-            ax.set_ylabel(r'$z$ [px]')
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True, prune=None, nbins=4))
-            ax.tick_params(axis='both')
-
-            cb = fig.colorbar(mappable=p, ax=ax)
-            cb.set_label(label='Intensity [arb. units]')
-            cb.ax.yaxis.labelpad = 1
-            cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
-
-            if save_fig:
-                if path_to_save_fig is not None:
-                    if (path_to_save_fig.endswith('.svg') or path_to_save_fig.endswith('.pdf')
-                            or path_to_save_fig.endswith('.eps') or path_to_save_fig.endswith('.pgf')):
-                        plt.axis('square')
-                        plt.savefig(path_to_save_fig)
-                    else:
-                        plt.savefig(path_to_save_fig, bbox_inches='tight')
-                    print(f"Saved figure in {path_to_save_fig}")
-                else:
-                    raise ValueError("path_to_save_fig is not defined.")
-                if not plot_result:
-                    plt.close()
-                    del fig, ax
-            else:
-                if plot_result:
-                    plt.show()
-                else:
-                    plt.close()
-                    del fig, ax
-        else:
-            print("img_raw is not loaded")
-
-        if return_result:
-            return self.x, self.y, img
+        return plot_img_raw(self.img_raw, self.x, self.y, get_plot_context(type(self).plot_params), return_result,
+                            frame_num,
+                            plot_result, clims, xlim, ylim,
+                            save_fig, path_to_save_fig)
 
     def _remap_general_(self, frame_num, **kwargs):
         """
@@ -795,86 +675,108 @@ class Conversion:
             if kwargs["return_result"]:
                 return getattr(mat, kwargs["x_key"]), getattr(mat, kwargs["y_key"]), result_img
 
-    def det2q_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                  q_xy_range=None, q_z_range=None, dq=None,
-                  plot_result=False, clims=None,
-                  xlim=(None, None), ylim=(None, None),
-                  save_fig=False, path_to_save_fig="img.png",
-                  save_result=False,
-                  path_to_save='result.h5',
-                  h5_group=None,
-                  overwrite_file=True,
-                  overwrite_group=False,
-                  exp_metadata=None,
-                  smpl_metadata=None,
-                  ):
+    def det2q_gid(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            q_xy_range=None,
+            q_z_range=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-            Converts detector image to reciprocal space map (q_xy, q_z) for GID geometry.
+        Converts a detector image to a reciprocal-space map (q_xy, q_z) for grazing-incidence diffraction (GID) geometry.
 
-            Parameters
-            ----------
-            frame_num : int, list or None, optional
-                Frame number to process. If None, defaults to the first or current frame.
-            interp_type : str, optional
-                Interpolation method used for remapping. Default is "INTER_LINEAR".
-            multiprocessing : bool, optional
-                Whether to use multiprocessing for processing. If None, uses default setting.
-            return_result : bool, optional
-                If True, returns the result: two axes and images.
-            q_xy_range : tuple or None, optional
-                Tuple specifying the min and max of q_xy range. If None, uses full range.
-            q_z_range : tuple or None, optional
-                Tuple specifying the min and max of q_z range. If None, uses full range.
-            plot_result : bool, optional
-                Whether to plot the resulting reciprocal space map. Default is False.
-            clims : tuple, optional
-                Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
-            xlim : tuple, optional
-                X-axis limits for plot. Default is (None, None).
-            ylim : tuple, optional
-                Y-axis limits for plot. Default is (None, None).
-            save_fig : bool, optional
-                Whether to save the figure. Default is False.
-            path_to_save_fig : str, optional
-                Path to save the figure if save_fig is True. Default is "img.png".
-            save_result : bool, optional
-                Whether to save the resulting data to h5-file. Default is False.
-            path_to_save : str, optional
-                Path to save the result if save_result is True. Default is 'result.h5'.
-            h5_group : str or None, optional
-                HDF5 group under which to save data.
-            overwrite_file : bool, optional
-                Whether to overwrite existing file. Default is True.
-            metadata : dict or None, optional
-                Additional metadata to store with result. Default is None.
+        Parameters
+        ----------
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
+        interp_type : str, optional
+            Interpolation method used for remapping. Default is "INTER_LINEAR".
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
+        return_result : bool, optional
+            If True, returns the calculated reciprocal-space axes and image(s).
+        q_xy_range : tuple of float or None, optional
+            (min, max) limits for the q_xy range. If None, the full range is used.
+        q_z_range : tuple of float or None, optional
+            (min, max) limits for the q_z range. If None, the full range is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        plot_result : bool, optional
+            If True, displays the resulting reciprocal-space map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
+        xlim : tuple, optional
+            X-axis limits for the plot. Default is (None, None).
+        ylim : tuple, optional
+            Y-axis limits for the plot. Default is (None, None).
+        save_fig : bool, optional
+            If True, saves the plotted figure. Default is False.
+        path_to_save_fig : str, optional
+            Path to save the figure if `save_fig` is True. Default is "img.png".
+        save_result : bool, optional
+            If True, saves the resulting data to an HDF5 file. Default is False.
+        path_to_save : str, optional
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
+        h5_group : str or None, optional
+            HDF5 group name under which the data are stored. Default is None.
+        overwrite_file : bool, optional
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
-            Returns
-            -------
-            q_xy : array
-                The q_xy-axis values of the converted data (in 1/A).
-            q_z : array
-                The q_z-axis values of the converted data (in 1/A).
-            img_gid_q : 2D-array or list of 2D-arrays
-                The converted image img_gid_q.
-            """
+        Returns
+        -------
+        q_xy : ndarray
+            The q_xy-axis values of the converted data (Å⁻¹).
+        q_z : ndarray
+            The q_z-axis values of the converted data (Å⁻¹).
+        img_gid_q : ndarray or list of ndarray
+            The reciprocal-space image(s) corresponding to (q_xy, q_z).
+        """
 
+        # If batch mode is active, delegate the task to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2q_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group, save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
+        # Determine whether recalculation of transformation matrices is required
         recalc = (determine_recalc_key(q_xy_range, self.matrix[0].q_xy_range, self.matrix[0].q_xy, self.matrix[0].dq) \
                       if hasattr(self.matrix[0], "q_xy") else True) or (
                      determine_recalc_key(q_z_range, self.matrix[0].q_z_range,
                                           self.matrix[0].q_z, self.matrix[0].dq) \
                          if hasattr(self.matrix[0], "q_z") else True)
+        # Force recalculation if dq (step size) differs from the current one
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
 
+        # Calculate coordinate transformation matrices
         self.calc_matrices("p_y_gid", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_xy_range=q_xy_range,
                            q_z_range=q_z_range, dq=dq)
+
+        # Remap detector image from pixel to reciprocal space (q_xy, q_z)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_gid",
@@ -892,80 +794,99 @@ class Conversion:
             overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
+
+        # Ensure result is always a list (for consistent handling of multiple frames)
         img = [img] if not isinstance(img, list) else img
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
-                                        r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
+                                   r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+        # Return calculated axes and image(s) if required
         if return_result:
             return x, y, img
 
-    def det2q(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-              q_x_range=None, q_y_range=None, dq=None,
-              plot_result=False, clims=None,
-              xlim=(None, None), ylim=(None, None),
-              save_fig=False, path_to_save_fig="img.png",
-              save_result=False,
-              path_to_save='result.h5',
-              h5_group=None,
-              overwrite_file=True,
-              overwrite_group=False,
-              exp_metadata=None,
-              smpl_metadata=None,
-              ):
+    def det2q(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            q_x_range=None,
+            q_y_range=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
+
         """
-            Converts detector image to reciprocal space map (q_x, q_y) for transmission geometry.
+        Converts a detector image to a reciprocal-space map (q_x, q_y) for transmission geometry.
 
-            Parameters
-            ----------
-            frame_num : int, list or None, optional
-                Frame number to process. If None, defaults to the first or current frame.
-            interp_type : str, optional
-                Interpolation method used for remapping. Default is "INTER_LINEAR".
-            multiprocessing : bool, optional
-                Whether to use multiprocessing for processing. If None, uses default setting.
-            return_result : bool, optional
-                If True, returns the result: two axes and images.
-            q_x_range : tuple or None, optional
-                Tuple specifying the min and max of q_x range. If None, uses full range.
-            q_y_range : tuple or None, optional
-                Tuple specifying the min and max of q_y range. If None, uses full range.
-            plot_result : bool, optional
-                Whether to plot the resulting reciprocal space map. Default is False.
-            clims : tuple, optional
-                Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
-            xlim : tuple, optional
-                X-axis limits for plot. Default is (None, None).
-            ylim : tuple, optional
-                Y-axis limits for plot. Default is (None, None).
-            save_fig : bool, optional
-                Whether to save the figure. Default is False.
-            path_to_save_fig : str, optional
-                Path to save the figure if save_fig is True. Default is "img.png".
-            save_result : bool, optional
-                Whether to save the resulting data to h5-file. Default is False.
-            path_to_save : str, optional
-                Path to save the result if save_result is True. Default is 'result.h5'.
-            h5_group : str or None, optional
-                HDF5 group under which to save data.
-            recalc : bool, optional
-                Whether to force recalculation even if coodinate map exists. Default is False.
-            overwrite_file : bool, optional
-                Whether to overwrite existing file. Default is True.
-            metadata : dict or None, optional
-                Additional metadata to store with result. Default is None.
+        Parameters
+        ----------
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
+        interp_type : str, optional
+            Interpolation method used for remapping. Default is "INTER_LINEAR".
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
+        return_result : bool, optional
+            If True, returns the calculated reciprocal-space axes and image(s).
+        q_x_range : tuple of float or None, optional
+            (min, max) limits for the q_x range. If None, the full range is used.
+        q_y_range : tuple of float or None, optional
+            (min, max) limits for the q_y range. If None, the full range is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        plot_result : bool, optional
+            If True, displays the resulting reciprocal-space map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
+        xlim : tuple, optional
+            X-axis limits for the plot. Default is (None, None).
+        ylim : tuple, optional
+            Y-axis limits for the plot. Default is (None, None).
+        save_fig : bool, optional
+            If True, saves the plotted figure. Default is False.
+        path_to_save_fig : str, optional
+            Path to save the figure if `save_fig` is True. Default is "img.png".
+        save_result : bool, optional
+            If True, saves the resulting data to an HDF5 file. Default is False.
+        path_to_save : str, optional
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
+        h5_group : str or None, optional
+            HDF5 group name under which the data are stored. Default is None.
+        overwrite_file : bool, optional
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
-            Returns
-            -------
-            q_x : array
-                The q_x-axis values of the converted data (in 1/A).
-            q_y : array
-                The q_y-axis values of the converted data (in 1/A).
-            img_q : 2D-array or list of 2D-arrays
-                The converted image img_q.
-
-            """
+        Returns
+        -------
+        q_x : ndarray
+            The q_x-axis values of the converted data (Å⁻¹).
+        q_y : ndarray
+            The q_y-axis values of the converted data (Å⁻¹).
+        img_q : ndarray or list of ndarray
+            The reciprocal-space image(s) corresponding to (q_x, q_y).
+        """
+        # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2q", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -973,6 +894,7 @@ class Conversion:
             self.batch_activated = True
             return res
 
+        # Determine if coordinate matrices need to be recalculated
         recalc = (determine_recalc_key(q_x_range, self.matrix[0].q_x_range, self.matrix[0].q_x, self.matrix[0].dq) \
                       if hasattr(self.matrix[0], "q_x") else True) or (
                      determine_recalc_key(q_y_range, self.matrix[0].q_y_range,
@@ -982,8 +904,10 @@ class Conversion:
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
 
+        # Compute coordinate transformation matrices for transmission geometry
         self.calc_matrices("p_y_ewald", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_x_range=q_x_range, q_y_range=q_y_range, dq=dq)
+        # Remap detector image from pixel space to reciprocal space (q_x, q_y)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_ewald",
@@ -1001,81 +925,103 @@ class Conversion:
             overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
+
         img = [img] if not isinstance(img, list) else img
+
+        # Plot and/or save reciprocal-space maps if requested
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r'$q_{x}$ [$\mathrm{\AA}^{-1}$]',
-                                        r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r'$q_{x}$ [$\mathrm{\AA}^{-1}$]',
+                                   r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+        # Return calculated axes and reciprocal-space image(s) if requested
         if return_result:
             return x, y, img
 
-    def det2pol(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                radial_range=None, angular_range=None, dang=None, dq=None,
-                plot_result=False, clims=None,
-                xlim=(None, None), ylim=(None, None),
-                save_fig=False, path_to_save_fig="img.png",
-                save_result=False,
-                path_to_save='result.h5',
-                h5_group=None,
-                overwrite_file=True,
-                overwrite_group=False,
-                exp_metadata=None,
-                smpl_metadata=None,
-                ):
+    def det2pol(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            radial_range=None,
+            angular_range=None,
+            dang=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-         Converts detector image to polar coordinates for transmission geometry.
+        Converts a detector image to a polar reciprocal-space map (|q|, χ) for transmission geometry.
 
-         Parameters
-         ----------
-         frame_num : int, list or None, optional
-             Frame number to process. If None, defaults to the first or current frame.
-         interp_type : str, optional
-             Interpolation method used for remapping. Default is "INTER_LINEAR".
-         multiprocessing : bool, optional
-             Whether to use multiprocessing for processing. If None, uses default setting.
-         return_result : bool, optional
-             If True, returns the result: two axes and images.
-         radial_range : tuple or None, optional
-             Tuple specifying the min and max of q. If None, uses full range.
-         angular_range : tuple or None, optional
-             Tuple specifying the min and max of azimuthal angle. If None, uses full range.
-         plot_result : bool, optional
-             Whether to plot the resulting reciprocal space map. Default is False.
-         clims : tuple, optional
-             Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
-         xlim : tuple, optional
-             X-axis limits for plot. Default is (None, None).
-         ylim : tuple, optional
-             Y-axis limits for plot. Default is (None, None).
-         save_fig : bool, optional
-             Whether to save the figure. Default is False.
-         path_to_save_fig : str, optional
-             Path to save the figure if save_fig is True. Default is "img.png".
-         save_result : bool, optional
-             Whether to save the resulting data to h5-file. Default is False.
-         path_to_save : str, optional
-             Path to save the result if save_result is True. Default is 'result.h5'.
-         h5_group : str or None, optional
-             HDF5 group under which to save data.
-         recalc : bool, optional
-             Whether to force recalculation even if coodinate map exists. Default is False.
-         overwrite_file : bool, optional
-             Whether to overwrite existing file. Default is True.
-         metadata : dict or None, optional
-             Additional metadata to store with result. Default is None.
+        Parameters
+        ----------
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
+        interp_type : str, optional
+            Interpolation method used for remapping. Default is "INTER_LINEAR".
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
+        return_result : bool, optional
+            If True, returns the calculated reciprocal-space axes and image(s).
+        radial_range : tuple of float or None, optional
+            (min, max) limits for the radial q range (|q|). If None, the full range is used.
+        angular_range : tuple of float or None, optional
+            (min, max) limits for the azimuthal angle χ (in degrees). If None, the full range is used.
+        dang : float or None, optional
+            Step size for the angular coordinate (Δχ). If None, the existing resolution is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        plot_result : bool, optional
+            If True, displays the resulting polar reciprocal-space map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
+        xlim : tuple, optional
+            X-axis limits for the plot. Default is (None, None).
+        ylim : tuple, optional
+            Y-axis limits for the plot. Default is (None, None).
+        save_fig : bool, optional
+            If True, saves the plotted figure. Default is False.
+        path_to_save_fig : str, optional
+            Path to save the figure if `save_fig` is True. Default is "img.png".
+        save_result : bool, optional
+            If True, saves the resulting data to an HDF5 file. Default is False.
+        path_to_save : str, optional
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
+        h5_group : str or None, optional
+            HDF5 group name under which the data are stored. Default is None.
+        overwrite_file : bool, optional
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
-         Returns
-         -------
-         q_pol : array
-             The q_pol-axis values of the converted data (in 1/A).
-         ang_pol : array
-             The ang_pol-axis values of the converted data (in degrees).
-         img_pol : 2D-array or list of 2D-arrays
-             The converted image img_pol.
+        Returns
+        -------
+        q_pol : ndarray
+            The radial q-axis values of the converted data (Å⁻¹).
+        ang_pol : ndarray
+            The azimuthal angle χ values of the converted data (degrees).
+        img_pol : ndarray or list of ndarray
+            The polar reciprocal-space image(s) corresponding to (|q|, χ).
+        """
 
-         """
-
+        # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1083,10 +1029,11 @@ class Conversion:
             self.batch_activated = True
             return res
 
-        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+        # Determine whether recalculation of coordinate transformation matrices is required
+        recalc = ((determine_recalc_key(angular_range, self.matrix[0].angular_range,
                                         self.matrix[0].ang_pol, self.matrix[0].dang) \
                        if hasattr(self.matrix[0], "ang_pol") else True) or
-                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                  (determine_recalc_key(radial_range, self.matrix[0].radial_range,
                                         self.matrix[0].q_pol, self.matrix[0].dq) \
                        if hasattr(self.matrix[0], "q_pol") else True))
         if dq is not None:
@@ -1094,10 +1041,12 @@ class Conversion:
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
+        # Compute polar transformation matrices (|q|, χ mapping)
         self.calc_matrices("p_y_lab_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
                            angular_range=angular_range, dang=dang, dq=dq)
 
+        # Remap detector image from pixel space to polar reciprocal space
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_lab_pol",
@@ -1117,79 +1066,102 @@ class Conversion:
             smpl_metadata=smpl_metadata
         )
         img = [img] if not isinstance(img, list) else img
+
+        # Plot and/or save each polar reciprocal-space map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                        r"$\chi$ [$\degree$]", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
+                                   r"$\chi$ [$\degree$]", 'auto', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+
+        # Return calculated axes and polar image(s) if requested
         if return_result:
             return x, y, img
 
-    def det2pol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                    radial_range=None, angular_range=None, dang=None, dq=None,
-                    plot_result=False, clims=None,
-                    xlim=(None, None), ylim=(None, None),
-                    save_fig=False, path_to_save_fig="img.png",
-                    save_result=False,
-                    path_to_save='result.h5',
-                    h5_group=None,
-                    overwrite_file=True,
-                    overwrite_group=False,
-                    exp_metadata=None,
-                    smpl_metadata=None,
-                    ):
+    def det2pol_gid(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            radial_range=None,
+            angular_range=None,
+            dang=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-         Converts detector image to polar coordinates for GID geometry.
+        Converts a detector image to a polar reciprocal-space map (|q|, χ) for grazing-incidence diffraction (GID) geometry.
 
-         Parameters
-         ----------
-         frame_num : int, list or None, optional
-             Frame number to process. If None, defaults to the first or current frame.
-         interp_type : str, optional
-             Interpolation method used for remapping. Default is "INTER_LINEAR".
-         multiprocessing : bool, optional
-             Whether to use multiprocessing for processing. If None, uses default setting.
-         return_result : bool, optional
-             If True, returns the result: two axes and images.
-         radial_range : tuple or None, optional
-             Tuple specifying the min and max of q. If None, uses full range.
-         angular_range : tuple or None, optional
-             Tuple specifying the min and max of azimuthal angle. If None, uses full range.
-         plot_result : bool, optional
-             Whether to plot the resulting reciprocal space map. Default is False.
-         clims : tuple, optional
-             Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
-         xlim : tuple, optional
-             X-axis limits for plot. Default is (None, None).
-         ylim : tuple, optional
-             Y-axis limits for plot. Default is (None, None).
-         save_fig : bool, optional
-             Whether to save the figure. Default is False.
-         path_to_save_fig : str, optional
-             Path to save the figure if save_fig is True. Default is "img.png".
-         save_result : bool, optional
-             Whether to save the resulting data to h5-file. Default is False.
-         path_to_save : str, optional
-             Path to save the result if save_result is True. Default is 'result.h5'.
-         h5_group : str or None, optional
-             HDF5 group under which to save data.
-         recalc : bool, optional
-             Whether to force recalculation even if coodinate map exists. Default is False.
-         overwrite_file : bool, optional
-             Whether to overwrite existing file. Default is True.
-         metadata : dict or None, optional
-             Additional metadata to store with result. Default is None.
+        Parameters
+        ----------
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
+        interp_type : str, optional
+            Interpolation method used for remapping. Default is "INTER_LINEAR".
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
+        return_result : bool, optional
+            If True, returns the calculated reciprocal-space axes and image(s).
+        radial_range : tuple of float or None, optional
+            (min, max) limits for the radial q range (|q|). If None, the full range is used.
+        angular_range : tuple of float or None, optional
+            (min, max) limits for the azimuthal angle χ (in degrees). If None, the full range is used.
+        dang : float or None, optional
+            Step size for the angular coordinate (Δχ). If None, the existing resolution is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        plot_result : bool, optional
+            If True, displays the resulting polar reciprocal-space map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
+        xlim : tuple, optional
+            X-axis limits for the plot. Default is (None, None).
+        ylim : tuple, optional
+            Y-axis limits for the plot. Default is (None, None).
+        save_fig : bool, optional
+            If True, saves the plotted figure. Default is False.
+        path_to_save_fig : str, optional
+            Path to save the figure if `save_fig` is True. Default is "img.png".
+        save_result : bool, optional
+            If True, saves the resulting data to an HDF5 file. Default is False.
+        path_to_save : str, optional
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
+        h5_group : str or None, optional
+            HDF5 group name under which the data are stored. Default is None.
+        overwrite_file : bool, optional
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
-         Returns
-         -------
-         q_gid_pol : array
-             The q_gid_pol-axis values of the converted data (in 1/A).
-         ang_gid_pol : array
-             The ang_gid_pol-axis values of the converted data (in degrees).
-         img_gid_pol : 2D-array or list of 2D-arrays
-             The converted image img_gid_pol.
+        Returns
+        -------
+        q_gid_pol : ndarray
+            The radial q-axis values of the converted data (Å⁻¹).
+        ang_gid_pol : ndarray
+            The azimuthal angle χ values of the converted data (degrees).
+        img_gid_pol : ndarray or list of ndarray
+            The polar reciprocal-space image(s) corresponding to (|q|, χ).
+        """
 
-         """
+        # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1197,10 +1169,11 @@ class Conversion:
             self.batch_activated = True
             return res
 
-        recalc = ((determine_recalc_key(angular_range, [self.matrix[0].ang_min, self.matrix[0].ang_max],
+        # Determine whether recalculation of GID polar coordinate matrices is required
+        recalc = ((determine_recalc_key(angular_range, self.matrix[0].angular_range,
                                         self.matrix[0].ang_gid_pol, self.matrix[0].dang) \
                        if hasattr(self.matrix[0], "ang_gid_pol") else True) or
-                  (determine_recalc_key(radial_range, [self.matrix[0].q_min, self.matrix[0].q_max],
+                  (determine_recalc_key(radial_range, self.matrix[0].radial_range,
                                         self.matrix[0].q_gid_pol, self.matrix[0].dq) \
                        if hasattr(self.matrix[0], "q_gid_pol") else True))
         if dq is not None:
@@ -1208,12 +1181,14 @@ class Conversion:
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
+        # Compute polar transformation matrices for GID geometry (|q|, χ mapping)
         self.calc_matrices("p_y_smpl_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
                            angular_range=angular_range,
                            dang=dang,
                            dq=dq)
 
+        # Remap detector image from pixel space to polar reciprocal space
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_smpl_pol",
@@ -1232,74 +1207,101 @@ class Conversion:
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
+
+        # Plot and/or save each polar GID map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                        r"$\chi$ [$\degree$]", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
+                                   r"$\chi$ [$\degree$]", 'auto', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+        # Return calculated axes and polar GID image(s) if requested
         if return_result:
             return x, y, img
 
-    def det2pseudopol(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                      q_azimuth_range=None, q_rad_range=None, dang=None, dq=None,
-                      plot_result=False, clims=None,
-                      xlim=(None, None), ylim=(None, None),
-                      save_fig=False, path_to_save_fig="img.png",
-                      save_result=False,
-                      path_to_save='result.h5',
-                      h5_group=None,
-                      overwrite_file=True,
-                      overwrite_group=False,
-                      exp_metadata=None,
-                      smpl_metadata=None,
-                      ):
+    def det2pseudopol(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            q_azimuth_range=None,
+            q_rad_range=None,
+            dang=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-        Converts detector image to pseudopolar coordinates for transmssion geometry.
+        Converts a detector image to pseudopolar coordinates (q_rad, q_azimuth) for transmission geometry.
 
         Parameters
         ----------
-        frame_num : int, list or None, optional
-            Frame number to process. If None, defaults to the first or current frame.
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
         interp_type : str, optional
             Interpolation method used for remapping. Default is "INTER_LINEAR".
-        multiprocessing : bool, optional
-            Whether to use multiprocessing for processing. If None, uses default setting.
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
         return_result : bool, optional
-            If True, returns the result: two axes and images.
+            If True, returns the calculated axes and pseudopolar image(s).
+        q_rad_range : tuple of float or None, optional
+            (min, max) limits for the radial q-axis. If None, the full range is used.
+        q_azimuth_range : tuple of float or None, optional
+            (min, max) limits for the azimuthal q-axis. If None, the full range is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        dang : float or None, optional
+            Step size for the azimuthal coordinate (Δφ). If None, the existing resolution is used.
         plot_result : bool, optional
-            Whether to plot the resulting reciprocal space map. Default is False.
-        clims : tuple, optional
-            Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
+            If True, displays the resulting pseudopolar map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
         xlim : tuple, optional
-            X-axis limits for plot. Default is (None, None).
+            X-axis limits for the plot. Default is (None, None).
         ylim : tuple, optional
-            Y-axis limits for plot. Default is (None, None).
+            Y-axis limits for the plot. Default is (None, None).
         save_fig : bool, optional
-            Whether to save the figure. Default is False.
+            If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if save_fig is True. Default is "img.png".
+            Path to save the figure if `save_fig` is True. Default is "img.png".
         save_result : bool, optional
-            Whether to save the resulting data to h5-file. Default is False.
+            If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
-            Path to save the result if save_result is True. Default is 'result.h5'.
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
         h5_group : str or None, optional
-            HDF5 group under which to save data.
+            HDF5 group name under which the data are stored. Default is None.
         overwrite_file : bool, optional
-            Whether to overwrite existing file. Default is True.
-        metadata : dict or None, optional
-            Additional metadata to store with result. Default is None.
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
         Returns
         -------
-        q_rad : array
-            The q_rad-axis values of the converted data (in 1/A).
-        q_azimuth : array
-            The q_azimuth-axis values of the converted data (in 1/A).
-        img_pseudopol : 2D-array or list of 2D-arrays
-            The converted image img_pseudopol.
-
+        q_rad : ndarray
+            The radial q-axis values of the converted data (Å⁻¹).
+        q_azimuth : ndarray
+            The azimuthal q-axis values of the converted data (Å⁻¹).
+        img_pseudopol : ndarray or list of ndarray
+            The pseudopolar image(s) corresponding to (q_rad, q_azimuth).
         """
 
+        # Delegate to batch processor if batch mode is active
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1307,6 +1309,7 @@ class Conversion:
             self.batch_activated = True
             return res
 
+        # Determine whether recalculation of pseudopolar matrices is required
         recalc = False
         if hasattr(self.matrix[0], "q_rad"):
             if q_rad_range is None:
@@ -1326,10 +1329,12 @@ class Conversion:
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
+        # Compute pseudopolar transformation matrices
         self.calc_matrices("p_y_lab_pseudopol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_rad_range=q_rad_range,
                            q_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
 
+        # Remap detector image to pseudopolar coordinates
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_lab_pseudopol",
@@ -1348,73 +1353,102 @@ class Conversion:
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
+
+        # Plot and/or save each pseudopolar map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                        r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
+                                   r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+
+        # Return calculated axes and pseudopolar image(s) if requested
         if return_result:
             return x, y, img
 
-    def det2pseudopol_gid(self, frame_num=None, interp_type="INTER_LINEAR", multiprocessing=None, return_result=False,
-                          q_rad_range=None, q_azimuth_range=None, dang=None, dq=None,
-                          plot_result=False, clims=None,
-                          xlim=(None, None), ylim=(None, None),
-                          save_fig=False, path_to_save_fig="img.png",
-                          save_result=False,
-                          path_to_save='result.h5',
-                          h5_group=None,
-                          overwrite_file=True,
-                          overwrite_group=False,
-                          exp_metadata=None,
-                          smpl_metadata=None,
-                          ):
+    def det2pseudopol_gid(
+            self,
+            frame_num=None,
+            interp_type="INTER_LINEAR",
+            multiprocessing=None,
+            return_result=False,
+            q_rad_range=None,
+            q_azimuth_range=None,
+            dang=None,
+            dq=None,
+            plot_result=False,
+            clims=None,
+            xlim=(None, None),
+            ylim=(None, None),
+            save_fig=False,
+            path_to_save_fig="img.png",
+            save_result=False,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-        Converts detector image to pseudopolar coordinates for GID geometry.
+        Converts a detector image to pseudopolar coordinates (q_rad, q_azimuth) for grazing-incidence diffraction (GID) geometry.
 
         Parameters
         ----------
-        frame_num : int, list or None, optional
-            Frame number to process. If None, defaults to the first or current frame.
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to process. If None, the first or current frame is used.
         interp_type : str, optional
             Interpolation method used for remapping. Default is "INTER_LINEAR".
-        multiprocessing : bool, optional
-            Whether to use multiprocessing for processing. If None, uses default setting.
+        multiprocessing : bool or None, optional
+            Whether to use multiprocessing during computation. If None, the class default is used.
         return_result : bool, optional
-            If True, returns the result: two axes and images.
+            If True, returns the calculated axes and pseudopolar image(s).
+        q_rad_range : tuple of float or None, optional
+            (min, max) limits for the radial q-axis. If None, the full range is used.
+        q_azimuth_range : tuple of float or None, optional
+            (min, max) limits for the azimuthal q-axis. If None, the full range is used.
+        dq : float or None, optional
+            Step size in reciprocal space (Δq). If None, the existing resolution is used.
+        dang : float or None, optional
+            Step size for the azimuthal coordinate (Δφ). If None, the existing resolution is used.
         plot_result : bool, optional
-            Whether to plot the resulting reciprocal space map. Default is False.
-        clims : tuple, optional
-            Color scale limits (vmin, vmax) for plotting. Default is (1e1, 4e4).
+            If True, displays the resulting pseudopolar GID map. Default is False.
+        clims : tuple of float or None, optional
+            Color scale limits (vmin, vmax) for plotting. Default is None.
         xlim : tuple, optional
-            X-axis limits for plot. Default is (None, None).
+            X-axis limits for the plot. Default is (None, None).
         ylim : tuple, optional
-            Y-axis limits for plot. Default is (None, None).
+            Y-axis limits for the plot. Default is (None, None).
         save_fig : bool, optional
-            Whether to save the figure. Default is False.
+            If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if save_fig is True. Default is "img.png".
+            Path to save the figure if `save_fig` is True. Default is "img.png".
         save_result : bool, optional
-            Whether to save the resulting data to h5-file. Default is False.
+            If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
-            Path to save the result if save_result is True. Default is 'result.h5'.
+            Path to save the HDF5 file if `save_result` is True. Default is "result.h5".
         h5_group : str or None, optional
-            HDF5 group under which to save data.
+            HDF5 group name under which the data are stored. Default is None.
         overwrite_file : bool, optional
-            Whether to overwrite existing file. Default is True.
-        metadata : dict or None, optional
-            Additional metadata to store with result. Default is None.
+            If True, overwrites an existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites an existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
         Returns
         -------
-        q_gid_rad : array
-            The q_gid_rad-axis values of the converted data (in 1/A).
-        q_gid_azimuth : array
-            The q_gid_azimuth-axis values of the converted data (in 1/A).
-        img_gid_pseudopol : 2D-array or list of 2D-arrays
-            The converted image img_gid_pseudopol.
+        q_gid_rad : ndarray
+            The radial q-axis values of the converted data (Å⁻¹).
+        q_gid_azimuth : ndarray
+            The azimuthal q-axis values of the converted data (Å⁻¹).
+        img_gid_pseudopol : ndarray or list of ndarray
+            The pseudopolar GID image(s) corresponding to (q_rad, q_azimuth).
         """
 
+        # Delegate to batch processor if batch mode is active
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1422,6 +1456,7 @@ class Conversion:
             self.batch_activated = True
             return res
 
+        # Determine whether recalculation of pseudopolar GID matrices is required
         recalc = False
         if hasattr(self.matrix[0], "q_gid_rad"):
             if q_rad_range is None:
@@ -1437,15 +1472,18 @@ class Conversion:
                               np.isclose(q_azimuth_range[1], np.nanmax(self.matrix[0].q_gid_azimuth),
                                          atol=0.01)) else True)
 
+        # Force recalculation if dq or dang differ from current configuration
         if dq is not None:
             recalc = True if dq != self.matrix[0].dq else recalc
         if dang is not None:
             recalc = True if dang != self.matrix[0].dang else recalc
 
+        # Compute pseudopolar transformation matrices for GID
         self.calc_matrices("p_y_smpl_pseudopol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            q_gid_rad_range=q_rad_range,
                            q_gid_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
 
+        # Remap detector image to pseudopolar GID coordinates
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_smpl_pseudopol",
@@ -1464,11 +1502,15 @@ class Conversion:
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
         img = [img] if not isinstance(img, list) else img
+
+        # Plot and/or save each pseudopolar GID map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
-                self._plot_single_image(img[i], x, y, clims, xlim, ylim, r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                        r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
-                                        save_fig, add_frame_number(path_to_save_fig, i))
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
+                                   r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+        # Return calculated axes and pseudopolar GID image(s) if requested
         if return_result:
             return x, y, img
 
@@ -1495,90 +1537,42 @@ class Conversion:
         return method(return_result=True, plot_result=False, frame_num=frame_num,
                       radial_range=radial_range, angular_range=angular_range, dang=dang, dq=dq)
 
-    def _plot_profile(self, x_values, profiles, xlabel, shift, xlim, ylim, plot_result,
-                      save_fig, path_to_save_fig):
+
+
+    def radial_profile_gid(
+            self,
+            frame_num=None,
+            radial_range=None,
+            angular_range=[0, 90],
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='rad_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=None,
+            ylim=None,
+            dang=0.5,
+            dq=None,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-        Plots one or multiple radial/azmuthal or horizontal profiles with optional vertical shifting and formatting.
+        Computes and optionally plots the radial profile from 2D scattering data for GID geometry.
 
         Parameters
         ----------
-        x_values : array-like
-            The x-axis values (e.g., q, angle, etc.).
-        profiles : array-like or list of arrays
-            One or more profiles to be plotted.
-        xlabel : str
-            Label for the x-axis.
-        shift : float
-            Amount by which to vertically shift each profile (for clarity in stacked plots).
-        xlim : tuple or None
-            Limits for the x-axis as (min, max). Use None to auto-scale.
-        ylim : tuple or None
-            Limits for the y-axis as (min, max). Use None to auto-scale.
-        plot_result : bool
-            If True, displays the plot.
-        save_fig : bool
-            If True, saves the plot to a file.
-        path_to_save_fig : str
-            Path where the figure will be saved if `save_fig` is True.
-        """
-
-        fig, ax = plt.subplots()
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel("Intensity [arb. units]")
-        ax.set_yscale('log')
-        ax.tick_params(axis='both')
-        if xlim: ax.set_xlim(xlim)
-        if ylim: ax.set_ylim(ylim)
-        fig.tight_layout(pad=3)
-        cmap = colors.LinearSegmentedColormap.from_list("mycmap", ["royalblue", "mediumorchid", "orange"])
-        norm = Normalize(vmin=0, vmax=len(profiles))
-        if not plot_result:
-            plt.close()
-        for i, line in enumerate(profiles):
-            ax.plot(x_values, line * 2 ** (i * shift), color=cmap(norm(i)))
-        if save_fig:
-            if path_to_save_fig is not None:
-                fig.canvas.draw()
-                plt.savefig(path_to_save_fig)
-                print(f"Saved figure in {path_to_save_fig}")
-            else:
-                raise ValueError("path_to_save_fig is not defined.")
-            if plot_result:
-                plt.show()
-            else:
-                plt.close()
-                del fig, ax
-        if plot_result:
-            plt.show()
-
-
-    def radial_profile_gid(self, **kwargs):
-        kwargs['key'] = "gid"
-        return self.radial_profile(**kwargs)
-
-    def radial_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
-                       return_result=False, save_result=False, save_fig=False, path_to_save_fig='rad_cut.tiff',
-                       plot_result=False, shift=1, xlim=None, ylim=None, dang=0.5, dq=None,
-                       path_to_save='result.h5',
-                       h5_group=None,
-                       overwrite_file=True,
-                       overwrite_group=False,
-                       exp_metadata=None,
-                       smpl_metadata=None, ):
-
-        """
-        Computes and optionally plots the radial profile from 2D scattering data for a given angular range.
-
-        Parameters
-        ----------
-        key : str, optional
-            Key indicating which geometry was used (default is "gid").
         frame_num : int, list or None, optional
             Frame number to analyze. If None, all data will be used.
         radial_range : list or tuple, optional
             Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
         angular_range : list, optional
-            Angular range in degrees as [min, max] over which to integrate (default: [0, 90]) (in degrees).
+            Angular range in degrees as [min, max] over which to integrate (default: [0, 90]).
         multiprocessing : bool or None, optional
             If True, use multiprocessing for faster processing. If None, use default setting.
         return_result : bool, optional
@@ -1607,8 +1601,114 @@ class Conversion:
             HDF5 group name for saving results. If None, uses default group.
         overwrite_file : bool, optional
             If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
-        metadata : dict or None, optional
-            Optional metadata to include when saving results.
+        exp_metadata : pygid.ExpMetadata or None
+                Experimental metadata to include in the output file.
+        smpl_metadata : pygid.SampleMetadata or None
+                Sample metadata to include in the output file.
+
+        Returns
+        -------
+        q_abs_values : array
+            The q_abs_values-axis values of the converted data (in 1/A).
+        rad_cut_gid : 1D-array or list of 1D-arrays
+            Integrated image profile rad_cut.
+        """
+
+        key = 'gid'
+        remap_func = "radial_profile_gid"
+        name = "rad_cut_gid"
+
+        return self.calculate_radial_profile(
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name)
+
+    def radial_profile(
+            self,
+            frame_num=None,
+            radial_range=None,
+            angular_range=[0, 90],
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='rad_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=None,
+            ylim=None,
+            dang=0.5,
+            dq=None,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
+        """
+        Computes and optionally plots the radial profile from 2D scattering data for transmission geometry.
+
+        Parameters
+        ----------
+        frame_num : int, list or None, optional
+            Frame number to analyze. If None, all data will be used.
+        radial_range : list or tuple, optional
+            Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
+        angular_range : list, optional
+            Angular range in degrees as [min, max] over which to integrate (default: [0, 90]).
+        multiprocessing : bool or None, optional
+            If True, use multiprocessing for faster processing. If None, use default setting.
+        return_result : bool, optional
+            If True, returns the computed profile.
+        save_result : bool, optional
+            If True, saves the computed profile to an HDF5 file.
+        save_fig : bool, optional
+            If True, saves the plot of the profile to a file.
+        path_to_save_fig : str, optional
+            Path where the figure will be saved (if `save_fig` is True).
+        plot_result : bool, optional
+            If True, displays the radial profile plot.
+        shift : float, optional
+            Vertical shift applied to the profile for display purposes.
+        xlim : tuple or None, optional
+            X-axis limits as (min, max). If None, limits are auto-scaled.
+        ylim : tuple or None, optional
+            Y-axis limits as (min, max). If None, limits are auto-scaled.
+        dang : float, optional
+            Angular resolution in degrees for binning (default: 0.5).
+        dq : float or None, optional
+            Radial bin width in Å⁻¹. If None, uses default binning.
+        path_to_save : str, optional
+            Path where results should be saved (if `save_result` is True).
+        h5_group : str or None, optional
+            HDF5 group name for saving results. If None, uses default group.
+        overwrite_file : bool, optional
+            If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
+        exp_metadata : pygid.ExpMetadata or None
+                Experimental metadata to include in the output file.
+        smpl_metadata : pygid.SampleMetadata or None
+                Sample metadata to include in the output file.
 
         Returns
         -------
@@ -1618,26 +1718,150 @@ class Conversion:
             Integrated image profile rad_cut.
         """
 
+        key = 'transmission'
+        remap_func = "radial_profile"
+        name = "rad_cut"
+
+        return self.calculate_radial_profile(
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name)
+
+    def calculate_radial_profile(
+            self,
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name
+    ):
+        """
+            Computes and optionally plots the radial intensity profile from 2D scattering data.
+
+            The method integrates the intensity over the azimuthal direction within a given angular range,
+            producing a 1D profile as a function of the scattering vector magnitude (q_abs).
+
+            Parameters
+            ----------
+            key : str
+                Geometry key ("gid" or "transmission") indicating which dataset to process.
+            frame_num : int, list, or None
+                Frame index or list of indices to analyze. If None, all frames are used.
+            radial_range : list or tuple
+                Radial (q) range in Å⁻¹ as [min, max]. If None, the full range is used.
+            angular_range : list or tuple
+                Azimuthal range in degrees as [min, max] over which to integrate.
+            multiprocessing : bool or None
+                If True, enables multiprocessing for faster processing. If None, uses default setting.
+            return_result : bool
+                If True, returns the computed radial profile.
+            save_result : bool
+                If True, saves the computed profile to an HDF5 file.
+            save_fig : bool
+                If True, saves a plot of the radial profile.
+            path_to_save_fig : str
+                Path for saving the figure if `save_fig` is True.
+            plot_result : bool
+                If True, displays the radial profile plot.
+            shift : float
+                Vertical shift applied to the plotted profile.
+            xlim : tuple or None
+                Limits for the X-axis (q-range). Default is None (auto).
+            ylim : tuple or None
+                Limits for the Y-axis (intensity). Default is None (auto).
+            dang : float
+                Angular resolution in degrees for binning. Default is 0.5.
+            dq : float or None
+                Radial bin width in Å⁻¹. If None, uses default binning.
+            path_to_save : str
+                Path where results should be saved if `save_result` is True.
+            h5_group : str or None
+                HDF5 group name for storing the results. Default is None.
+            overwrite_file : bool
+                If True, overwrites the existing HDF5 file. Default is True.
+            overwrite_group : bool
+                If True, overwrites the existing HDF5 group. Default is False.
+            exp_metadata : pygid.ExpMetadata or None
+                Experimental metadata to include in the output file.
+            smpl_metadata : pygid.SampleMetadata or None
+                Sample metadata to include in the output file.
+            remap_func : str
+                Name of the remapping function used for batch processing.
+            name : str
+                Attribute name under which the computed profile is stored in the class instance.
+
+            Returns
+            -------
+            q_abs_values : ndarray
+                Scattering vector magnitude values in Å⁻¹.
+            radial_profile : ndarray or list of ndarray
+                Computed radial intensity profile(s).
+        """
+        # Check if batch mode is active
         if self.batch_activated:
-            remap_func = "radial_profile_gid" if key == "gid" else "radial_profile"
+            # Choose the appropriate batch function based on geometry key
             res = self.Batch(path_to_save, remap_func, h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
                              save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
+        # Retrieve polar-transformed image data
         q_abs_values, _, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
 
+        # Expand dimensions if a single frame (2D array) to unify processing
         img_pol = np.expand_dims(img_pol, axis=0) if img_pol.ndim == 2 else img_pol
+
+        # Compute radial profile by averaging over angular direction
         radial_profile = np.nanmean(img_pol, axis=1)
+
+        # Plot the radial profile if requested
         if plot_result or save_fig:
-            self._plot_profile(q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift,
+            _plot_profile(get_plot_context(type(self).plot_params), q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift,
                                xlim, ylim, plot_result, save_fig, path_to_save_fig)
-        name = "rad_cut_gid" if key == "gid" else "rad_cut"
         setattr(self, name, radial_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
+        # Save the profile to file if requested
         if save_result:
             self.save_nxs(path_to_save=path_to_save,
                           h5_group=h5_group,
@@ -1645,97 +1869,335 @@ class Conversion:
                           overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
-
+        # Return computed profile if requested
         if return_result:
             return (q_abs_values, radial_profile[0]) if radial_profile.shape[0] == 1 else (
                 q_abs_values, radial_profile)
 
-
-    def azim_profile_gid(self, **kwargs):
-        kwargs['key'] = "gid"
-        return self.azim_profile(**kwargs)
-
-
-    def azim_profile(self, key="transmission", frame_num=None, radial_range=None, angular_range=[0, 90], multiprocessing=None,
-                     return_result=False, save_result=False, save_fig=False, path_to_save_fig='azim_cut.tiff',
-                     plot_result=False, shift=1, xlim=None, ylim=None,
-                     path_to_save='result.h5', dang=0.5, dq=None,
-                     h5_group=None,
-                     overwrite_file=True,
-                     overwrite_group=False,
-                     exp_metadata=None,
-                     smpl_metadata=None, ):
+    def azim_profile_gid(
+            self,
+            frame_num=None,
+            radial_range=None,
+            angular_range=[0, 90],
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='azim_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=None,
+            ylim=None,
+            path_to_save='result.h5',
+            dang=0.5,
+            dq=None,
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None,
+    ):
         """
-        Computes and optionally plots the azmuthal profile from 2D scattering data for a given angular range.
+            Computes and optionally plots the azimuthal profile from 2D scattering data for GID geometry.
+
+            Parameters
+            ----------
+            frame_num : int, list, or None, optional
+                Frame index or list of indices to analyze. If None, all frames are used.
+            radial_range : list or tuple, optional
+                Radial q-range as [min, max] in Å⁻¹. If None, full range is used.
+            angular_range : list, optional
+                Azimuthal integration range in degrees as [min, max] (default [0, 90]).
+            multiprocessing : bool or None, optional
+                If True, use multiprocessing for faster processing. If None, uses default class setting.
+            return_result : bool, optional
+                If True, returns the computed azimuthal profile.
+            save_result : bool, optional
+                If True, saves the profile to an HDF5 file.
+            save_fig : bool, optional
+                If True, saves a plot of the profile.
+            path_to_save_fig : str, optional
+                File path for saving the figure if `save_fig` is True. Default is 'azim_cut.tiff'.
+            plot_result : bool, optional
+                If True, displays the azimuthal profile plot.
+            shift : float, optional
+                Vertical shift applied to the profile for display purposes. Default is 1.
+            xlim : tuple or None, optional
+                Limits for the X-axis (degrees). Default is None (auto).
+            ylim : tuple or None, optional
+                Limits for the Y-axis. Default is None (auto).
+            dang : float, optional
+                Angular resolution in degrees for binning. Default is 0.5.
+            dq : float or None, optional
+                Radial bin width in Å⁻¹. If None, uses default binning.
+            path_to_save : str, optional
+                HDF5 file path for saving results if `save_result` is True. Default is 'result.h5'.
+            h5_group : str or None, optional
+                HDF5 group name for saving results. Default is None.
+            overwrite_file : bool, optional
+                If True, overwrites existing HDF5 file. Default is True.
+            overwrite_group : bool, optional
+                If True, overwrites existing HDF5 group. Default is False.
+            exp_metadata : pygid.ExpMetadata or None, optional
+                Experimental metadata to store with results.
+            smpl_metadata : pygid.SampleMetadata or None, optional
+                Sample metadata to store with results.
+
+            Returns
+            -------
+            phi_abs_values : ndarray
+                Azimuthal angle values in degrees.
+            azim_cut_gid : ndarray or list of ndarray
+                Integrated azimuthal profile(s).
+        """
+        remap_func = "azim_profile_gid"
+        name = "azim_cut_gid"
+        key = 'gid'
+
+        return self.calculate_azim_profile(
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name
+        )
+
+    def azim_profile(
+            self,
+            frame_num=None,
+            radial_range=None,
+            angular_range=[0, 90],
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='azim_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=None,
+            ylim=None,
+            path_to_save='result.h5',
+            dang=0.5,
+            dq=None,
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None):
+        """
+        Computes and optionally plots the azimuthal profile from 2D scattering data for transmission geometry.
 
         Parameters
         ----------
-        key : str, optional
-            Key indicating which geometry was used (default is "gid").
-        frame_num : int, list or None, optional
-            Frame number to analyze. If None, all data will be used.
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to analyze. If None, all frames are used.
         radial_range : list or tuple, optional
-            Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
+            Radial q-range as [min, max] in Å⁻¹. If None, full range is used.
         angular_range : list, optional
-            Angular range in degrees as [min, max] over which to integrate (default: [0, 90]) (in degrees).
+            Azimuthal integration range in degrees as [min, max] (default [0, 90]).
         multiprocessing : bool or None, optional
-            If True, use multiprocessing for faster processing. If None, use default setting.
+            If True, use multiprocessing for faster processing. If None, uses default class setting.
         return_result : bool, optional
-            If True, returns the computed profile.
+            If True, returns the computed azimuthal profile.
         save_result : bool, optional
-            If True, saves the computed profile to an HDF5 file.
+            If True, saves the profile to an HDF5 file.
         save_fig : bool, optional
-            If True, saves the plot of the profile to a file.
+            If True, saves a plot of the profile.
         path_to_save_fig : str, optional
-            Path where the figure will be saved (if `save_fig` is True).
+            File path for saving the figure if `save_fig` is True. Default is 'azim_cut.tiff'.
         plot_result : bool, optional
-            If True, displays the radial profile plot.
+            If True, displays the azimuthal profile plot.
         shift : float, optional
-            Vertical shift applied to the profile for display purposes.
+            Vertical shift applied to the profile for display purposes. Default is 1.
         xlim : tuple or None, optional
-            X-axis limits as (min, max). If None, limits are auto-scaled.
+            Limits for the X-axis (degrees). Default is None (auto).
         ylim : tuple or None, optional
-            Y-axis limits as (min, max). If None, limits are auto-scaled.
+            Limits for the Y-axis. Default is None (auto).
         dang : float, optional
-            Angular resolution in degrees for binning (default: 0.5).
+            Angular resolution in degrees for binning. Default is 0.5.
         dq : float or None, optional
             Radial bin width in Å⁻¹. If None, uses default binning.
         path_to_save : str, optional
-            Path where results should be saved (if `save_result` is True).
+            HDF5 file path for saving results if `save_result` is True. Default is 'result.h5'.
         h5_group : str or None, optional
-            HDF5 group name for saving results. If None, uses default group.
+            HDF5 group name for saving results. Default is None.
         overwrite_file : bool, optional
-            If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
-        metadata : dict or None, optional
-            Optional metadata to include when saving results.
+            If True, overwrites existing HDF5 file. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites existing HDF5 group. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to store with results.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample metadata to store with results.
 
         Returns
         -------
-        phi_abs_values : array
-            The phi_abs_values-axis values of the converted data (in degrees).
-        azim_cut : 1D-array or list of 1D-arrays
-            Integrated image profile azim_cut.
+        phi_abs_values : ndarray
+            Azimuthal angle values in degrees.
+        azim_cut : ndarray or list of ndarray
+            Integrated azimuthal profile(s).
+        """
+
+        remap_func = "azim_profile"
+        name = "azim_cut"
+        key = 'transmission'
+
+        return self.calculate_azim_profile(
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name
+        )
+
+    def calculate_azim_profile(
+            self,
+            key,
+            frame_num,
+            radial_range,
+            angular_range,
+            multiprocessing,
+            return_result,
+            save_result,
+            save_fig,
+            path_to_save_fig,
+            plot_result,
+            shift,
+            xlim,
+            ylim,
+            dang,
+            dq,
+            path_to_save,
+            h5_group,
+            overwrite_file,
+            overwrite_group,
+            exp_metadata,
+            smpl_metadata,
+            remap_func,
+            name
+    ):
+        """
+        Computes and optionally plots the azimuthal intensity profile from 2D scattering data.
+
+        The method integrates the scattering intensity over the radial (q) direction within a given
+        q-range, resulting in a 1D azimuthal profile as a function of the scattering angle (phi).
+
+        Parameters
+        ----------
+        key : str
+            Geometry key ("gid" or "transmission") indicating which dataset to process.
+        frame_num : int, list, or None
+            Frame index or list of indices to analyze. If None, all frames are used.
+        radial_range : list or tuple
+            Radial (q) range in Å⁻¹ as [min, max]. If None, the full range is used.
+        angular_range : list or tuple
+            Azimuthal range in degrees as [min, max] over which to integrate.
+        multiprocessing : bool or None
+            If True, enables multiprocessing for faster processing. If None, uses default setting.
+        return_result : bool
+            If True, returns the computed azimuthal profile.
+        save_result : bool
+            If True, saves the computed profile to an HDF5 file.
+        save_fig : bool
+            If True, saves a plot of the azimuthal profile.
+        path_to_save_fig : str
+            Path for saving the figure if `save_fig` is True.
+        plot_result : bool
+            If True, displays the azimuthal profile plot.
+        shift : float
+            Vertical shift applied to the plotted profile.
+        xlim : tuple or None
+            Limits for the X-axis (phi range). Default is None (auto).
+        ylim : tuple or None
+            Limits for the Y-axis (intensity). Default is None (auto).
+        dang : float
+            Angular resolution in degrees for binning. Default is 0.5.
+        dq : float or None
+            Radial bin width in Å⁻¹. If None, uses default binning.
+        path_to_save : str
+            Path where results should be saved if `save_result` is True.
+        h5_group : str or None
+            HDF5 group name for storing the results. Default is None.
+        overwrite_file : bool
+            If True, overwrites the existing HDF5 file. Default is True.
+        overwrite_group : bool
+            If True, overwrites the existing HDF5 group. Default is False.
+        exp_metadata : pygid.ExpMetadata or None
+            Experimental metadata to include in the output file.
+        smpl_metadata : pygid.SampleMetadata or None
+            Sample metadata to include in the output file.
+        remap_func : str
+            Name of the remapping function used for batch processing.
+        name : str
+            Attribute name under which the computed profile is stored in the class instance.
+
+        Returns
+        -------
+        phi_abs_values : ndarray
+            Azimuthal angle values in degrees.
+        azim_profile : ndarray or list of ndarray
+            Computed azimuthal intensity profile(s).
         """
 
         if self.batch_activated:
-            remap_func = "azim_profile_gid" if key == "gid" else "azim_profile"
             res = self.Batch(path_to_save, remap_func, h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
                              save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
+        # Extract polar data: returns (radial, azimuthal, image array)
         _, phi_abs_values, img_pol = self._get_polar_data(key, frame_num, radial_range, angular_range, dang, dq)
         img_pol = np.array(img_pol)
         img_pol = np.expand_dims(img_pol, axis=0) if img_pol.ndim == 2 else img_pol
+
+        # Integrate over radial dimension to obtain azimuthal profile
         azim_profile = np.nanmean(img_pol, axis=2)
+
+        # Plot profile if requested
         if plot_result or save_fig:
-            self._plot_profile(phi_abs_values, azim_profile, r"$\phi\ (\degree)$", shift, xlim,
+            _plot_profile(get_plot_context(type(self).plot_params), phi_abs_values, azim_profile, r"$\chi\ [\degree]$", shift, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
-        name = "azim_cut_gid" if key == "gid" else "azim_cut"
         setattr(self, name, azim_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
+        # Save results to HDF5 if requested
         if save_result:
             self.save_nxs(path_to_save=path_to_save,
                           h5_group=h5_group,
@@ -1743,7 +2205,7 @@ class Conversion:
                           overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
-
+        # Return results if requested
         if return_result:
             return (phi_abs_values, azim_profile[0]) if azim_profile.shape[0] == 1 else (
                 phi_abs_values, azim_profile)
@@ -1770,67 +2232,83 @@ class Conversion:
     def horiz_profile(self, **kwargs):
         return self.horiz_profile_gid(**kwargs)
 
-    def horiz_profile_gid(self, frame_num=None, q_xy_range=[0, 4], q_z_range=[0, 0.2], dq=None, multiprocessing=None,
-                      return_result=False, save_result=False, save_fig=False, path_to_save_fig='hor_cut.tiff',
-                      plot_result=False, shift=1, xlim=None, ylim=None,
-                      path_to_save='result.h5',
-                      h5_group=None,
-                      overwrite_file=True,
-                      overwrite_group=False,
-                      exp_metadata=None,
-                      smpl_metadata=None):
+    def horiz_profile_gid(
+            self,
+            frame_num=None,
+            q_xy_range=[0, 4],
+            q_z_range=[0, 0.2],
+            dq=None,
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='hor_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=None,
+            ylim=None,
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None
+    ):
         """
-        Computes and optionally plots the azmuthal profile from 2D scattering data for a given angular range.
+        Computes and optionally plots the horizontal (q_xy) line profile from a GID reciprocal-space map.
+
+        The method integrates the 2D reciprocal-space image along the q_z axis within a given range,
+        resulting in a 1D horizontal intensity profile as a function of q_xy.
 
         Parameters
         ----------
-        key : str, optional
-            Key indicating which geometry was used (default is "gid").
-        frame_num : int, list or None, optional
-            Frame number to analyze. If None, all data will be used.
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to analyze. If None, the first or current frame is used.
         q_xy_range : list or tuple, optional
-            q_xy range as [min, max] in Å⁻¹. If None, full range is used.
+            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 4].
         q_z_range : list or tuple, optional
-            q_z range as [min, max] in Å⁻¹. If None, full range is used.
+            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 0.2].
+        dq : float or None, optional
+            Reciprocal-space step size (Δq). If None, existing resolution is used.
         multiprocessing : bool or None, optional
-            If True, use multiprocessing for faster processing. If None, use default setting.
+            If True, enables multiprocessing for faster computation. If None, uses default setting.
         return_result : bool, optional
-            If True, returns the computed profile.
+            If True, returns the computed horizontal profile.
         save_result : bool, optional
             If True, saves the computed profile to an HDF5 file.
         save_fig : bool, optional
-            If True, saves the plot of the profile to a file.
+            If True, saves the horizontal profile plot to file.
         path_to_save_fig : str, optional
-            Path where the figure will be saved (if `save_fig` is True).
+            Path for saving the figure if `save_fig` is True. Default is 'hor_cut.tiff'.
         plot_result : bool, optional
-            If True, displays the radial profile plot.
+            If True, displays the computed horizontal profile. Default is False.
         shift : float, optional
-            Vertical shift applied to the profile for display purposes.
+            Vertical offset applied to the plotted profile. Default is 1.
         xlim : tuple or None, optional
-            X-axis limits as (min, max). If None, limits are auto-scaled.
+            Limits for the X-axis (q_xy). Default is None (auto).
         ylim : tuple or None, optional
-            Y-axis limits as (min, max). If None, limits are auto-scaled.
-        dang : float, optional
-            Angular resolution in degrees for binning (default: 0.5).
-        dq : float or None, optional
-            Radial bin width in Å⁻¹. If None, uses default binning.
+            Limits for the Y-axis (intensity). Default is None (auto).
         path_to_save : str, optional
-            Path where results should be saved (if `save_result` is True).
+            Path where the results will be saved if `save_result` is True. Default is 'result.h5'.
         h5_group : str or None, optional
-            HDF5 group name for saving results. If None, uses default group.
+            HDF5 group name under which to store the data. Default is None.
         overwrite_file : bool, optional
-            If True, overwrites existing file when saving results. Otherwise, appends to the existing h5-file.
-        metadata : dict or None, optional
-            Optional metadata to include when saving results.
+            If True, overwrites existing HDF5 file when saving. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
 
         Returns
         -------
-        q_hor_values : array
-            The q_hor_values-axis values of the converted data (in 1/A).
-        horiz_cut : 1D-array or list of 1D-arrays
-            Integrated image profile horiz_cut.
-
+        q_hor_values : ndarray
+            q_xy-axis values of the horizontal profile (Å⁻¹).
+        horiz_cut : ndarray or list of ndarray
+            Computed horizontal intensity profile(s).
         """
+
         if self.batch_activated:
             res = self.Batch(path_to_save, "horiz_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1844,7 +2322,7 @@ class Conversion:
         horiz_profile = np.nanmean(img_q, axis=1)
         xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]'
         if plot_result or save_fig:
-            self._plot_profile(q_hor_values, horiz_profile, xlabel, shift, xlim,
+            _plot_profile(get_plot_context(type(self).plot_params), q_hor_values, horiz_profile, xlabel, shift, xlim,
                                ylim, plot_result, save_fig, path_to_save_fig)
         setattr(self, "horiz_cut_gid", horiz_profile)
         delattr(self, "img_gid_q")
@@ -1883,69 +2361,9 @@ class Conversion:
         np.ndarray
             The remapped image as a 2D array.
         """
-
         remap_image = fast_pixel_remap(img_raw, p_y, p_x, use_gpu=self.use_gpu, interp_type=interp_type,
                                        multiprocessing=multiprocessing)
         return remap_image
-
-    def _plot_single_image(self, img, x, y, clims, xlim, ylim, x_label, y_label, aspect, plot_result, save_fig,
-                           path_to_save_fig):
-
-        fig_lenth = 6.4
-        if aspect == 'auto':
-            fig_lenth -= 0.4
-
-        fig, ax = plt.subplots(figsize=(fig_lenth, 4.8))
-        plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0.4, hspace=0.4)
-        if clims is None:
-            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
-        img[img < 0] = clims[0]
-        log_img = np.log(img / clims[1])
-        log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
-                                neginf=np.log(clims[0] / clims[1]))
-
-        p = ax.imshow(log_img,
-                      vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                      extent=[x.min(), x.max(), y.min(), y.max()],
-                      aspect=aspect,
-                      origin='lower')
-
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-        ax.tick_params(axis='both')
-        cb = fig.colorbar(mappable=p, ax=ax)
-        cb.set_label(label='Intensity [arb. units]')
-        cb.ax.yaxis.labelpad = 1
-
-        cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-        cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
-
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-
-        if save_fig:
-            if path_to_save_fig is not None:
-                if (path_to_save_fig.endswith('.svg') or path_to_save_fig.endswith('.pdf')
-                        or path_to_save_fig.endswith('.eps') or path_to_save_fig.endswith('.pgf')):
-                    if aspect == 'equal':
-                        plt.axis('square')
-                    else:
-                        ax.set_aspect('auto', 'box')
-
-                    plt.savefig(path_to_save_fig)
-                else:
-                    plt.savefig(path_to_save_fig, bbox_inches='tight')
-                print(f"Saved figure in {path_to_save_fig}")
-            else:
-                raise ValueError("path_to_save_fig is not defined.")
-            if not plot_result:
-                plt.close()
-                del fig, ax
-
-        if plot_result:
-            plt.show()
 
     def calc_matrices(self, key, recalc=False, multiprocessing=True, **kwargs):
         """Processes all matrices in the given list, optionally using threads."""
@@ -1962,8 +2380,8 @@ class Conversion:
 
     def make_simulation(self, frame_num=0, path_to_cif=None, orientation=None,
                         plot_result=True, plot_mi=False, return_result=False,
-                        min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=cm.Blues,
-                        text_color='black', max_shift=1, save_result=False, path_to_save='simul_result.png'):
+                        min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=None,
+                        text_color='black', save_result=False, path_to_save='simul_result.png'):
         """
         Simulates and visualizes diffraction pattern for the given crystallographic data.
 
@@ -1982,7 +2400,6 @@ class Conversion:
             radius (float): Simulated peaks radius for visualization
             cmap (matplotlib colormap): Colormap used in the visualization.
             text_color (str): Color of any text annotations.
-            max_shift (float): Maximum positional shift allowed in the simulation.
             save_result (bool): If True, saves the figure image.
             path_to_save (str): File path to save the simulation figure.
 
@@ -1990,24 +2407,31 @@ class Conversion:
         -------
         (q_xy, q_z) : (array, array)
            q_xy, q_z positions of the simulated data (in 1/A).
+                            or
+        q_abs: array
+            q_abs positions of the simulated rings
+
         intensity : array
            The intensity values of the simulated data.
         mi : array
            Miller indices of the simulated data.
 
         """
-
-
         q_xy_max = self.matrix[0].q_xy_range[1]
         q_z_max = self.matrix[0].q_z_range[1]
-        radius/=np.sqrt(q_xy_max**2+q_z_max**2)/4.37
+        radius /= np.sqrt(q_xy_max ** 2 + q_z_max ** 2) / 4.37
         ai = self.matrix[0].ai if len(self.matrix) == 1 else self.matrix[frame_num].ai
         try:
             simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
         except:
-            raise ValueError("pygidsim package is not installed.")
+            raise ValueError("pygidsim package is not installed. Please visit https://github.com/mlgid-project/pygidSIM")
 
         path_to_cif = [path_to_cif] if not isinstance(path_to_cif, list) else path_to_cif
+
+        for path in path_to_cif:
+            if not os.path.isfile(path):
+                raise FileNotFoundError(f"File does not exist: {path}")
+
         min_int = [min_int] if not isinstance(min_int, list) else min_int
 
         if orientation is not None:
@@ -2029,50 +2453,13 @@ class Conversion:
                           range(len(path_to_cif))]
 
         q_xy, q_z, img = self._get_q_data(frame_num)
-        img = img[0]
-        if clims is None:
-            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
-        img[img < 0] = clims[0]
-        log_img = np.log(img / clims[1])
-        log_img = np.nan_to_num(log_img, nan=np.nan, posinf=np.log(clims[0] / clims[1]),
-                                neginf=np.log(clims[0] / clims[1]))
+
 
         if plot_result:
-
-            fig, ax = plt.subplots()
-            p = ax.imshow(log_img,
-                          vmin=np.log(clims[0] / clims[1]), vmax=np.log(clims[1] / clims[1]),
-                          extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
-                          aspect='equal',
-                          origin='lower')
-            ax.set_xlabel(r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]')
-            ax.set_ylabel(r'$q_{z}$ [$\mathrm{\AA}^{-1}$]')
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.tick_params(axis='both')
-
-            for i, dataset in enumerate(simulated_data):
-                cmap_i = cmap if not isinstance(cmap, list) else cmap[i]
-                norm = plot_single_simul_data(dataset, ax, cmap_i, vmin, vmax, linewidth, radius, text_color, plot_mi,
-                                              max_shift)
-
-            cb = fig.colorbar(mappable=p, ax=ax)
-            cb.set_label(label='Intensity [arb. units]')
-            cb.ax.yaxis.labelpad = 1
-            cb.set_ticks([np.log(clims[0] / clims[1]), np.log(clims[1] / clims[1])])
-            cb.set_ticklabels([change_clim_format(str(clims[0])), change_clim_format(str(clims[1]))])
-            print(f"frame_num = {frame_num} was plotted")
-
-            if save_result:
-
-                if (path_to_save.endswith('.svg') or path_to_save.endswith('.pdf')
-                        or path_to_save.endswith('.eps') or path_to_save.endswith('.pgf')):
-                    plt.axis('square')
-                    plt.savefig(path_to_save)
-                else:
-                    plt.savefig(path_to_save, bbox_inches='tight')
-                print(f"Saved figure in {path_to_save}")
-            plt.show()
+            plot_simul_data(get_plot_context(type(self).plot_params), img[0], q_xy, q_z, clims, simulated_data,
+                            cmap, save_result, path_to_save,
+                    vmin, vmax, linewidth, radius, text_color, plot_mi)
+            logging.info(f"frame_num = {frame_num} was plotted")
         if return_result:
             simulated_data = sort_simul_data(simulated_data)
             if len(simulated_data):
@@ -2082,6 +2469,38 @@ class Conversion:
 
 
 def sort_simul_data(simulated_data):
+    """
+    Sorts simulated scattering data by increasing q-values.
+
+    Parameters
+    ----------
+    simulated_data : list of tuples
+        A list where each element is a tuple of the form `(q, value, mi)`:
+        - `q` : array-like
+            Wavevector values. Can be 1D (`(N,)`) or 2D (`(2, N)`), where the latter
+            represents (q_x, q_z) or similar components.
+        - `value` : array-like
+            Corresponding simulated intensities.
+        - `mi` : array-like
+            Miller indices .
+
+    Returns
+    -------
+    simulated_data : list of tuples
+        The same list where each tuple has been sorted by increasing |q|.
+
+    Raises
+    ------
+    AssertionError
+        If input arrays within a tuple do not have consistent lengths.
+    ValueError
+        If the shape of `q` is not supported.
+
+    Notes
+    -----
+    - If `q` is 2D with shape (2, N), sorting is performed by the magnitude |q|.
+    - The sorting is applied in-place to the input list elements.
+    """
     for i in range(len(simulated_data)):
         q, value, mi = simulated_data[i]
 
@@ -2092,8 +2511,7 @@ def sort_simul_data(simulated_data):
         assert q.shape[-1] == len(value) == len(mi), "Mismatch in array lengths"
 
         if q.ndim == 2 and q.shape[0] == 2:
-            # q is shape (2, N) → compute |q| for each column
-            q_abs = np.linalg.norm(q, axis=0)  # axis=0: по столбцам
+            q_abs = np.linalg.norm(q, axis=0)
             indices = np.argsort(q_abs)
         elif q.ndim == 1:
             indices = np.argsort(q)
@@ -2109,77 +2527,48 @@ def sort_simul_data(simulated_data):
     return simulated_data
 
 
-
-def plot_single_simul_data(dataset, ax, cmap, vmin, vmax, linewidth, radius, text_color, plot_mi, max_shift):
-    q, intensity, mi = dataset
-    vmin = max(vmin, 1e-10)
-    if vmax is not None:
-        vmax = np.nanmax(intensity)
-    norm = colors.LogNorm(vmin=vmin, vmax=vmax)
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    q_xy_max = xlim[1]
-    q_z_max = ylim[1]
-
-    if q.ndim == 2:
-        existing_texts = None
-        texts = []
-        for x, y, inten, text in zip(q[0], q[1], intensity, mi):
-            color = cmap(norm(inten))
-            circle = plt.Circle((x, y), radius, edgecolor=color, facecolor='none', linewidth=linewidth)
-            ax.add_patch(circle)
-            if plot_mi:
-                txt = ax.text(x, y, str(text), fontsize=8, color=text_color,
-                              weight='bold', ha='center', va='bottom')
-                texts.append(txt)
-        if plot_mi and texts:
-            adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
-
-    else:
-        size = len(intensity)
-        num = 1
-        texts = []
-        for rad, i, text in zip(q, intensity, mi):
-            color = cmap(norm(i))
-            circle = plt.Circle((0, 0), rad, color=color, fill=False, linestyle="dashed", linewidth=linewidth)
-            ax.add_patch(circle)
-            if plot_mi:
-                angle_to_plot = np.pi / 2 / size * num - 0.1
-                pos_xy = rad * np.sin(angle_to_plot)
-                pos_z = rad * np.cos(angle_to_plot)
-
-                if pos_xy > q_xy_max or pos_z > q_z_max:
-                    angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
-                    pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
-                    pos_z = rad * np.cos(angle_to_plot)
-
-                txt = ax.text(pos_xy, pos_z, str(text), fontsize=8, color=text_color, weight='bold')
-                texts.append(txt)
-                num += 1
-
-            if plot_mi and texts:
-                adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
-    return norm
-
-
-def determine_recalc_key(current_range, global_range, array, step):
-    recalc = (determine_recalc_key_index(current_range, global_range, array, step, np.nanargmin(array), 0) or
-              determine_recalc_key_index(current_range, global_range, array, step, np.nanargmax(array), -1))
-    return recalc
-
-
-def determine_recalc_key_index(current_range, global_range, array, step, arr_index, index):
-    if current_range is None:
-        recalc = False if np.isclose(global_range[index],
-                                     array[arr_index], atol=step) else True
-    else:
-        recalc = False if np.isclose(current_range[index],
-                                     array[arr_index], atol=step) else True
-    return recalc
-
-
 def simul_single_data(path_to_cif, orientation, simul_params, min_int):
-    print(f"path_to_cif = {path_to_cif}, orientation = {orientation}, min_int = {min_int}")
+    """
+    Simulates GIWAXS data from a CIF file and filters the results based on intensity.
+
+    This function generates simulated scattering data using the specified CIF structure
+    and simulation parameters. The resulting intensities are normalized and optionally
+    filtered by a minimum intensity threshold. The Miller indices (m_i) are adjusted
+    to select the most relevant entries.
+
+    Parameters
+    ----------
+    path_to_cif : str
+        Path to the CIF file containing the crystal structure.
+    orientation : array-like or None
+        Orientation matrix (3x3) or None. If provided, determines the sample orientation
+        for simulation.
+    simul_params : dict
+        Dictionary of simulation parameters to be passed to `GIWAXSFromCif`.
+    min_int : float or None
+        Minimum normalized intensity threshold. Peaks below this value are filtered out.
+        If None, all simulated points are retained.
+
+    Returns
+    -------
+    q : ndarray
+        Scattering vector(s). Shape (2, N) for 2D data or (N,) for 1D data, depending
+        on the orientation mode.
+    intensity : ndarray
+        Normalized scattering intensity values.
+    mi : ndarray
+        Corresponding Miller indices after filtering and sorting.
+
+    Notes
+    -----
+    - Intensities are normalized by their maximum value.
+    - If `orientation` is provided, q-vectors are 2D (q_xy, q_z); otherwise, 1D magnitudes.
+    """
+    logging.info(
+        f"Simulating GIWAXS data: path_to_cif='{path_to_cif}', "
+        f"orientation={orientation}, min_int={min_int}"
+    )
+
     if orientation is not None:
         orientation = np.array(orientation)
     el = GIWAXSFromCif(path_to_cif, simul_params)
@@ -2202,6 +2591,71 @@ def simul_single_data(path_to_cif, orientation, simul_params, min_int):
             q = q[index]
             q = q[sort_index]
     return q, intensity, mi
+
+
+def determine_recalc_key(current_range, global_range, array, step):
+    """
+        Determines whether recalculation is needed based on the position of minimum and maximum values
+        within a given array, relative to specified ranges.
+
+        Parameters
+        ----------
+        current_range : tuple or list
+            The current processing range as (min, max).
+        global_range : tuple or list
+            The global valid range as (min, max).
+        array : array-like
+            Data array used to determine extrema (e.g., q-values, intensity values).
+        step : float
+            Step size used to check whether recalculation is required near boundaries.
+
+        Returns
+        -------
+        recalc : bool
+            True if recalculation is needed (i.e., extrema are close to or outside `global_range`),
+            False otherwise.
+    """
+    recalc = (determine_recalc_key_index(current_range, global_range, array, step, np.nanargmin(array), 0) or
+              determine_recalc_key_index(current_range, global_range, array, step, np.nanargmax(array), -1))
+    return recalc
+
+
+def determine_recalc_key_index(current_range, global_range, array, step, arr_index, index):
+    """
+    Checks whether a recalculation is needed for a given array boundary value.
+
+    This function compares an element of the array (typically at its minimum or maximum)
+    with the corresponding boundary of either the current or global range. If the element
+    is sufficiently close (within `step`) to the boundary, no recalculation is needed.
+
+    Parameters
+    ----------
+    current_range : tuple, list, or None
+        The current data range (min, max). If None, the global range is used for comparison.
+    global_range : tuple or list
+        The global valid range (min, max).
+    array : array-like
+        The array containing data values (e.g., q, intensity, etc.).
+    step : float
+        Absolute tolerance value used to determine proximity.
+    arr_index : int
+        Index of the array element to compare (e.g., output of `np.nanargmin` or `np.nanargmax`).
+    index : int
+        Index of the boundary to compare against (0 for lower, -1 for upper).
+
+    Returns
+    -------
+    recalc : bool
+        True if recalculation is required (i.e., the array value differs from the boundary
+        by more than `step`), False otherwise.
+    """
+    if current_range is None:
+        recalc = False if np.isclose(global_range[index],
+                                     array[arr_index], atol=step) else True
+    else:
+        recalc = False if np.isclose(current_range[index],
+                                     array[arr_index], atol=step) else True
+    return recalc
 
 
 def calc_matrix(matrix, key, recalc, **kwargs):
@@ -2251,7 +2705,6 @@ def fast_pixel_remap_cpu(original_image, new_coords_x, new_coords_y, interp_meth
     if original_image.ndim == 2:
         return cv2.remap(original_image, new_coords_y, new_coords_x, interp_method,
                          borderMode=cv2.BORDER_CONSTANT, borderValue=np.nan)
-        return remapped_image
     else:
         raise ValueError("Input image must be 2D")
 
@@ -2296,8 +2749,35 @@ def fast_pixel_remap_gpu(original_image, new_coords_x, new_coords_y, interp_meth
 
 def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_range=[None, None, None, None],
                   count_range=None):
+    """
+        Process an image by applying a mask, count range limits, transposition, flips, and ROI selection.
+
+        Parameters
+        ----------
+        img : np.ndarray
+            Input image array.
+        mask : np.ndarray, optional
+            Boolean mask where True values will be replaced with NaN.
+        flipud : bool, optional
+            Flip image upside down.
+        fliplr : bool, optional
+            Flip image left to right.
+        transp : bool, optional
+            Transpose the image.
+        roi_range : tuple of 4 ints, optional
+            Region of interest as (y_start, y_end, x_start, x_end). None means full range.
+        count_range : tuple of 2 numbers, optional
+            Pixel value limits; values outside are set to NaN.
+
+        Returns
+        -------
+        np.ndarray
+            Processed image.
+        """
+
+    if img.dtype != np.float32:
+        img = img.astype(np.float32)
     if mask is not None:
-        img = img.astype(float)
         mask = mask[roi_range[0]:roi_range[1], roi_range[2]:roi_range[3]]
         img[mask] = np.nan
     if count_range is not None:
@@ -2313,6 +2793,23 @@ def process_image(img, mask=None, flipud=False, fliplr=False, transp=False, roi_
 
 
 def add_frame_number(filename, frame_num):
+    """
+        Appends a zero-padded frame number to a filename before its extension.
+
+        Parameters
+        ----------
+        filename : str
+            Original filename.
+        frame_num : int
+            Frame number to append.
+
+        Returns
+        -------
+        str
+            Filename with frame number appended, e.g. 'file_0001.ext'.
+        None
+            If filename is None.
+        """
     if filename is None:
         return
     file_root, file_ext = os.path.splitext(filename)
@@ -2320,14 +2817,21 @@ def add_frame_number(filename, frame_num):
     return f"{file_root}_{frame_str}{file_ext}"
 
 
-def change_clim_format(s):
-    f = f"{float(s):.0e}"
-    base, exp = f.split('e')
-    exp = exp.lstrip('+0') or '0'
-    return f"{base}e{exp}"
-
-
 def select_best_array(arrays):
+    """
+        Selects the "best" array from a list based on sum of squares and element magnitudes.
+
+        Parameters
+        ----------
+        arrays : list of ndarray
+            List of arrays to choose from.
+
+        Returns
+        -------
+        ndarray
+            The array with the minimal sum of squares, breaking ties by element magnitude.
+        """
+
     def sort_key(arr):
         return (
             np.sum(arr ** 2),
@@ -2335,8 +2839,3 @@ def select_best_array(arrays):
         )
 
     return min(arrays, key=sort_key)
-
-
-def make_numbered_filename(base_filename, frame_num):
-    name, ext = os.path.splitext(base_filename)
-    return f"{name}_{frame_num:04d}{ext}"
