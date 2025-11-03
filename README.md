@@ -12,9 +12,16 @@ Key features:
 - Integrates **simulation of GIWAXS patterns** using CIF crystal structure files (via `pygidSIM`).  
 - Allows you to **manage and save experimental and sample metadata** along with the converted data in NXsas (HDF5) files.
 
+[//]: # (<p align="center">)
+
+[//]: # (  <img src="docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">)
+
+[//]: # (</p>)
+
 <p align="center">
-  <img src="docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
+  <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
 </p>
+
 
 Usage examples can be found in [`example/pygid_example.ipynb`](example/pygid_example.ipynb) and on [https://doi.org/10.5281/zenodo.17466183](https://doi.org/10.5281/zenodo.17466183)
 
