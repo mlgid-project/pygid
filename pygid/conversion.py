@@ -2387,18 +2387,18 @@ class Conversion:
 
         Parameters:
             frame_num (int): Image frame number to visualize.
-            path_to_cif (str): Path to a CIF file containing the crystal structure.
+            path_to_cif (str or  or List[str]): Path to a CIF file(s) containing the crystal structure.
             orientation (list): Crystal orientation. None the for poweder pattern.
             plot_result (bool): Whether to plot the result of simulation and experimental data.
             plot_mi (bool): Whether to plot the Miller indices.
             return_result (bool): Whether to return the result of simulation.
-            min_int (float or None): Minimum intensity threshold for display
+            min_int (float or None or List[float]): Minimum intensity threshold(s) for display
             clims (list): Intensity range for the color scale of experimental data
             vmin (float): Normalization limits for the color scale of simulated data
             vmax (float): Normalization limits for the color scale of simulated data
             linewidth (float): Simulated peaks line thickness for visualization
             radius (float): Simulated peaks radius for visualization
-            cmap (matplotlib colormap): Colormap used in the visualization.
+            cmap (str or List[str]): Colormap(s) used in the visualization.
             text_color (str): Color of any text annotations.
             save_result (bool): If True, saves the figure image.
             path_to_save (str): File path to save the simulation figure.
@@ -2435,7 +2435,7 @@ class Conversion:
         min_int = [min_int] if not isinstance(min_int, list) else min_int
 
         if orientation is not None:
-            orientation = [orientation] if not isinstance(orientation[0], list) else orientation
+            orientation = [orientation] if not (isinstance(orientation[0], list) or orientation[0] is None) else orientation
         else:
             orientation = [orientation]
         if len(orientation) == 1:

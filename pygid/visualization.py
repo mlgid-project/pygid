@@ -342,8 +342,17 @@ def _plot_single_image(
 
 def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, save_result, path_to_save,
                     vmin, vmax, linewidth, radius, text_color, plot_mi):
-    if cmap is None:
-        cmap = cm.Blues
+    if cmap is not None:
+        cmap = [cmap] if not isinstance(cmap, list) else cmap
+        if len(cmap) != len(simulated_data):
+            raise ValueError("cmap and path_to_cif lists must have same length.")
+    else:
+        cmap = ['Blues', 'Greens', 'Oranges', 'Purples', 'Greys', 'Reds', 'YlOrBr', 'YlGnBu', 'PuBuGn',
+                'Spectral']
+    n = len(simulated_data)
+    cmap = [cm.get_cmap(cmap[i % len(cmap)]) for i in range(n)]
+
+
     if clims is None:
         clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
     with plot_context:
@@ -365,7 +374,7 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
         cax = divider.append_axes("right", size="5%", pad=0.05)
 
         for i, dataset in enumerate(simulated_data):
-            cmap_i = cmap if not isinstance(cmap, list) else cmap[i]
+            cmap_i = cmap[i]
             norm = add_single_simul_data(dataset, ax, cmap_i, vmin, vmax,
                                           linewidth, radius, text_color, plot_mi,
                                           )
@@ -454,7 +463,6 @@ def add_single_simul_data(
     q_z_max = ylim[1]
 
     if q.ndim == 2:
-        existing_texts = None
         texts = []
         for x, y, inten, text in zip(q[0], q[1], intensity, mi):
             color = cmap(norm(inten))

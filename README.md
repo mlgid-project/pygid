@@ -617,14 +617,14 @@ The function `make_simulation()` overlays the simulated diffraction peaks onto t
 - `return_result` – if `True`, returns a simulation result object.  
 
 ```python
-result = analysis.make_simulation(
+q_values, intensity, mi = analysis.make_simulation(
     frame_num=0,                  # Frame of experimental data
     clims=(30, 8000),             # Color scale limits for experimental image
     path_to_cif="struct.cif",     # Path to crystal structure CIF
     orientation=[1, 0, 0],        # Crystal orientation in lab frame
     min_int=5e-1,                 # Minimum intensity for reflections
     plot_result=True,             # Display simulation overlay
-    cmap=cm.Blues,                # Colormap for simulated peaks
+    cmap='Blues',                 # Colormap for simulated peaks
     vmin=0.5, vmax=1,             # Color normalization range
     linewidth=1.5,                # Line width of peaks
     radius=0.1,                   # Peak radius
@@ -649,6 +649,25 @@ In order to plot multiple simulated patterns based on different orientations or 
 supports
 lists of path_to_cif, orientation, min_int and cmap. If numbers of elements in path_to_cif and orientation are equal,
 they will be used respectively. 
+
+```python
+q_values, intensity, mi = analysis.make_simulation(
+     frame_num=0, # Frame number to plot
+     plot_result=True,  
+     clims= (600, 1e5), # display the simulation result
+     path_to_cif=[r"struct1.cif",
+                 r"struct2.cif"],  # list of paths to the .cif file containing the crystal structure
+     orientation=[[1,0,0], [0,1,1]],   # list of crystal orientation in space. None for the random orientation
+     min_int=[1e-3, 1e-2],            # list of minimum intensities threshold for display
+     vmin=0.0005, vmax=0.1,   # Normalization limits for the color scale of simulated data
+     linewidth=1.5,           # Simulated peaks line thickness for visualization
+     radius=0.1,              # Simulated peaks radius for visualization
+     plot_mi=False,           # plot Miller indices
+     return_result=True,      # return the simulation result
+     cmap = ['Greys', 'Reds'], # list of colormap for simulated peaks
+     save_result = False,  path_to_save = r'240124_PEN_DIP_simul_result.png', # save the result
+)
+```
 
 ## Set Plot Parameters
 
