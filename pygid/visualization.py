@@ -193,7 +193,7 @@ def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=Non
             ax.set_xlabel(r'$y$ [px]')
             ax.set_ylabel(r'$z$ [px]')
             ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True, prune=None, nbins=4))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
             ax.tick_params(axis='both')
 
             divider = make_axes_locatable(ax)
@@ -300,7 +300,7 @@ def _plot_single_image(
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
             ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True, prune=None, nbins=4))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
             ax.tick_params(axis='both')
 
             divider = make_axes_locatable(ax)
