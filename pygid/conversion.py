@@ -18,12 +18,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
-try:
-    from pygidsim.experiment import ExpParameters
-    from pygidsim.giwaxs_sim import GIWAXSFromCif
-except:
-    pass
-    # warnings.warn("pygidsim is not installed. make_simulation function cannot be used.")
+
+from pygidsim.experiment import ExpParameters
+from pygidsim.giwaxs_sim import GIWAXSFromCif
+
 
 
 @dataclass
@@ -2421,10 +2419,8 @@ class Conversion:
         q_z_max = self.matrix[0].q_z_range[1]
         radius /= np.sqrt(q_xy_max ** 2 + q_z_max ** 2) / 4.37
         ai = self.matrix[0].ai if len(self.matrix) == 1 else self.matrix[frame_num].ai
-        try:
-            simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
-        except:
-            raise ValueError("pygidsim package is not installed. Please visit https://github.com/mlgid-project/pygidSIM")
+
+        simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / self.params.wavelength, ai=ai)
 
         path_to_cif = [path_to_cif] if not isinstance(path_to_cif, list) else path_to_cif
 

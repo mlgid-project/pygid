@@ -1,14 +1,12 @@
 from setuptools import setup, find_packages
 from pathlib import Path
-# with open("README.md", "r", encoding="utf-8") as f:
-#     long_description = f.read()
 
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name='pygid',
-    version='0.2.0',
+    version='0.2.1',
     author='Ainur Abukaev',
     description='Fast Preprocessing of Grazing Incidence Diffraction Data',
     python_requires='>=3.8',
@@ -33,6 +31,7 @@ setup(
         'adjustText>=1.3.0,<2.0',
         'typing',
         'ipywidgets>=8.1.7,<9.0',
+        'pygidsim',
     ],
     extras_require={
         'test': [
