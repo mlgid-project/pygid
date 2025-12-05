@@ -5,7 +5,7 @@ import collections
 from dataclasses import dataclass
 import fabio
 import warnings
-
+import logging
 from . import pixel_dict
 
 
@@ -111,7 +111,7 @@ class ExpParams:
             else:
                 start, end, num_points = float(parts[0]), float(parts[1]), int(parts[2])
             self.ai = np.round(np.linspace(start, end, num_points + 1), 4).tolist()
-            print(f"ai list calculated: {self.ai}")
+            logging.info(f"ai list calculated: {self.ai}")
 
         # Load the detector mask (supports .npy or Fabio-compatible image formats)
         if self.mask_path is not None:

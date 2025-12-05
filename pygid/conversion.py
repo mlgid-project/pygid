@@ -2379,7 +2379,7 @@ class Conversion:
     def make_simulation(self, frame_num=0, path_to_cif=None, orientation=None,
                         plot_result=True, plot_mi=False, return_result=False,
                         min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=None,
-                        text_color='black', save_result=False, path_to_save='simul_result.png'):
+                        text_color='black', save_fig=False, path_to_save_fig='simul_result.png'):
         """
         Simulates and visualizes diffraction pattern for the given crystallographic data.
 
@@ -2398,8 +2398,8 @@ class Conversion:
             radius (float): Simulated peaks radius for visualization
             cmap (str or List[str]): Colormap(s) used in the visualization.
             text_color (str): Color of any text annotations.
-            save_result (bool): If True, saves the figure image.
-            path_to_save (str): File path to save the simulation figure.
+            save_fig (bool): If True, saves the figure image.
+            path_to_save_fig (str): File path to save the simulation figure.
 
         Returns
         -------
@@ -2453,7 +2453,7 @@ class Conversion:
 
         if plot_result:
             plot_simul_data(get_plot_context(type(self).plot_params), img[0], q_xy, q_z, clims, simulated_data,
-                            cmap, save_result, path_to_save,
+                            cmap, save_fig, path_to_save_fig,
                     vmin, vmax, linewidth, radius, text_color, plot_mi)
             logging.info(f"frame_num = {frame_num} was plotted")
         if return_result:

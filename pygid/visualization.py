@@ -25,7 +25,7 @@ def get_plot_context(rc_params):
 def get_plot_params(font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
                     grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=14, ytick_labelsize=14,
                     legend_fontsize=12, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
-                    legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6.4, 4.8), axes_linewidth=0.5,
+                    legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6, 5), axes_linewidth=0.5,
                     savefig_dpi=600, savefig_transparent=False, savefig_bbox_inches=None,
                     savefig_pad_inches=0.1, line_linewidth=2, line_color='blue', line_linestyle='-',
                     line_marker=None, scatter_marker='o', scatter_edgecolors='black',
@@ -179,7 +179,7 @@ def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=Non
 
         with plot_context:
             fig = plt.figure()
-            margin = 0.1
+            margin = 0.2
             ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
 
             img[img < 0] = clims[0]
@@ -192,8 +192,8 @@ def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=Non
 
             ax.set_xlabel(r'$y$ [px]')
             ax.set_ylabel(r'$z$ [px]')
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+            # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+            # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
             ax.tick_params(axis='both')
 
             divider = make_axes_locatable(ax)
@@ -286,7 +286,7 @@ def _plot_single_image(
         with plot_context:
             # fig, ax = plt.subplots()
             fig = plt.figure()
-            margin = 0.1
+            margin = 0.2
             ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
             # plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, #wspace=0.4, hspace=0.4
             #                     )
@@ -299,8 +299,12 @@ def _plot_single_image(
 
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+            # ax.xaxis.set_major_locator(ticker.MaxNLocator()) #integer=False, prune=None , nbins=4
+            # ax.yaxis.set_major_locator(ticker.MaxNLocator()) # integer=False, prune=None, nbins=4
+            # if aspect == 'equal':
+            #     tick = ticker.AutoLocator()
+            #     ax.xaxis.set_major_locator(tick)
+            #     ax.yaxis.set_major_locator(tick)
             ax.tick_params(axis='both')
 
             divider = make_axes_locatable(ax)
@@ -329,7 +333,7 @@ def _plot_single_image(
                 #     plt.savefig(path_to_save_fig)
                 # else:
                 #     plt.savefig(path_to_save_fig, bbox_inches='tight')
-                plt.savefig(path_to_save_fig)
+                plt.savefig(path_to_save_fig) #,  pad_inches=0.5
                 logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
@@ -357,7 +361,7 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
         clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
     with plot_context:
         fig = plt.figure()
-        margin = 0.1
+        margin = 0.2
         ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
         p = ax.imshow(np.clip(img, clims[0], clims[1]),
                       norm=LogNorm(vmin=clims[0], vmax=clims[1]),
@@ -367,8 +371,8 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
 
         ax.set_xlabel(r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]')
         ax.set_ylabel(r'$q_{z}$ [$\mathrm{\AA}^{-1}$]')
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+        # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+        # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
         ax.tick_params(axis='both')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
