@@ -163,6 +163,25 @@ Other parameters
   `"ascan om 0.0400 0.1000 12"` or `"0.0400 0.1000 12"`  
   (start, stop, number-1). The corresponding `ai` list will be calculated automatically.
 
+The result of flipping and transpose:
+![flip_transp.png](docs/images/flip_transp.png)
+The correct combination of keys is highlighted in green.
+These parameters lead to changes of PONI and rotation angles:
+
+```python
+if transp:
+    poni1, poni2 = poni2, poni1
+    rot1, rot2, rot3 = -rot2, -rot1, -rot3
+if flipud:
+    poni1 = img_dim[0] * px_size - poni1
+    rot2, rot3 = -rot2, -rot3
+if fliplr:
+    poni2 = img_dim[1] * px_size - poni2
+    rot1, rot3 = -rot1, -rot3
+```
+where img_dim is the image dimensions $[h,w]$.
+
+
 The definition of the coordinates (poni1, poni2) and an example of creating a .poni calibration file 
 based on a calibrant image using the pyFAI-calib2 GUI are described in the
 Ref.: https://www.silx.org/doc/pyFAI/latest/usage/cookbook/calib-gui/index.html
@@ -312,6 +331,7 @@ Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, 
   - `None` – load all images  
   - `int` – load a single frame  
   - `list` – load a list of frames  
+- Raw images can be loaded as a 2D or 3D array using `img_raw` instead of `path`
 - For **angular scans**, the number of angles (`ai`) in `ExpParams` should match the number of loaded images.  
 
 #### Parameters
@@ -319,7 +339,8 @@ Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, 
 - `matrix` – `CoordMaps` instance 
 - `path` – path to the data file or list of files  
 - `dataset` – HDF5 dataset key pointing to the raw data  
-- `frame_num` – frame(s) to load (None, int, or list)  
+- `frame_num` – frame(s) to load (None, int, or list) 
+- `img_raw` -  raw images (2D or 3D numpy array) (optional)
 - `average_all` – if `True`, average all frames  
 - `number_to_average` – number of frames to average for partial averaging  
 - `roi_range` – region of interest in the raw image `[y_min, y_max, x_min, x_max]`  

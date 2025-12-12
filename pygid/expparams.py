@@ -80,7 +80,7 @@ class ExpParams:
     wavelength: float = None
     rot1: float = None
     rot2: float = None
-    rot3: float = 0
+    rot3: float = None
     poni1: float = None
     poni2: float = None
     centerX: float = None
@@ -152,6 +152,9 @@ class ExpParams:
         if self.rot2 is None:
             warnings.warn("rot2 is not provided. rot2 = 0 will be used", category=UserWarning)
             self.rot2 = 0
+        if self.rot3 is None:
+            warnings.warn("rot3 is not provided. rot3 = 0 will be used", category=UserWarning)
+            self.rot3 = 0
         if self.ai is None:
             warnings.warn("Angle of incidence (ai) and scan are not provided. ai = 0 will be used",
                           category=UserWarning)
@@ -279,13 +282,27 @@ class ExpParams:
         self.centerY, self.centerX = ((self.SDD * np.tan(self.rot2) / np.cos(self.rot1) + self.poni1) / self.px_size,
                                       (-self.SDD * np.tan(self.rot1) + self.poni2) / self.px_size)
 
+    # def _cal_rot_(self):
+    #     """
+    #     Calculates detector rotation angles based on the flipping keys.
+    #     """
+    #     if self.transp:
+    #         self.rot1, self.rot2 = -self.rot2, -self.rot1
+    #     if self.flipud:
+    #         self.rot2 = -self.rot2
+    #     if self.fliplr:
+    #         self.rot1 = -self.rot1
+
     def _cal_rot_(self):
         """
         Calculates detector rotation angles based on the flipping keys.
         """
         if self.transp:
             self.rot1, self.rot2 = -self.rot2, -self.rot1
+            self.rot3 = -self.rot3
         if self.flipud:
             self.rot2 = -self.rot2
+            self.rot3 = -self.rot3
         if self.fliplr:
             self.rot1 = -self.rot1
+            self.rot3 = -self.rot3

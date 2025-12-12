@@ -361,6 +361,7 @@ class CoordMaps:
         # -----------------------------------------------
         # Select detector region depending on calculation type
         # -----------------------------------------------
+
         if calc_type == "corner":
             # Use only detector corners for fast estimation
             corner_x = np.array([SDD, SDD, SDD, SDD])
@@ -411,6 +412,7 @@ class CoordMaps:
         R3 = rotation_matrix(-self.params.rot1, axis='z')
         R2 = rotation_matrix(self.params.rot2, axis='y')
         R1 = rotation_matrix(self.params.rot3, axis='x')
+
         t_reshaped = P @ R3.T @ R2.T @ R1.T
         t = t_reshaped.reshape(P.shape)
         # Compute q-vectors from the scattered beam direction
@@ -777,7 +779,7 @@ class CoordMaps:
 
         R3 = rotation_matrix(self.params.rot1, axis='z')
         R2 = rotation_matrix(-self.params.rot2, axis='y')
-        R1 = rotation_matrix(self.params.rot3, axis='x')
+        R1 = rotation_matrix(-self.params.rot3, axis='x')
 
         p_refl = k_refl @ R1.T @ R2.T @ R3.T
 
