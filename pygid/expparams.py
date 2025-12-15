@@ -262,7 +262,7 @@ class ExpParams:
         if self.flipud:
             self.centerY = self.img_dim[0] - self.centerY
         if self.fliplr:
-            self.centerX = self.img_dim[1] - self.centerX
+            self.centerX = (self.img_dim[1]-1) - self.centerX
 
         self.poni1, self.poni2 = (self.centerY * self.px_size - self.SDD * np.tan(self.rot2) / np.cos(self.rot1),
                                   self.centerX * self.px_size + self.SDD * np.tan(self.rot1))
@@ -277,7 +277,7 @@ class ExpParams:
         if self.flipud:
             self.poni1 = self.img_dim[0] * self.px_size - self.poni1
         if self.fliplr:
-            self.poni2 = self.img_dim[1] * self.px_size - self.poni2
+            self.poni2 = (self.img_dim[1] - 1) * self.px_size - self.poni2
 
         self.centerY, self.centerX = ((self.SDD * np.tan(self.rot2) / np.cos(self.rot1) + self.poni1) / self.px_size,
                                       (-self.SDD * np.tan(self.rot1) + self.poni2) / self.px_size)

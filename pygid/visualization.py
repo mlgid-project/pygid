@@ -533,14 +533,15 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
         path_to_save_fig : str
             Path where the figure will be saved if `save_fig` is True.
         """
+
         with plot_context:
             fig, ax = plt.subplots()
             ax.set_xlabel(xlabel)
             ax.set_ylabel("Intensity [arb. units]")
             ax.set_yscale('log')
             ax.tick_params(axis='both')
-            if xlim: ax.set_xlim(xlim)
-            if ylim: ax.set_ylim(ylim)
+
+            # if ylim: ax.set_ylim(ylim)
             fig.tight_layout(pad=3)
             cmap = colors.LinearSegmentedColormap.from_list("mycmap", ["royalblue", "mediumorchid", "orange"])
             norm = Normalize(vmin=0, vmax=len(profiles))
@@ -549,10 +550,20 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
             for i, line in enumerate(profiles):
                 ax.plot(x_values, line * 2 ** (i * shift), color=cmap(norm(i)))
 
+            def fill_limits(lim, data):
+                return [np.nanmin(data) if lim[0] is None else lim[0],
+                        np.nanmax(data) if lim[1] is None else lim[1]]
+
+            if None not in (xlim[0], xlim[1]):
+                ax.set_ylim(xlim)
+            ax.set_xlim(xlim)
+            if None not in (ylim[0], ylim[1]):
+                ax.set_ylim(ylim)
+
         if save_fig:
             if path_to_save_fig is not None:
                 fig.canvas.draw()
-                plt.savefig(path_to_save_fig)
+                fig.savefig(path_to_save_fig)
                 logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
