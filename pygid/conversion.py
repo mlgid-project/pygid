@@ -46,6 +46,8 @@ class Conversion:
             The range of the region of interest (ROI) (left, right, down, up). Default is [None, None, None, None].
         average_all : bool, optional
             Averages all loaded frames. Default is False.
+        sum_all : bool, optional
+            Averages all loaded frames. Default is False.
         number_to_average : int, optional
             The number of frames to average before processing. Default is None (no average).
         use_gpu : bool, optional
@@ -69,6 +71,7 @@ class Conversion:
     frame_num: float = None
     img_raw: Optional[np.array] = None
     average_all: bool = False
+    sum_all: bool = False
     use_gpu: bool = True
     roi_range: list = field(default_factory=lambda: [None, None, None, None])
     multiprocessing: bool = False
@@ -153,7 +156,7 @@ class Conversion:
                 self.batch_size -= rest
         if isinstance(self.path, list):
             self.path_batches = [self.path[i:i + self.batch_size] for i in range(0, len(self.path), self.batch_size)]
-            if self.average_all:
+            if self.average_all or self.sum_all:
                 averaged_image = []
                 for path_batch in log_progress(self.path_batches, desc='Progress'):
                     self.img_raw = DataLoader(
@@ -165,7 +168,10 @@ class Conversion:
                         multiprocessing=self.multiprocessing,
                         build_image_P03=self.build_image_P03
                     ).img_raw
-                    averaged_image.append(np.mean(self.img_raw, axis=0, keepdims=False))
+                    if self.average_all:
+                        averaged_image.append(np.nanmean(self.img_raw, axis=0, keepdims=False))
+                    elif self.sum_all:
+                        averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
 
                 self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
                                                        self.params.transp, self.roi_range, self.params.count_range) for
@@ -217,7 +223,7 @@ class Conversion:
             else:
                 self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
                                       for i in range(0, self.number_of_frames, self.batch_size)]
-            if self.average_all:
+            if self.average_all or self.sum_all:
                 averaged_image = []
                 for frame_num in log_progress(self.frame_batches, desc='Progress'):
                     self.img_raw = DataLoader(
@@ -229,7 +235,11 @@ class Conversion:
                         multiprocessing=self.multiprocessing,
                         build_image_P03=self.build_image_P03
                     ).img_raw
-                    averaged_image.append(np.mean(self.img_raw, axis=0, keepdims=False))
+                    if self.average_all:
+                        averaged_image.append(np.nanmean(self.img_raw, axis=0, keepdims=False))
+                    elif self.sum_all:
+                        averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
+
 
                 self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
                                                        self.params.transp, self.roi_range, self.params.count_range) for
@@ -336,8 +346,13 @@ class Conversion:
         maps update and application of corrections.
 
         """
+        if self.average_all and self.sum_all:
+            raise ValueError("average_all and sum_all cannot be used at the same time")
         if self.average_all:
-            self.img_raw = np.mean(self.img_raw, axis=0, keepdims=True)
+            self.img_raw = np.nanmean(self.img_raw, axis=0, keepdims=True)
+        elif self.sum_all:
+            self.img_raw = np.nansum(self.img_raw, axis=0, keepdims=True)
+
         elif self.number_to_average is not None and self.number_to_average > 1:
             num_images = len(self.img_raw)
             blocks = num_images // self.number_to_average
@@ -570,6 +585,91 @@ class Conversion:
                             frame_num,
                             plot_result, clims, xlim, ylim,
                             save_fig, path_to_save_fig)
+
+    def plot_result(self, return_result=False, frame_num=None, plot_result=True, shift=1,
+                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img_result.png"):
+        """
+        Plots the converted images/profiles with optional display, return and saving.
+
+        Parameters
+        ----------
+        return_result : bool, optional
+            If True, returns the image data and axes used for plotting. Default is False.
+        frame_num : int or None, optional
+            Frame number to plot. If None, uses the first frame.
+        plot_result : bool, optional
+            Whether to display the plot. Default is True.
+        clims : tuple, optional
+            Tuple specifying color limits (vmin, vmax) for the image. Default is (1e1, 4e4).
+        xlim : tuple or None, optional
+            Limits for the x-axis. If None, uses full range.
+        ylim : tuple or None, optional
+            Limits for the y-axis. If None, uses full range.
+        save_fig : bool, optional
+            Whether to save the figure to a file. Default is False.
+        path_to_save_fig : str, optional
+            Path to save the figure if save_fig is True. Default is "img.png".
+
+        Returns
+        -------
+        x : array
+            The x-axis values of the image (in pixels).
+        y : array
+            The y-axis values of the image (in pixels).
+        img : list of 2D-array or 1D-arrays
+            The converted image/profile plotted.
+        """
+
+
+
+        key_maps = {
+            "img_gid_q": ["q_xy", "q_z", r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]', r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal'],
+            "img_q": ["q_x", "q_y", r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal'],
+            "img_gid_pol": ["q_gid_pol", "ang_gid_pol", r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto'],
+            "img_pol": ["q_pol", "ang_pol", r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto'],
+            "img_gid_pseudopol": ["q_gid_rad", "q_gid_azimuth", r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$]", 'auto'],
+            "img_pseudopol": ["q_rad", "q_azimuth", r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$]", 'auto'],
+            "rad_cut": ["q_pol", r"$|q|\ \mathrm{[\AA^{-1}]}$"],
+            "rad_cut_gid": ["q_gid_pol", r"$|q|\ \mathrm{[\AA^{-1}]}$"],
+            "azim_cut": ["ang_pol", r"$\chi$ [$\degree$]"],
+            "azim_cut_gid": ["ang_gid_pol", r"$\chi$ [$\degree$]"],
+            "horiz_cut_gid": ["q_xy", r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]']
+        }
+
+        img, axes_labels = None, [None, None]
+        for key in key_maps.keys():
+            if hasattr(self, key):
+                img = getattr(self, key)
+                axes_labels = key_maps.get(key)
+                break
+
+        if frame_num is None:
+            frame_num = list(range(len(img)))
+        elif type(frame_num) is int:
+            frame_num = [frame_num]
+
+        if len(axes_labels) == 5:
+            x_key, y_key, x_label, y_label, aspect = tuple(axes_labels)
+            x = getattr(self.matrix[0], x_key)
+            y = getattr(self.matrix[0], y_key)
+            img_list = []
+            for i in frame_num:
+                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                                   x_label,
+                                   y_label, aspect, plot_result,
+                                   save_fig, add_frame_number(path_to_save_fig, i))
+                img_list.append(img)
+            if return_result:
+                return x, y, img_list
+
+        elif len(axes_labels) == 2:
+            x_key, x_label = tuple(axes_labels)
+            x = getattr(self.matrix[0], x_key)
+            img_list = [img[i] for i in frame_num]
+            _plot_profile(get_plot_context(type(self).plot_params), x, img_list,
+                          x_label, shift,
+                          xlim, ylim, plot_result, save_fig, path_to_save_fig)
+
 
     def _remap_general_(self, frame_num, **kwargs):
         """
@@ -1549,8 +1649,8 @@ class Conversion:
             path_to_save_fig='rad_cut.tiff',
             plot_result=False,
             shift=1,
-            xlim=None,
-            ylim=None,
+            xlim=(None, None),
+            ylim=(None, None),
             dang=0.5,
             dq=None,
             path_to_save='result.h5',
@@ -1653,8 +1753,8 @@ class Conversion:
             path_to_save_fig='rad_cut.tiff',
             plot_result=False,
             shift=1,
-            xlim=None,
-            ylim=None,
+            xlim=(None, None),
+            ylim=(None, None),
             dang=0.5,
             dq=None,
             path_to_save='result.h5',
@@ -1884,8 +1984,8 @@ class Conversion:
             path_to_save_fig='azim_cut.tiff',
             plot_result=False,
             shift=1,
-            xlim=None,
-            ylim=None,
+            xlim=(None, None),
+            ylim=(None, None),
             path_to_save='result.h5',
             dang=0.5,
             dq=None,
@@ -1990,8 +2090,8 @@ class Conversion:
             path_to_save_fig='azim_cut.tiff',
             plot_result=False,
             shift=1,
-            xlim=None,
-            ylim=None,
+            xlim=(None, None),
+            ylim=(None, None),
             path_to_save='result.h5',
             dang=0.5,
             dq=None,
@@ -2243,8 +2343,8 @@ class Conversion:
             path_to_save_fig='hor_cut.tiff',
             plot_result=False,
             shift=1,
-            xlim=None,
-            ylim=None,
+            xlim=(None, None),
+            ylim=(None, None),
             path_to_save='result.h5',
             h5_group=None,
             overwrite_file=True,
