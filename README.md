@@ -803,7 +803,10 @@ nexus.print_file_structure()
 #### Loading a pygid.Conversion instance:
 
 ```python
-analysis = pygid.NexusFile(filename).load_entry('entry_0000')
+analysis = pygid.NexusFile(filename).load_entry(
+    entry = 'entry_0000',  # entry name to load
+    frame_num = 0,         # frame number to load (int, list or None (all)) 
+)
 
 # Further operations with the loaded images
 analysis.plot_result(save_fig=True, plot_result=True)
@@ -813,7 +816,7 @@ analysis.plot_result(save_fig=True, plot_result=True)
 # Overwrite the entire dataset
 nexus.change_data(
     data_root='/entry_0000/data/img_gid_q',  # Path to the dataset
-    frame_num=None,                           # Index of frame to change; None = whole dataset
+    frame_num=None,                           # Index of frame to change; None = whole dataset (int or None)
     data=image                                # New image data to save; 
 )
 

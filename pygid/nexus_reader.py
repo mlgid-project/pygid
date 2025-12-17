@@ -9,13 +9,46 @@ from .datasaver import (save_smpl_metadata, ensure_group_exists, SampleMetadata,
 
 @dataclass
 class NexusFile:
+    """
+       Interface for reading, inspecting, and modifying pygid NeXus (HDF5) files.
+
+       This class provides high-level access to converted pygid data stored in
+       NeXus-compliant HDF5 files. It supports inspection of file structure,
+       loading of Conversion instances, modification of datasets, and extraction
+       or overwriting of experimental and sample metadata.
+
+       Parameters
+       ----------
+       path : str
+           Path to the NeXus (HDF5) file.
+    """
     path: str
-    entry_dict: dict = None
 
     def __post_init__(self):
+        """
+        Initialize the NexusFile instance by reading the file structure.
+        """
         self.entry_dict = self.read_structure()
 
     def read_structure(self):
+        """
+           Read and parse the structure of the NeXus file.
+
+           This method inspects all entries in the HDF5 file and extracts
+           information about the stored datasets, including signal type,
+           axes, description, and data shape.
+
+           Returns
+           -------
+           dict
+               Dictionary mapping entry names to their metadata, including
+               image type, axes, description, and shape.
+
+           Raises
+           ------
+           ValueError
+               If no valid entries are found in the file.
+        """
         entry_dict = {}
         with h5py.File(self.path, "r") as root:
             for entry in root:
@@ -37,6 +70,12 @@ class NexusFile:
         return entry_dict
 
     def print_file_structure(self):
+        """
+            Print a representation of the file structure.
+
+            Displays the parsed entry dictionary, including dataset types
+            and geometries, for inspection.
+        """
         entry_dict = self.entry_dict
         if entry_dict is None:
             return ValueError("File structure was not read")
@@ -44,6 +83,26 @@ class NexusFile:
         pprint(entry_dict)
 
     def load_entry(self, entry, frame_num = None):
+        """
+            Load a pygid.Conversion instance from a given NeXus entry.
+
+            Parameters
+            ----------
+            entry : str
+                Name of the NeXus entry to load.
+            frame_num : int, list or None, optional
+                Frame index to load or list of int. If None, all frames are loaded.
+
+            Returns
+            -------
+            pygid.Conversion
+                Conversion instance reconstructed from the NeXus file.
+
+            Raises
+            ------
+            ValueError
+                If the specified entry does not exist.
+        """
         with h5py.File(self.path, "r") as root:
             if not entry in root:
                 raise ValueError(f"Entry {entry} not found")
@@ -53,6 +112,21 @@ class NexusFile:
             return analysis
 
     def change_smpl_metadata(self, entry, smpl_metadata):
+        """
+        Overwrite sample metadata for a given entry.
+
+        Parameters
+        ----------
+        entry : str
+            Name of the NeXus entry.
+        smpl_metadata : SampleMetadata
+            Sample metadata instance to be written.
+
+        Raises
+        ------
+        ValueError
+            If the specified entry does not exist.
+        """
         with h5py.File(self.path, "r+") as root:
             if not entry in root:
                 raise ValueError(f"Entry {entry} not found")
@@ -62,6 +136,21 @@ class NexusFile:
             save_smpl_metadata(root, smpl_metadata, entry)
 
     def change_exp_metadata(self, entry, exp_metadata):
+        """
+        Overwrite experimental metadata for a given entry.
+
+        Parameters
+        ----------
+        entry : str
+            Name of the NeXus entry.
+        exp_metadata : ExpMetadata
+            Experimental metadata instance to be written.
+
+        Raises
+        ------
+        ValueError
+            If the specified entry does not exist.
+        """
         exp_metadata.extend_fields = []
         with h5py.File(self.path, "r+") as root:
             if not entry in root:
@@ -69,6 +158,26 @@ class NexusFile:
             save_exp_metadata(root, exp_metadata, entry)
 
     def get_smpl_metadata(self, entry, path_to_save = None):
+        """
+        Retrieve sample metadata from a NeXus entry.
+
+        Parameters
+        ----------
+        entry : str
+            Name of the NeXus entry.
+        path_to_save : str or None, optional
+            If provided, saves the metadata as a YAML file.
+
+        Returns
+        -------
+        SampleMetadata
+            Sample metadata instance reconstructed from the file.
+
+        Raises
+        ------
+        ValueError
+            If the specified entry does not exist.
+        """
         with h5py.File(self.path, "r") as root:
             if not entry in root:
                 raise ValueError(f"Entry {entry} not found")
@@ -78,6 +187,24 @@ class NexusFile:
             return smpl_metadata
 
     def get_exp_metadata(self, entry):
+        """
+        Retrieve experimental metadata from a NeXus entry.
+
+        Parameters
+        ----------
+        entry : str
+            Name of the NeXus entry.
+
+        Returns
+        -------
+        ExpMetadata
+            Experimental metadata instance reconstructed from the file.
+
+        Raises
+        ------
+        ValueError
+            If the specified entry does not exist.
+        """
         with h5py.File(self.path, "r") as root:
             if not entry in root:
                 raise ValueError(f"Entry {entry} not found")
@@ -100,8 +227,6 @@ class NexusFile:
                 setattr(exp_metadata, key, value)
             return exp_metadata
 
-
-
     def check_dataset(self, root, dataset_root, default):
         if dataset_root in root:
             value = root[dataset_root][()]
@@ -117,6 +242,18 @@ class NexusFile:
 
 
     def change_data(self, data_root, frame_num = None, data = None):
+        """
+        Modify an existing dataset in the NeXus file.
+
+        Parameters
+        ----------
+        data_root : str
+            Full path to the dataset.
+        frame_num : int or None, optional
+            Index of the frame to modify. If None, the entire dataset is overwritten.
+        data : any
+            New data to write.
+        """
         with h5py.File(self.path, "r+") as root:
             if not data_root in root:
                 raise ValueError(f"data_root {data_root} not found")
@@ -129,6 +266,19 @@ class NexusFile:
             return
 
     def delete_data(self, data_root):
+        """
+        Delete a dataset from the NeXus file.
+
+        Parameters
+        ----------
+        data_root : str
+            Full path to the dataset to be deleted.
+
+        Raises
+        ------
+        ValueError
+            If the dataset does not exist.
+        """
         with h5py.File(self.path, "r+") as root:
             if not data_root in root:
                 raise ValueError(f"data_root {data_root} not found")

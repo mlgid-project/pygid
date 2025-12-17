@@ -4,15 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="sum_all was added">
-      <change afterPath="$PROJECT_DIR$/pygid/nexus_reader.py" afterDir="false" />
+    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="support of converted NeXus file loading was added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/expparams.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/expparams.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/visualization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/nexus_reader.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/nexus_reader.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -86,7 +81,7 @@
       <workItem from="1761834630878" duration="4268000" />
       <workItem from="1763719292217" duration="918000" />
       <workItem from="1763721897304" duration="4401000" />
-      <workItem from="1764161997504" duration="77525000" />
+      <workItem from="1764161997504" duration="79795000" />
     </task>
     <task id="LOCAL-00001" summary="first public commit">
       <option name="closed" value="true" />
@@ -136,7 +131,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765819468731</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="support of converted NeXus file loading was added">
+      <option name="closed" value="true" />
+      <created>1765980108787</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1765980108787</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -149,6 +152,7 @@
     <MESSAGE value="rot3 was implemented" />
     <MESSAGE value="one-pixel shift was fixed for fliplr" />
     <MESSAGE value="sum_all was added" />
-    <option name="LAST_COMMIT_MESSAGE" value="sum_all was added" />
+    <MESSAGE value="support of converted NeXus file loading was added" />
+    <option name="LAST_COMMIT_MESSAGE" value="support of converted NeXus file loading was added" />
   </component>
 </project>
