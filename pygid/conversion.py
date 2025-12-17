@@ -103,6 +103,9 @@ class Conversion:
         self.matrix = [self.matrix] if not isinstance(self.matrix, list) else self.matrix
         self.params = self.matrix[0].params
 
+        if self.img_raw is None and self.path is None:
+            return
+
         if self.img_raw is not None:
             if self.img_raw.ndim == 2:
                 self.img_raw = np.expand_dims(self.img_raw, axis=0)
@@ -122,6 +125,8 @@ class Conversion:
             else:
                 self.img_raw = loaded_data.img_raw
             del loaded_data
+
+
 
         self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
                                                self.params.transp, self.roi_range, self.params.count_range) for
@@ -581,7 +586,8 @@ class Conversion:
         img : 2D-array or list of 2D-arrays
             The raw image data plotted.
         """
-        return plot_img_raw(self.img_raw, self.x, self.y, get_plot_context(type(self).plot_params), return_result,
+        with get_plot_context(type(self).plot_params):
+            return plot_img_raw(self.img_raw, self.x, self.y, return_result,
                             frame_num,
                             plot_result, clims, xlim, ylim,
                             save_fig, path_to_save_fig)
@@ -619,8 +625,6 @@ class Conversion:
         img : list of 2D-array or 1D-arrays
             The converted image/profile plotted.
         """
-
-
 
         key_maps = {
             "img_gid_q": ["q_xy", "q_z", r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]', r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal'],
@@ -2515,8 +2519,12 @@ class Conversion:
            Miller indices of the simulated data.
 
         """
-        q_xy_max = self.matrix[0].q_xy_range[1]
-        q_z_max = self.matrix[0].q_z_range[1]
+        try:
+            q_xy_max = self.matrix[0].q_xy_range[1]
+            q_z_max = self.matrix[0].q_z_range[1]
+        except:
+            q_xy_max = self.matrix[0].q_xy[-1]
+            q_z_max = self.matrix[0].q_z[-1]
         radius /= np.sqrt(q_xy_max ** 2 + q_z_max ** 2) / 4.37
         ai = self.matrix[0].ai if len(self.matrix) == 1 else self.matrix[frame_num].ai
 
@@ -2548,8 +2556,13 @@ class Conversion:
         simulated_data = [simul_single_data(path_to_cif[i], orientation[i], simul_params, min_int[i]) for i in
                           range(len(path_to_cif))]
 
-        q_xy, q_z, img = self._get_q_data(frame_num)
-
+        if hasattr(self, "img_gid_q") and frame_num < len(self.img_gid_q):
+            q_xy, q_z, img = self.matrix[0].q_xy , self.matrix[0].q_z , [self.img_gid_q[frame_num]]
+        else:
+            try:
+                q_xy, q_z, img = self._get_q_data(frame_num)
+            except:
+                raise IndexError(f"Frame {frame_num} does not exist")
 
         if plot_result:
             plot_simul_data(get_plot_context(type(self).plot_params), img[0], q_xy, q_z, clims, simulated_data,

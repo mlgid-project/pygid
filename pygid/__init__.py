@@ -3,4 +3,5 @@ from .dataloader import DataLoader
 from .datasaver import DataSaver, ExpMetadata, SampleMetadata
 from .coordmaps import CoordMaps
 from .conversion import Conversion
+from .nexus_reader import NexusFile
 __version__ = "0.2.1"

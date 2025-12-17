@@ -10,6 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
 from matplotlib import cm
+from matplotlib.ticker import LogLocator, NullLocator
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
@@ -107,7 +108,7 @@ def get_plot_params(font_size=14, axes_titlesize=14, axes_labelsize=18, grid=Fal
     return rc_params
 
 
-def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=None, plot_result=True,
+def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result=True,
                      clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png"):
         """
         Plots the raw image from the detector with optional display, return and saving.
@@ -151,7 +152,7 @@ def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=Non
         if isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
             img_list = []
             for num in frame_num:
-                x, y, img = plot_img_raw(return_result=True, frame_num=num, plot_result=plot_result,
+                x, y, img = plot_img_raw(img_raw, x, y, return_result=True, frame_num=num, plot_result=plot_result,
                              clims=clims, xlim=xlim, ylim=ylim, save_fig=save_fig,
                              path_to_save_fig=make_numbered_filename(path_to_save_fig, num))
                 img_list.append(img)
@@ -177,35 +178,39 @@ def plot_img_raw(img_raw, x, y, plot_context, return_result=False, frame_num=Non
         xlim = fill_limits(xlim, x)
         ylim = fill_limits(ylim, y)
 
-        with plot_context:
-            fig = plt.figure()
-            margin = 0.2
-            ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+        # with plot_context:
+        # with plot_context.__class__(*plot_context.args, **plot_context.kwds):
+        fig = plt.figure()
+        margin = 0.2
+        ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
 
-            img[img < 0] = clims[0]
+        img[img < 0] = clims[0]
 
-            p = ax.imshow(np.clip(img, clims[0], clims[1]),
-                          norm=LogNorm(vmin=clims[0], vmax=clims[1]),
-                          extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
-                          aspect='equal',
-                          origin='lower')
+        p = ax.imshow(np.clip(img, clims[0], clims[1]),
+                      norm=LogNorm(vmin=clims[0], vmax=clims[1]),
+                      extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
+                      aspect='equal',
+                      origin='lower')
 
-            ax.set_xlabel(r'$y$ [px]')
-            ax.set_ylabel(r'$z$ [px]')
-            # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-            ax.tick_params(axis='both')
+        ax.set_xlabel(r'$y$ [px]')
+        ax.set_ylabel(r'$z$ [px]')
+        # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+        # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
+        ax.tick_params(axis='both')
 
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            cb = fig.colorbar(p, cax=cax)
-            cb.set_label('Intensity [arb. units]')
-            cb.ax.yaxis.labelpad = 5
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cb = fig.colorbar(p, cax=cax)
+        cb.set_label('Intensity [arb. units]')
+        cb.ax.yaxis.labelpad = 5
 
-            cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
-            cb.set_ticks([clims[0], clims[1]])
-            cb.set_ticklabels([change_clim_format(str(clims[0])),
-                               change_clim_format(str(clims[1]))])
+        cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
+        cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
+        cb.update_ticks()
+        # cb.set_ticks([clims[0], clims[1]])
+        # cb.ax.yaxis.set_tick_params(which='both', direction='out')
+        # cb.set_ticklabels([change_clim_format(str(clims[0])),
+        #                    change_clim_format(str(clims[1]))])
 
         if save_fig:
             if path_to_save_fig is not None:
@@ -314,9 +319,8 @@ def _plot_single_image(
             cb.ax.yaxis.labelpad = 5
 
             cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
-            cb.set_ticks([clims[0], clims[1]])
-            cb.set_ticklabels([change_clim_format(str(clims[0])),
-                               change_clim_format(str(clims[1]))])
+            cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
+            cb.update_ticks()
 
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
@@ -374,23 +378,22 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
         # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
         # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
         ax.tick_params(axis='both')
+
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
+        cb = fig.colorbar(p, cax=cax)
+        cb.set_label('Intensity [arb. units]')
+        cb.ax.yaxis.labelpad = 5
+
+        cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
+        cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
+        cb.update_ticks()
 
         for i, dataset in enumerate(simulated_data):
             cmap_i = cmap[i]
             norm = add_single_simul_data(dataset, ax, cmap_i, vmin, vmax,
                                           linewidth, radius, text_color, plot_mi,
                                           )
-
-        cb = fig.colorbar(p, cax=cax)
-        cb.set_label('Intensity [arb. units]')
-        cb.ax.yaxis.labelpad = 5
-
-        cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
-        cb.set_ticks([clims[0], clims[1]])
-        cb.set_ticklabels([change_clim_format(str(clims[0])),
-                           change_clim_format(str(clims[1]))])
 
     if save_result:
         # if (path_to_save.endswith('.svg') or path_to_save.endswith('.pdf')

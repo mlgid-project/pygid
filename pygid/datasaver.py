@@ -167,7 +167,7 @@ class SampleMetadata:
             return value
 
 
-@dataclass
+@dataclass(repr=False)
 class DataSaver:
     """
     Class for saving processed experimental or sample data to HDF5 files.
@@ -275,6 +275,7 @@ class DataSaver:
         # Save the data and remove it from the sample to free memory
         self._save_data_(name, data)
         delattr(self.sample, name)
+        return
 
     def _save_data_(self, name, data):
         """
@@ -305,13 +306,13 @@ class DataSaver:
         folder_to_save = os.path.dirname(self.path_to_save)
         if not os.path.exists(folder_to_save) and folder_to_save != "":
             os.makedirs(folder_to_save)
-        file_name = self.path_to_save
+        filename = self.path_to_save
 
         # Determine HDF5 file mode: overwrite or append
-        mode = 'w' if os.path.exists(file_name) and self.overwrite_file else 'a'
+        mode = 'w' if os.path.exists(filename) and self.overwrite_file else 'a'
 
         # Open HDF5 file
-        with h5py.File(file_name, mode) as root:
+        with h5py.File(filename, mode) as root:
             root.attrs["NX_class"] = "NXroot"
             # Handle existing group: check for overwrite or shape mismatch
             if not self.overwrite_group and self.h5_group in root:
@@ -342,7 +343,7 @@ class DataSaver:
             if self.exp_metadata is None:
                 self.exp_metadata = ExpMetadata(filename=self.original_path)
             if not hasattr(self.exp_metadata, "filename"):
-                self.exp_metadata.filename = self.original_path
+                self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
             if not 'filename' in self.exp_metadata.extend_fields:
                 self.exp_metadata.extend_fields.append('filename')
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
@@ -556,6 +557,8 @@ def create_dataset(root, h5_group, name, data):
             data=data,
             maxshape=maxshape,
             chunks=True)
+    if root[dataset_name].ndim != 3:
+        raise ValueError(f"The dataset '{dataset_name}' must have 3 dimensions.")
 
 
 def ensure_group_exists(root, group_name, attrs=None):
@@ -675,7 +678,11 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
         else:
             data = str(data_name)
         if data_name in root and not extend_list:
-            return
+            # return
+            del root[data_name]
+            root.create_dataset(
+                name=dataset_name, data=data, maxshape=None,
+            ).attrs.update({'EX_required': 'true'})
         if data is not None:
             if dataset_name in root:
                 if not extend_list:
@@ -740,16 +747,6 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
     # metadata that shold be extended
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
-    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'frame_idx', 'frame_idx', required=False,
-    #                      extend_list=True)
-    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'epoch', 'epoch', required=False,
-    #                      extend_list=True)
-    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'mon', 'mon', required=False,
-    #                      extend_list=True)
-    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'watt0', 'watt0', required=False,
-    #                      extend_list=True)
-    # save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, 'transmission', 'transmission', required=False,
-    #                      extend_list=True)
 
     saved_attr = ['extend_fields','instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
                   'source_name', 'start_time', 'end_time', 'detector_name', 'detector', 'source',
@@ -893,6 +890,7 @@ def fill_process_group(root, h5_group, matrix):
         - Stores the summary in the 'NOTE' dataset under the 'process' subgroup.
     """
     corr_matrices = matrix.corr_matrices
+    params = matrix.params
     h5_group = "/" + h5_group
     group = root[h5_group + '/process']
     # Save program metadata
@@ -900,6 +898,9 @@ def fill_process_group(root, h5_group, matrix):
     from . import __version__ as pygid_version
     save_single_data(group, 'version', pygid_version, extend_list=False)
     save_single_data(group, 'date', datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'), extend_list=False)
+    save_single_data(group, 'fliplr', params.fliplr, extend_list=False)
+    save_single_data(group, 'flipud', params.flipud, extend_list=False)
+    save_single_data(group, 'transp', params.transp, extend_list=False)
     # Construct detailed note on intensity corrections
     NOTE = (
         "Intensity corrections applied:\n"

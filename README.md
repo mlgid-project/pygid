@@ -1,3 +1,5 @@
+from example.pygid_example import exp_metadatafrom example.pygid_example import analysis
+
 # pygid
 
 ## Fast Preprocessing of Grazing Incidence Diffraction (GID) Data 
@@ -269,10 +271,11 @@ However, we highly recommend including the following metadata:
 - Experimental metadata
 ```python
 exp_metadata = pygid.ExpMetadata(
-    start_time=r"2021-03-29T15:51:41.343788",
+    start_time=r"2024-03-29T15:51:41.343788",
     end_time=r"2024-07-12T08:26:22Z",
     source_type="synchrotron",
     source_name="ESRF ID10",
+    instrument_name="ID10-surf",
     detector="eiger4m",
     monitor = 1.1e5,
     extend_fields = ['monitor'] # list of fields to de appended to the existing data in the NXsas file
@@ -467,6 +470,52 @@ Table 1. Conversion functions with description
 | `det2pseudopol()`     | pseudopolar coordinates for transmission experiments | `img_pseudopol`      | `q_azimuth`, `q_rad`             |
 
 
+### Plotting After Conversion
+
+The results of the conversion can be visualized immediately after processing by calling plot_result. 
+The method optionally returns the numerical data arrays and supports plotting of selected frames.
+
+```python
+x, y, img = analysis.plot_result(
+    return_result=True,                 # return data arrays
+    frame_num=[0, 1],                   # frames to convert (int or list); None = all images
+    plot_result=True,                   # plot result
+    shift=1,                            # offset for line profiles  
+    clims=(10,1000),                    # color limits
+    xlim=(0, 4),                        # plot limits
+    ylim=(0, 4),                        # plot limits
+    save_fig=True,                      # save plot flag
+    path_to_save_fig="graph.tiff",      # save plot path
+)
+```
+Note:
+After the HDF5 file is written, converted data stored in memory are automatically released. 
+Consequently, plotting is no longer available once the results have been saved.
+
+### Modifying and Saving Data After Conversion
+Converted data can be modified in memory after the conversion step and before saving.
+This allows for post-processing adjustments prior to writing the final HDF5 output.
+
+```python
+# Run conversion without saving
+analysis.analysis.det2q_gid(save_result=False)
+
+# Modify converted image data
+# (must remain a list of 2D NumPy arrays)
+analysis.img_gid_q[0] /= 2
+
+# Save results to HDF5
+pygid.DataSaver(
+    analysis,                    # pygid.Conversion instance 
+    path_to_save='result.h5',    # path to save 
+    overwrite_file=True,         # Whether to overwrite an existing HDF5 file
+    overwrite_group = True,      # Whether to overwrite an existing HDF5 entry
+    h5_group = 'entry',          # The specific group in the HDF5 file
+    exp_metadata = None,         # An instance of ExpMetadata
+    smpl_metadata = None         # An instance of SampleMetadata
+)
+```
+
 ## Batch Analysis
 
 If you need to process more data files than the defined `batch_size` (default: 32),  
@@ -498,7 +547,7 @@ analysis = pygid.Conversion(
     matrix=matrix,
     path=data_path,
     img_loc_hdf5='1.1/measurement/eiger4m',
-    batch_size=32,  # maximum batch size (default = 32)
+    batch_size=32,
 )
 
 analysis.det2pol_gid(
@@ -730,3 +779,107 @@ analysis.set_plot_defaults(
     cmap='inferno'                # Colormap for images ('inferno', 'viridis', etc.)
 )
 ```
+
+## Operations with Saved Data
+
+pygid supports loading a pygid.Conversion instance from a saved HDF5 (NeXus) file for plotting, analysis, or simulations.
+As the raw image is no longer available, the conversion functions will not work.
+Users can modify selected datasets, extract and overwrite experimental or sample metadata, and inspect the file structure.
+
+#### Initialization:
+```python
+import pygid
+nexus = pygid.NexusFile("converted_result.h5")
+```
+
+#### Inspecting the file structure:
+
+Printing the structure provides information about the available datasets, their types, and data geometry for each entry.
+```python
+nexus.print_file_structure()
+```
+
+
+#### Loading a pygid.Conversion instance:
+
+```python
+analysis = pygid.NexusFile(filename).load_entry('entry_0000')
+
+# Further operations with the loaded images
+analysis.plot_result(save_fig=True, plot_result=True)
+```
+#### Modifying datasets:
+```python
+# Overwrite the entire dataset
+nexus.change_data(
+    data_root='/entry_0000/data/img_gid_q',  # Path to the dataset
+    frame_num=None,                           # Index of frame to change; None = whole dataset
+    data=image                                # New image data to save; 
+)
+
+# Modify a single value in a dataset
+nexus.change_data(
+    data_root='/entry_0000/instrument/angle_of_incidence',
+    frame_num=2,
+    data=0.1
+)
+
+# Delete dataset
+nexus.delete_data('/entry_0000/instrument/monitor')
+```
+
+#### Retrieving pygid.ExpMetadata and pygid.SampleMetadata instances:
+
+```python
+smpl_metadata = nexus.get_smpl_metadata(
+  entry='entry_0000',                  # data entry
+  path_to_save=r'sample_metadata.yaml' # Optional: save as YAML file
+)
+
+exp_metadata = nexus.get_exp_metadata('entry_0000')
+
+```
+#### Modifying pygid.ExpMetadata and pygid.SampleMetadata instances:
+
+```python
+# sample metadata
+smpl_metadata = pygid.SampleMetadata(path_to_load = '240124_PEN_DIP_metadata.yaml') # creation of SampleMetadata instance 
+nexus.change_smpl_metadata('entry_0000', smpl_metadata)  # rewritting of entry/sample group 
+
+
+# experimental metadata
+exp_metadata = pygid.ExpMetadata(
+    start_time=r"2024-03-29T15:51:41.343788",
+    end_time=r"2024-07-12T08:26:22Z",
+    source_type="synchrotron",
+    source_name="ESRF",
+    instrument_name="ID10-surf",
+    detector="eiger4m",
+    monitor = 1.1e5,
+)
+nexus.change_exp_metadata('entry_0000', exp_metadata)  # overwritting of entry/instrument group
+```
+#### Extracting a single entry and saving separately:
+
+```python
+import pygid
+nexus = pygid.NexusFile("converted_result.h5")
+analysis = pygid.NexusFile(filename).load_entry('entry_0000')
+smpl_metadata = nexus.get_smpl_metadata('entry_0000')
+exp_metadata = nexus.get_exp_metadata('entry_0000')
+
+pygid.DataSaver(analysis,
+                path_to_save='single_entry.h5',
+                smpl_metadata=smpl_metadata,
+                exp_metadata=exp_metadata)
+```
+
+
+
+
+
+
+
+
+
+

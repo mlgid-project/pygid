@@ -264,8 +264,19 @@ class ExpParams:
         if self.fliplr:
             self.centerX = (self.img_dim[1]-1) - self.centerX
 
+        self._calc_poni_from_center()
+
+    def _calc_poni_from_center(self):
+        """
+        Calculates poni1 and poni2 from the center point.
+        Returns
+        -------
+        """
+
         self.poni1, self.poni2 = (self.centerY * self.px_size - self.SDD * np.tan(self.rot2) / np.cos(self.rot1),
                                   self.centerX * self.px_size + self.SDD * np.tan(self.rot1))
+
+
 
     def _calc_center_(self):
         """
