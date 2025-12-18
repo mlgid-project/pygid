@@ -345,7 +345,9 @@ Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, 
 - `frame_num` – frame(s) to load (None, int, or list) 
 - `img_raw` -  raw images (2D or 3D numpy array) (optional)
 - `average_all` – if `True`, average all frames  
-- `number_to_average` – number of frames to average for partial averaging  
+- `sum_all` – if `True`, sum all frames 
+- `number_to_average` – number of frames to average for partial averaging 
+-  `number_to_sum` – number of frames to be summed when computing a partial sum
 - `roi_range` – region of interest in the raw image `[y_min, y_max, x_min, x_max]`  
 - `multiprocessing` – enable multiprocessing mode (`True` or `False`)  
 - `batch_size` – batch size for batch processing mode  

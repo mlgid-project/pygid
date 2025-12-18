@@ -50,6 +50,8 @@ class Conversion:
             Averages all loaded frames. Default is False.
         number_to_average : int, optional
             The number of frames to average before processing. Default is None (no average).
+        number_to_sum : int, optional
+            The number of frames to sum before processing. Default is None (no sum).
         use_gpu : bool, optional
             Whether to use GPU for computation. Default is True.
         multiprocessing : bool, optional
@@ -80,6 +82,7 @@ class Conversion:
     sub_class: Any = None
     frame_batches: Any = None
     number_to_average: int = None
+    number_to_sum: int = None
     batch_activated: bool = False
     build_image_P03: bool = False
     plot_params = get_plot_params()
@@ -102,6 +105,10 @@ class Conversion:
             self.matrix = self.matrix.sub_matrices
         self.matrix = [self.matrix] if not isinstance(self.matrix, list) else self.matrix
         self.params = self.matrix[0].params
+
+
+        self.check_keys()
+
 
         if self.img_raw is None and self.path is None:
             return
@@ -128,11 +135,26 @@ class Conversion:
 
 
 
-        self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
-                                               self.params.transp, self.roi_range, self.params.count_range) for
-                                 img in self.img_raw])
+
 
         self.update_conversion()
+
+    def check_keys(self):
+        if self.average_all and self.sum_all:
+            raise ValueError("average_all and sum_all cannot be used at the same time")
+        if (not self.number_to_average is None) and (not self.number_to_sum is None):
+            raise ValueError("number_to_average and number_to_sum cannot be used at the same time")
+        for num in (self.number_to_average,self.number_to_sum):
+            if not num is None:
+                if not (isinstance(num, int) and num > 0):
+                    raise ValueError("number_to_average/number_to_sum must be positive integer")
+        self.number_to_combine = self.number_to_average or self.number_to_sum
+
+        if self.number_to_combine:
+            if self.average_all:
+                raise ValueError("average_all and number_to_average/number_to_sum cannot be used at the same time")
+            if self.sum_all:
+                raise ValueError("sum_all and number_to_average/number_to_sum cannot be used at the same time")
 
     def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None,
               overwrite_file=True, overwrite_group=False,
@@ -155,8 +177,8 @@ class Conversion:
             Whether to overwrite the file if it already exists. Default is True.
         """
 
-        if self.number_to_average is not None:
-            rest = self.batch_size % self.number_to_average
+        if self.number_to_combine is not None:
+            rest = self.batch_size % self.number_to_combine
             if rest != 0:
                 self.batch_size -= rest
         if isinstance(self.path, list):
@@ -178,9 +200,6 @@ class Conversion:
                     elif self.sum_all:
                         averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
 
-                self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
-                                                       self.params.transp, self.roi_range, self.params.count_range) for
-                                         img in averaged_image])
                 self.update_conversion()
                 remap = getattr(self, remap_func, None)
                 self.batch_activated = False
@@ -246,9 +265,6 @@ class Conversion:
                         averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
 
 
-                self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
-                                                       self.params.transp, self.roi_range, self.params.count_range) for
-                                         img in averaged_image])
                 self.update_conversion()
                 remap = getattr(self, remap_func, None)
                 self.batch_activated = False
@@ -304,15 +320,6 @@ class Conversion:
 
         self.batch_activated = False
 
-        self.img_raw = np.array([
-            process_image(
-                img, self.params.mask,
-                self.params.flipud, self.params.fliplr,
-                self.params.transp, self.roi_range,
-                self.params.count_range
-            )
-            for img in self.img_raw
-        ])
 
         self.update_conversion()
 
@@ -351,24 +358,26 @@ class Conversion:
         maps update and application of corrections.
 
         """
-        if self.average_all and self.sum_all:
-            raise ValueError("average_all and sum_all cannot be used at the same time")
+
         if self.average_all:
             self.img_raw = np.nanmean(self.img_raw, axis=0, keepdims=True)
         elif self.sum_all:
             self.img_raw = np.nansum(self.img_raw, axis=0, keepdims=True)
-
-        elif self.number_to_average is not None and self.number_to_average > 1:
+        elif self.number_to_combine is not None and self.number_to_combine > 1:
             num_images = len(self.img_raw)
-            blocks = num_images // self.number_to_average
+            blocks = num_images // self.number_to_combine
             averaged_images = []
-            for i in range(0, blocks * self.number_to_average, self.number_to_average):
-                averaged_images.append(np.mean(self.img_raw[i:i + self.number_to_average], axis=0))
-            remaining = num_images % self.number_to_average
+            for i in range(0, blocks * self.number_to_combine, self.number_to_combine):
+                averaged_images.append(np.nanmean(self.img_raw[i:i + self.number_to_combine], axis=0))
+            remaining = num_images % self.number_to_combine
             if remaining > 0:
                 warnings.warn(f"{remaining} images left, averaging them separately.", UserWarning)
                 averaged_images.append(np.mean(self.img_raw[-remaining:], axis=0))
             self.img_raw = np.array(averaged_images)
+
+        self.img_raw = np.array([process_image(img, self.params.mask, self.params.flipud, self.params.fliplr,
+                                               self.params.transp, self.roi_range, self.params.count_range) for
+                                 img in self.img_raw])
 
         self.update_params()
         self.update_coordmaps()

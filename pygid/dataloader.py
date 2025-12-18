@@ -6,7 +6,7 @@ from typing import Union, List, Any, Optional
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 import warnings, logging
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 @dataclass
 class DataLoader:
@@ -68,6 +68,9 @@ class DataLoader:
         Notes:
             The resulting raw image data is stored in `self.img_raw`.
         """
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+
         # Reconstruct image data if P03 beamline data format is used
         if self.build_image_P03:
             self.img_raw = self._reconstruct_lmbd_()
@@ -119,7 +122,7 @@ class DataLoader:
 
             # Activate batch mode if number of files exceeds batch_size
             if len(self.path) > self.batch_size:
-                print(f"Number of frames exceeds {self.batch_size}. Batch processing activated.")
+                self.logger.info(f"Number of frames exceeds {self.batch_size}. Batch processing activated.")
                 self.activate_batch = True
                 self.number_of_frames = len(self.path)
                 return
@@ -243,8 +246,7 @@ class DataLoader:
                 dataset_shape = root[dataset].shape
                 number_of_frames = root[dataset].shape[0] if len(dataset_shape) == 3 else 1
                 if number_of_frames > self.batch_size:
-                    print(
-                        f"Number of frames ({number_of_frames}) is more than {self.batch_size}. The batch processing has been activated.")
+                    self.logger.info(f"Number of frames ({number_of_frames}) is more than {self.batch_size}. The batch processing has been activated.")
                     self.activate_batch = True
                     self.number_of_frames = number_of_frames
                     return
@@ -254,7 +256,7 @@ class DataLoader:
 
             elif isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
                 if len(frame_num) > self.batch_size:
-                    print(
+                    self.logger.info(
                         f"Number of frames is more than {self.batch_size}. The batch processing has been activated.")
                     self.activate_batch = True
                     self.number_of_frames = len(frame_num)
@@ -304,7 +306,8 @@ class DataLoader:
         lmbd_img[lmbd_img < 0] = np.nan
         image = fabio.tifimage.TifImage(lmbd_img[0])
         image.write("reconstructed_image.tiff")
-        print("Reconstructed image saved to reconstructed_image.tiff")
+        self.logger.info(
+            "Reconstructed image saved to reconstructed_image.tiff")
         del translation, data, flatfield, mask
         return lmbd_img
 
