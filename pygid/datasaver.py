@@ -343,7 +343,9 @@ class DataSaver:
             if self.exp_metadata is None:
                 self.exp_metadata = ExpMetadata(filename=self.original_path)
             if not hasattr(self.exp_metadata, "filename"):
-                self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
+                # self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
+                paths = self.original_path if isinstance(self.original_path, list) else [self.original_path]
+                self.exp_metadata.filename = [str(Path(p).resolve()) for p in paths]
             if not 'filename' in self.exp_metadata.extend_fields:
                 self.exp_metadata.extend_fields.append('filename')
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
