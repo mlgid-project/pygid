@@ -1,12 +1,13 @@
 LICENSE
 README.md
-setup.py
+pyproject.toml
 pygid/__init__.py
 pygid/conversion.py
 pygid/coordmaps.py
 pygid/dataloader.py
 pygid/datasaver.py
 pygid/expparams.py
+pygid/nexus_reader.py
 pygid/pixel_dict.py
 pygid/visualization.py
 pygid.egg-info/PKG-INFO

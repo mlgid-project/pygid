@@ -679,9 +679,17 @@ class Conversion:
             x_key, x_label = tuple(axes_labels)
             x = getattr(self.matrix[0], x_key)
             img_list = [img[i] for i in frame_num]
-            _plot_profile(get_plot_context(type(self).plot_params), x, img_list,
-                          x_label, shift,
-                          xlim, ylim, plot_result, save_fig, path_to_save_fig)
+
+            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+                          x_values = x,
+                          profiles = img_list,
+                          xlabel = x_label,
+                          shift = shift,
+                          xlim = xlim,
+                          ylim = ylim,
+                          plot_result = plot_result,
+                          save_fig = save_fig,
+                          path_to_save_fig = path_to_save_fig)
 
 
     def _remap_general_(self, frame_num, **kwargs):
@@ -1730,29 +1738,29 @@ class Conversion:
         name = "rad_cut_gid"
 
         return self.calculate_radial_profile(
-            key,
-            frame_num,
-            radial_range,
-            angular_range,
-            multiprocessing,
-            return_result,
-            save_result,
-            save_fig,
-            path_to_save_fig,
-            plot_result,
-            shift,
-            xlim,
-            ylim,
-            dang,
-            dq,
-            path_to_save,
-            h5_group,
-            overwrite_file,
-            overwrite_group,
-            exp_metadata,
-            smpl_metadata,
-            remap_func,
-            name)
+            key = key,
+            frame_num = frame_num,
+            radial_range = radial_range,
+            angular_range = angular_range,
+            multiprocessing = multiprocessing,
+            return_result = return_result,
+            save_result = save_result,
+            save_fig = save_fig,
+            path_to_save_fig = path_to_save_fig,
+            plot_result = plot_result,
+            shift = shift,
+            xlim = xlim,
+            ylim = ylim,
+            dang = dang,
+            dq = dq,
+            path_to_save = path_to_save,
+            h5_group = h5_group,
+            overwrite_file = overwrite_file,
+            overwrite_group = overwrite_group,
+            exp_metadata = exp_metadata,
+            smpl_metadata = smpl_metadata,
+            remap_func = remap_func,
+            name = name)
 
     def radial_profile(
             self,
@@ -1834,29 +1842,29 @@ class Conversion:
         name = "rad_cut"
 
         return self.calculate_radial_profile(
-            key,
-            frame_num,
-            radial_range,
-            angular_range,
-            multiprocessing,
-            return_result,
-            save_result,
-            save_fig,
-            path_to_save_fig,
-            plot_result,
-            shift,
-            xlim,
-            ylim,
-            dang,
-            dq,
-            path_to_save,
-            h5_group,
-            overwrite_file,
-            overwrite_group,
-            exp_metadata,
-            smpl_metadata,
-            remap_func,
-            name)
+            key=key,
+            frame_num=frame_num,
+            radial_range=radial_range,
+            angular_range=angular_range,
+            multiprocessing=multiprocessing,
+            return_result=return_result,
+            save_result=save_result,
+            save_fig=save_fig,
+            path_to_save_fig=path_to_save_fig,
+            plot_result=plot_result,
+            shift=shift,
+            xlim=xlim,
+            ylim=ylim,
+            dang=dang,
+            dq=dq,
+            path_to_save=path_to_save,
+            h5_group=h5_group,
+            overwrite_file=overwrite_file,
+            overwrite_group=overwrite_group,
+            exp_metadata=exp_metadata,
+            smpl_metadata=smpl_metadata,
+            remap_func=remap_func,
+            name=name)
 
     def calculate_radial_profile(
             self,
@@ -1967,8 +1975,17 @@ class Conversion:
 
         # Plot the radial profile if requested
         if plot_result or save_fig:
-            _plot_profile(get_plot_context(type(self).plot_params), q_abs_values, radial_profile, r"$q_{abs}\ [\AA^{-1}]$", shift,
-                               xlim, ylim, plot_result, save_fig, path_to_save_fig)
+            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+                          x_values = q_abs_values,
+                          profiles = radial_profile,
+                          xlabel = r"$q_{abs}\ [\AA^{-1}]$",
+                          shift = shift,
+                          xlim = xlim,
+                          ylim = ylim,
+                          plot_result = plot_result,
+                          save_fig = save_fig,
+                          path_to_save_fig = path_to_save_fig)
+
         setattr(self, name, radial_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
@@ -2303,8 +2320,18 @@ class Conversion:
 
         # Plot profile if requested
         if plot_result or save_fig:
-            _plot_profile(get_plot_context(type(self).plot_params), phi_abs_values, azim_profile, r"$\chi\ [\degree]$", shift, xlim,
-                               ylim, plot_result, save_fig, path_to_save_fig)
+            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+                          x_values = phi_abs_values,
+                          profiles = azim_profile,
+                          xlabel = r"$\chi\ [\degree]$",
+                          shift = shift,
+                          xlim = xlim,
+                          ylim = ylim,
+                          plot_result = plot_result,
+                          save_fig = save_fig,
+                          path_to_save_fig = path_to_save_fig)
+
+
         setattr(self, name, azim_profile)
         delattr(self, "img_gid_pol") if key == "gid" else delattr(self, "img_pol")
 
@@ -2431,10 +2458,18 @@ class Conversion:
         img_q = np.array(img_q)
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         horiz_profile = np.nanmean(img_q, axis=1)
-        xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]'
         if plot_result or save_fig:
-            _plot_profile(get_plot_context(type(self).plot_params), q_hor_values, horiz_profile, xlabel, shift, xlim,
-                               ylim, plot_result, save_fig, path_to_save_fig)
+            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+                          x_values = q_hor_values,
+                          profiles = horiz_profile,
+                          xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
+                          shift = shift,
+                          xlim = xlim,
+                          ylim = ylim,
+                          plot_result = plot_result,
+                          save_fig = save_fig,
+                          path_to_save_fig = path_to_save_fig)
+
         setattr(self, "horiz_cut_gid", horiz_profile)
         delattr(self, "img_gid_q")
         if save_result:

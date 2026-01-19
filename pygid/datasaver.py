@@ -559,8 +559,8 @@ def create_dataset(root, h5_group, name, data):
             data=data,
             maxshape=maxshape,
             chunks=True)
-    if root[dataset_name].ndim != 3:
-        raise ValueError(f"The dataset '{dataset_name}' must have 3 dimensions.")
+    # if root[dataset_name].ndim != 3:
+    #     raise ValueError(f"The dataset '{dataset_name}' must have 3 dimensions.")
 
 
 def ensure_group_exists(root, group_name, attrs=None):

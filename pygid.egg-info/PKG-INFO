@@ -1,10 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pygid
-Version: 0.2.1
+Version: 0.2.2
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
-Home-page: https://github.com/mlgid-project/pygid
-Author: Ainur Abukaev
-Author-email: ainurabukaev@gmail.com
+Author-email: Ainur Abukaev <ainurabukaev@gmail.com>
+Project-URL: Homepage, https://github.com/mlgid-project/pygid
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -29,6 +28,9 @@ Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10.0; extra == "test"
+Dynamic: license-file
+
+from example.pygid_example import exp_metadatafrom example.pygid_example import analysis
 
 # pygid
 
@@ -195,6 +197,25 @@ Other parameters
   `"ascan om 0.0400 0.1000 12"` or `"0.0400 0.1000 12"`  
   (start, stop, number-1). The corresponding `ai` list will be calculated automatically.
 
+The result of flipping and transpose:
+![flip_transp.png](docs/images/flip_transp.png)
+The correct combination of keys is highlighted in green.
+These parameters lead to changes of PONI and rotation angles:
+
+```python
+if transp:
+    poni1, poni2 = poni2, poni1
+    rot1, rot2, rot3 = -rot2, -rot1, -rot3
+if flipud:
+    poni1 = img_dim[0] * px_size - poni1
+    rot2, rot3 = -rot2, -rot3
+if fliplr:
+    poni2 = img_dim[1] * px_size - poni2
+    rot1, rot3 = -rot1, -rot3
+```
+where img_dim is the image dimensions $[h,w]$.
+
+
 The definition of the coordinates (poni1, poni2) and an example of creating a .poni calibration file 
 based on a calibrant image using the pyFAI-calib2 GUI are described in the
 Ref.: https://www.silx.org/doc/pyFAI/latest/usage/cookbook/calib-gui/index.html
@@ -282,10 +303,11 @@ However, we highly recommend including the following metadata:
 - Experimental metadata
 ```python
 exp_metadata = pygid.ExpMetadata(
-    start_time=r"2021-03-29T15:51:41.343788",
+    start_time=r"2024-03-29T15:51:41.343788",
     end_time=r"2024-07-12T08:26:22Z",
     source_type="synchrotron",
     source_name="ESRF ID10",
+    instrument_name="ID10-surf",
     detector="eiger4m",
     monitor = 1.1e5,
     extend_fields = ['monitor'] # list of fields to de appended to the existing data in the NXsas file
@@ -344,6 +366,7 @@ Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, 
   - `None` – load all images  
   - `int` – load a single frame  
   - `list` – load a list of frames  
+- Raw images can be loaded as a 2D or 3D array using `img_raw` instead of `path`
 - For **angular scans**, the number of angles (`ai`) in `ExpParams` should match the number of loaded images.  
 
 #### Parameters
@@ -351,9 +374,12 @@ Create a `Conversion` class instance based on a raw data file (`.edf`, `.tiff`, 
 - `matrix` – `CoordMaps` instance 
 - `path` – path to the data file or list of files  
 - `dataset` – HDF5 dataset key pointing to the raw data  
-- `frame_num` – frame(s) to load (None, int, or list)  
+- `frame_num` – frame(s) to load (None, int, or list) 
+- `img_raw` -  raw images (2D or 3D numpy array) (optional)
 - `average_all` – if `True`, average all frames  
-- `number_to_average` – number of frames to average for partial averaging  
+- `sum_all` – if `True`, sum all frames 
+- `number_to_average` – number of frames to average for partial averaging 
+-  `number_to_sum` – number of frames to be summed when computing a partial sum
 - `roi_range` – region of interest in the raw image `[y_min, y_max, x_min, x_max]`  
 - `multiprocessing` – enable multiprocessing mode (`True` or `False`)  
 - `batch_size` – batch size for batch processing mode  
@@ -478,6 +504,52 @@ Table 1. Conversion functions with description
 | `det2pseudopol()`     | pseudopolar coordinates for transmission experiments | `img_pseudopol`      | `q_azimuth`, `q_rad`             |
 
 
+### Plotting After Conversion
+
+The results of the conversion can be visualized immediately after processing by calling plot_result. 
+The method optionally returns the numerical data arrays and supports plotting of selected frames.
+
+```python
+x, y, img = analysis.plot_result(
+    return_result=True,                 # return data arrays
+    frame_num=[0, 1],                   # frames to convert (int or list); None = all images
+    plot_result=True,                   # plot result
+    shift=1,                            # offset for line profiles  
+    clims=(10,1000),                    # color limits
+    xlim=(0, 4),                        # plot limits
+    ylim=(0, 4),                        # plot limits
+    save_fig=True,                      # save plot flag
+    path_to_save_fig="graph.tiff",      # save plot path
+)
+```
+Note:
+After the HDF5 file is written, converted data stored in memory are automatically released. 
+Consequently, plotting is no longer available once the results have been saved.
+
+### Modifying and Saving Data After Conversion
+Converted data can be modified in memory after the conversion step and before saving.
+This allows for post-processing adjustments prior to writing the final HDF5 output.
+
+```python
+# Run conversion without saving
+analysis.analysis.det2q_gid(save_result=False)
+
+# Modify converted image data
+# (must remain a list of 2D NumPy arrays)
+analysis.img_gid_q[0] /= 2
+
+# Save results to HDF5
+pygid.DataSaver(
+    analysis,                    # pygid.Conversion instance 
+    path_to_save='result.h5',    # path to save 
+    overwrite_file=True,         # Whether to overwrite an existing HDF5 file
+    overwrite_group = True,      # Whether to overwrite an existing HDF5 entry
+    h5_group = 'entry',          # The specific group in the HDF5 file
+    exp_metadata = None,         # An instance of ExpMetadata
+    smpl_metadata = None         # An instance of SampleMetadata
+)
+```
+
 ## Batch Analysis
 
 If you need to process more data files than the defined `batch_size` (default: 32),  
@@ -509,7 +581,7 @@ analysis = pygid.Conversion(
     matrix=matrix,
     path=data_path,
     img_loc_hdf5='1.1/measurement/eiger4m',
-    batch_size=32,  # maximum batch size (default = 32)
+    batch_size=32,
 )
 
 analysis.det2pol_gid(
@@ -741,3 +813,110 @@ analysis.set_plot_defaults(
     cmap='inferno'                # Colormap for images ('inferno', 'viridis', etc.)
 )
 ```
+
+## Operations with Saved Data
+
+pygid supports loading a pygid.Conversion instance from a saved HDF5 (NeXus) file for plotting, analysis, or simulations.
+As the raw image is no longer available, the conversion functions will not work.
+Users can modify selected datasets, extract and overwrite experimental or sample metadata, and inspect the file structure.
+
+#### Initialization:
+```python
+import pygid
+nexus = pygid.NexusFile("converted_result.h5")
+```
+
+#### Inspecting the file structure:
+
+Printing the structure provides information about the available datasets, their types, and data geometry for each entry.
+```python
+nexus.print_file_structure()
+```
+
+
+#### Loading a pygid.Conversion instance:
+
+```python
+analysis = pygid.NexusFile(filename).load_entry(
+    entry = 'entry_0000',  # entry name to load
+    frame_num = 0,         # frame number to load (int, list or None (all)) 
+)
+
+# Further operations with the loaded images
+analysis.plot_result(save_fig=True, plot_result=True)
+```
+#### Modifying datasets:
+```python
+# Overwrite the entire dataset
+nexus.change_data(
+    data_root='/entry_0000/data/img_gid_q',  # Path to the dataset
+    frame_num=None,                           # Index of frame to change; None = whole dataset (int or None)
+    data=image                                # New image data to save; 
+)
+
+# Modify a single value in a dataset
+nexus.change_data(
+    data_root='/entry_0000/instrument/angle_of_incidence',
+    frame_num=2,
+    data=0.1
+)
+
+# Delete dataset
+nexus.delete_data('/entry_0000/instrument/monitor')
+```
+
+#### Retrieving pygid.ExpMetadata and pygid.SampleMetadata instances:
+
+```python
+smpl_metadata = nexus.get_smpl_metadata(
+  entry='entry_0000',                  # data entry
+  path_to_save=r'sample_metadata.yaml' # Optional: save as YAML file
+)
+
+exp_metadata = nexus.get_exp_metadata('entry_0000')
+
+```
+#### Modifying pygid.ExpMetadata and pygid.SampleMetadata instances:
+
+```python
+# sample metadata
+smpl_metadata = pygid.SampleMetadata(path_to_load = '240124_PEN_DIP_metadata.yaml') # creation of SampleMetadata instance 
+nexus.change_smpl_metadata('entry_0000', smpl_metadata)  # rewritting of entry/sample group 
+
+
+# experimental metadata
+exp_metadata = pygid.ExpMetadata(
+    start_time=r"2024-03-29T15:51:41.343788",
+    end_time=r"2024-07-12T08:26:22Z",
+    source_type="synchrotron",
+    source_name="ESRF",
+    instrument_name="ID10-surf",
+    detector="eiger4m",
+    monitor = 1.1e5,
+)
+nexus.change_exp_metadata('entry_0000', exp_metadata)  # overwritting of entry/instrument group
+```
+#### Extracting a single entry and saving separately:
+
+```python
+import pygid
+nexus = pygid.NexusFile("converted_result.h5")
+analysis = pygid.NexusFile(filename).load_entry('entry_0000')
+smpl_metadata = nexus.get_smpl_metadata('entry_0000')
+exp_metadata = nexus.get_exp_metadata('entry_0000')
+
+pygid.DataSaver(analysis,
+                path_to_save='single_entry.h5',
+                smpl_metadata=smpl_metadata,
+                exp_metadata=exp_metadata)
+```
+
+
+
+
+
+
+
+
+
+

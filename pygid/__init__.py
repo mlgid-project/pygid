@@ -4,4 +4,4 @@ from .datasaver import DataSaver, ExpMetadata, SampleMetadata, _save_matched_dat
 from .coordmaps import CoordMaps
 from .conversion import Conversion
 from .nexus_reader import NexusFile
-__version__ = "0.2.1"
+__version__ = "0.2.2"
