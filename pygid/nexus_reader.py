@@ -217,7 +217,7 @@ class NexusFile:
             metadata_dict = read_single_group(root[f'/{entry}/instrument'], ['name', 'angle_of_incidence'])
             exp_metadata = ExpMetadata(
                 start_time = start_time,
-                end = end_time,
+                end_time = end_time,
                 source_name = source_name,
                 filename = filename,
                 instrument_name = instrument_name,
@@ -239,7 +239,31 @@ class NexusFile:
         else:
             return default
 
+    def rename_dataset(self, old_name, new_name):
+        """Rename a dataset or group in the HDF5 file."""
+        with h5py.File(self.path, "r+") as root:
+            if old_name not in root:
+                raise ValueError(f"{old_name} not found in the file")
+            if new_name in root:
+                raise ValueError(f"{new_name} already exists")
+            root.move(old_name, new_name)
 
+    def get_data(self, data_root, frame_num = None):
+        with h5py.File(self.path, "r+") as root:
+            if not data_root in root:
+                raise ValueError(f"data_root {data_root} not found")
+            dset = root[data_root]
+            if frame_num is not None:
+                return dset[frame_num]
+            else:
+                return dset[()]
+
+
+    def create_dataset(self, data_root, data):
+        with h5py.File(self.path, "r+") as root:
+            if data_root in root:
+                del root[data_root]
+            root.create_dataset(data_root, data = data)
 
     def change_data(self, data_root, frame_num = None, data = None):
         """
@@ -351,26 +375,29 @@ def get_filename(root_entry, frame_num=None):
     filename : str or list of str
         Filename(s) corresponding to the specified frame(s).
     """
-    filenames_dataset = root_entry['data/filename'][()]
-    # Convert bytes to string if needed
-    if isinstance(filenames_dataset, bytes):
-        filenames_dataset = filenames_dataset.decode('utf-8')
-    # If it is a single string and no frame_num is specified
-    if isinstance(filenames_dataset, str):
-        return filenames_dataset
-    # If it's an array of strings (e.g., np.ndarray of bytes)
-    if frame_num is None:
-        # return all filenames as a list of strings
-        return [f.decode('utf-8') if isinstance(f, bytes) else f for f in filenames_dataset]
-    if isinstance(frame_num, int):
-        f = filenames_dataset[frame_num]
-        return f.decode('utf-8') if isinstance(f, bytes) else f
-    if isinstance(frame_num, (list, np.ndarray)):
-        return [
-            f.decode('utf-8') if isinstance(f, bytes) else f
-            for i, f in enumerate(filenames_dataset) if i in frame_num
-        ]
-    raise ValueError("Invalid type for frame_num. Must be int, list, or np.ndarray.")
+    try:
+        filenames_dataset = root_entry['data/filename'][()]
+        # Convert bytes to string if needed
+        if isinstance(filenames_dataset, bytes):
+            filenames_dataset = filenames_dataset.decode('utf-8')
+        # If it is a single string and no frame_num is specified
+        if isinstance(filenames_dataset, str):
+            return filenames_dataset
+        # If it's an array of strings (e.g., np.ndarray of bytes)
+        if frame_num is None:
+            # return all filenames as a list of strings
+            return [f.decode('utf-8') if isinstance(f, bytes) else f for f in filenames_dataset]
+        if isinstance(frame_num, int):
+            f = filenames_dataset[frame_num]
+            return f.decode('utf-8') if isinstance(f, bytes) else f
+        if isinstance(frame_num, (list, np.ndarray)):
+            return [
+                f.decode('utf-8') if isinstance(f, bytes) else f
+                for i, f in enumerate(filenames_dataset) if i in frame_num
+            ]
+        # raise ValueError("Invalid type for frame_num. Must be int, list, or np.ndarray.")
+    except:
+        return None
 
 
 def get_img(root_entry, img_name, frame_num):
@@ -389,7 +416,8 @@ def get_img(root_entry, img_name, frame_num):
 def load_martix(root_entry, axes, frame_num):
     params = load_params(root_entry, frame_num)
     matrix = CoordMaps(params)
-
+    if matrix.sub_matrices is None:
+        matrix.sub_matrices = [matrix]
     for mat in matrix.sub_matrices:
         for ax in axes:
             ax_value= root_entry[f'data/{ax}'][()]
@@ -416,9 +444,9 @@ def load_params(root_entry, frame_num):
         centerY=root_entry['instrument/detector/beam_center_y'][()],
         px_size=root_entry['instrument/detector/x_pixel_size'][()],
         ai=ai,
-        fliplr=root_entry['process/fliplr'][()],
-        flipud=root_entry['process/flipud'][()],
-        transp=root_entry['process/transp'][()],
+        fliplr=get_h5_value(root_entry, 'process/fliplr', False),
+        flipud=get_h5_value(root_entry, 'process/flipud', False),
+        transp=get_h5_value(root_entry, 'process/transp', False),
     )
 
     params._calc_poni_from_center()
@@ -473,3 +501,10 @@ def get_description(img_type):
         'horiz_cut_gid': 'horizontal profile for GID geometry',
     }
     return description_dict.get(img_type)
+
+
+def get_h5_value(root, path, default=None):
+    try:
+        return root[path][()]
+    except:
+        return default
