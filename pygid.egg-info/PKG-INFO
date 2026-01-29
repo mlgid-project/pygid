@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygid
-Version: 0.2.2
+Version: 0.2.3
 Summary: Fast Preprocessing of Grazing Incidence Diffraction Data
 Author-email: Ainur Abukaev <ainurabukaev@gmail.com>
 Project-URL: Homepage, https://github.com/mlgid-project/pygid
@@ -11,7 +11,7 @@ Requires-Dist: numpy<3.0,>=1.21.0
 Requires-Dist: h5py<4.0,>=3.12.1
 Requires-Dist: fabio<2025.0,>=2024.9.0
 Requires-Dist: tifffile<2024.0,>=2023.7.18
-Requires-Dist: matplotlib<4.0,>=3.10.0
+Requires-Dist: matplotlib<4.0,>=3.8.0
 Requires-Dist: opencv-python<5.0,>=4.10.0.82
 Requires-Dist: numexpr<3.0,>=2.10.0
 Requires-Dist: streamz<1.0,>=0.6.3
@@ -29,8 +29,6 @@ Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10.0; extra == "test"
 Dynamic: license-file
-
-from example.pygid_example import exp_metadatafrom example.pygid_example import analysis
 
 # pygid
 

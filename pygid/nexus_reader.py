@@ -248,7 +248,7 @@ class NexusFile:
                 raise ValueError(f"{new_name} already exists")
             root.move(old_name, new_name)
 
-    def get_data(self, data_root, frame_num = None):
+    def get_dataset(self, data_root, frame_num = None):
         with h5py.File(self.path, "r+") as root:
             if not data_root in root:
                 raise ValueError(f"data_root {data_root} not found")
@@ -265,7 +265,7 @@ class NexusFile:
                 del root[data_root]
             root.create_dataset(data_root, data = data)
 
-    def change_data(self, data_root, frame_num = None, data = None):
+    def change_dataset(self, data_root, frame_num = None, data = None):
         """
         Modify an existing dataset in the NeXus file.
 
@@ -289,7 +289,7 @@ class NexusFile:
                 dset[frame_num] = data
             return
 
-    def delete_data(self, data_root):
+    def delete_dataset(self, data_root):
         """
         Delete a dataset from the NeXus file.
 
