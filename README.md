@@ -1,5 +1,3 @@
-from example.pygid_example import exp_metadatafrom example.pygid_example import analysis
-
 # pygid
 
 ## Fast Preprocessing of Grazing Incidence Diffraction (GID) Data 
