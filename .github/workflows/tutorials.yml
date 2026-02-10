@@ -27,7 +27,5 @@ jobs:
 
     - name: Run tutorials
       run: |
-        for nb in docs/tutorials/**/*.ipynb; do
-          jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace "$nb"
-          jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 "$nb"
-        done
+        jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace docs/tutorials/*.ipynb
+        jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 docs/tutorials/*.ipynb
