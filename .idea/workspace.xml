@@ -4,23 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="pygid.NexusFile functions were renamed">
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_01_experimental_parameters.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_02_coordinate_maps_and_corrections.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_03_raw_data_loading.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_04_2D_conversion.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_05_line_profiling.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_06_metadata_curation.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_07_angular_scans.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_08_batch_processing.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_09_simulations.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_10_transmission_and_gisaxs.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_11_saved_data.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pygid/datasets.py" afterDir="false" />
+    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="Tutorials were added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid/conversion.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/conversion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/tutorials/tutorial_01_experimental_parameters.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_01_experimental_parameters.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/tutorials/tutorial_04_2D_conversion.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_04_2D_conversion.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/tutorials/tutorial_05_line_profiling.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_05_line_profiling.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,6 +24,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -58,20 +51,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;D:/PhD/mlgid/pygid/docs/tutorials&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "develop",
+    "last_opened_file_path": "D:/PhD/mlgid/pygid/docs/tutorials",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\PhD\mlgid\pygid\docs\tutorials" />
@@ -103,7 +96,7 @@
       <workItem from="1768298114298" duration="190000" />
       <workItem from="1768298326844" duration="14455000" />
       <workItem from="1768904544402" duration="72550000" />
-      <workItem from="1770714102257" duration="12137000" />
+      <workItem from="1770714102257" duration="12921000" />
     </task>
     <task id="LOCAL-00001" summary="first public commit">
       <option name="closed" value="true" />
@@ -241,11 +234,30 @@
       <option name="project" value="LOCAL" />
       <updated>1769700568429</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Tutorials were added">
+      <option name="closed" value="true" />
+      <created>1770729258368</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1770729258368</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="first public commit" />
@@ -263,6 +275,7 @@
     <MESSAGE value="typo fixed" />
     <MESSAGE value="matched data saving has been changed" />
     <MESSAGE value="pygid.NexusFile functions were renamed" />
-    <option name="LAST_COMMIT_MESSAGE" value="pygid.NexusFile functions were renamed" />
+    <MESSAGE value="Tutorials were added" />
+    <option name="LAST_COMMIT_MESSAGE" value="Tutorials were added" />
   </component>
 </project>
