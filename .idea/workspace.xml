@@ -5,8 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="Added tutorials and documentation for pygid, including GID, transmission geometry, GISAXS, simulations, and NeXus workflows.">
-      <change afterPath="$PROJECT_DIR$/.github/workflows/tutorials.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.github/workflows/tutorials.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/tutorials.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,7 +93,7 @@
       <workItem from="1768298114298" duration="190000" />
       <workItem from="1768298326844" duration="14455000" />
       <workItem from="1768904544402" duration="72550000" />
-      <workItem from="1770714102257" duration="13611000" />
+      <workItem from="1770714102257" duration="13836000" />
     </task>
     <task id="LOCAL-00001" summary="first public commit">
       <option name="closed" value="true" />
@@ -248,7 +247,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770729892705</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="Added tutorials and documentation for pygid, including GID, transmission geometry, GISAXS, simulations, and NeXus workflows.">
+      <option name="closed" value="true" />
+      <created>1770730347195</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1770730347195</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

@@ -26,7 +26,5 @@ jobs:
 
     - name: Run tutorials
       run: |
-        jupyter nbconvert \
-          --to notebook \
-          --execute tutorials/*.ipynb \
-          --ExecutePreprocessor.timeout=600
+        shopt -s globstar nullglob
+        jupyter nbconvert --execute --inplace docs/tutorials/**/*.ipynb --ExecutePreprocessor.timeout=600
