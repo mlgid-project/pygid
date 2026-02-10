@@ -6,6 +6,7 @@ pygid/conversion.py
 pygid/coordmaps.py
 pygid/dataloader.py
 pygid/datasaver.py
+pygid/datasets.py
 pygid/expparams.py
 pygid/nexus_reader.py
 pygid/pixel_dict.py
