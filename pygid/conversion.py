@@ -2525,7 +2525,7 @@ class Conversion:
             self.matrix[0].save_instance()
 
     def make_simulation(self, frame_num=0, path_to_cif=None, orientation=None,
-                        plot_result=True, plot_mi=False, return_result=False,
+                        plot_result=True, plot_mi=False, return_result=False, move_fromMW=False,
                         min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=None,
                         text_color='black', save_fig=False, path_to_save_fig='simul_result.png'):
         """
@@ -2536,6 +2536,7 @@ class Conversion:
             path_to_cif (str or  or List[str]): Path to a CIF file(s) containing the crystal structure.
             orientation (list): Crystal orientation. None the for poweder pattern.
             plot_result (bool): Whether to plot the result of simulation and experimental data.
+            move_fromMW (bool): Whether to move peaks from the missing wedge
             plot_mi (bool): Whether to plot the Miller indices.
             return_result (bool): Whether to return the result of simulation.
             min_int (float or None or List[float]): Minimum intensity threshold(s) for display
@@ -2597,7 +2598,7 @@ class Conversion:
             raise ValueError("orientation and path_to_cif have different length. They should be equal or "
                              "at least one should be equal to 1")
 
-        simulated_data = [simul_single_data(path_to_cif[i], orientation[i], simul_params, min_int[i]) for i in
+        simulated_data = [simul_single_data(path_to_cif[i], orientation[i], simul_params, min_int[i], move_fromMW) for i in
                           range(len(path_to_cif))]
 
         if hasattr(self, "img_gid_q") and frame_num < len(self.img_gid_q):
@@ -2615,7 +2616,7 @@ class Conversion:
             logging.info(f"frame_num = {frame_num} was plotted")
         if return_result:
             simulated_data = sort_simul_data(simulated_data)
-            if len(simulated_data):
+            if len(simulated_data)==1:
                 return simulated_data[0]
             else:
                 return simulated_data
@@ -2680,7 +2681,7 @@ def sort_simul_data(simulated_data):
     return simulated_data
 
 
-def simul_single_data(path_to_cif, orientation, simul_params, min_int):
+def simul_single_data(path_to_cif, orientation, simul_params, min_int, move_fromMW):
     """
     Simulates GIWAXS data from a CIF file and filters the results based on intensity.
 
@@ -2722,12 +2723,13 @@ def simul_single_data(path_to_cif, orientation, simul_params, min_int):
         f"orientation={orientation}, min_int={min_int}"
     )
 
-    if orientation is not None:
-        orientation = np.array(orientation)
-    el = GIWAXSFromCif(path_to_cif, simul_params)
-    q, intensity, mi = el.giwaxs.giwaxs_sim(orientation, return_mi=True)
-    mi = np.array([x[0] if len(x) == 1 else select_best_array(x) for x in mi])
-    intensity /= np.max(intensity)
+    with SuppressPrint():
+        if orientation is not None:
+            orientation = np.array(orientation)
+        el = GIWAXSFromCif(path_to_cif, simul_params)
+        q, intensity, mi = el.giwaxs.giwaxs_sim(orientation, return_mi=True, move_fromMW=move_fromMW)
+        mi = np.array([x[0] if len(x) == 1 else select_best_array(x) for x in mi])
+        intensity /= np.max(intensity)
 
     if min_int is not None:
         index = ~(intensity < min_int)
@@ -2992,3 +2994,13 @@ def select_best_array(arrays):
         )
 
     return min(arrays, key=sort_key)
+
+import sys
+import os
+class SuppressPrint:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout

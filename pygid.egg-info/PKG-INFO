@@ -267,7 +267,7 @@ matrix = pygid.CoordMaps(params,  # experimental parameters
                          dang=0.3,  # resolution (in degrees) (optional)
                          hor_positive=False, vert_positive=False,  # flags for only positive values of q in h
                          make_pol_corr=True,  # Flag to calculate polarization correction matrix
-                         pol_type=0.98,  # Polarization parameter from 0 to 1. 1 for the vertical polarization, 0.5 for unpolorized tubes.
+                         pol_type=0.98,  # Polarization parameter from 0 to 1. 1 for the vertical polarization, 0.5 for unpolarized tubes.
                          make_solid_angle_corr=True,  # Flag to calculate solid angle correction matrix
                          make_air_attenuation_corr=False,  # Flag to calculate air attenuation correction matrix
                          air_attenuation_coeff=1,  # Linear coefficient for air attenuation correction (in 1/m)
@@ -307,7 +307,7 @@ exp_metadata = pygid.ExpMetadata(
     source_name="ESRF ID10",
     instrument_name="ID10-surf",
     detector="eiger4m",
-    monitor = 1.1e5,
+    monitor=1.1e5,
     extend_fields = ['monitor'] # list of fields to de appended to the existing data in the NXsas file
 )
 ```
@@ -323,9 +323,9 @@ data = {
         "materials": {
             "DIP": {
                 "name": "Diindenoperylene DIP",
-                "thickness": 25e-9,  # optional
-                "cif": "DIP.cif",  # optional
-                "type": "gradient film"  # optional
+                "thickness": 25e-9, 
+                "cif": "DIP.cif",
+                "type": "gradient film"
             },
             "SiOx": {
                 "name": "native SiOx",
@@ -748,8 +748,7 @@ To plot multiple simulated patterns from different CIF files or orientations, `m
 - Lists of `min_int` and `cmap` will be applied correspondingly to each simulation.
 
 In order to plot multiple simulated patterns based on different orientations or CIF files, make_simulation() function
-supports
-lists of path_to_cif, orientation, min_int and cmap. If numbers of elements in path_to_cif and orientation are equal,
+supports lists of path_to_cif, orientation, min_int and cmap. If numbers of elements in path_to_cif and orientation are equal,
 they will be used respectively. 
 
 ```python
@@ -814,9 +813,14 @@ analysis.set_plot_defaults(
 
 ## Operations with Saved Data
 
-pygid supports loading a pygid.Conversion instance from a saved HDF5 (NeXus) file for plotting, analysis, or simulations.
-As the raw image is no longer available, the conversion functions will not work.
-Users can modify selected datasets, extract and overwrite experimental or sample metadata, and inspect the file structure.
+`pygid` allows loading a `pygid.Conversion` instance from a saved HDF5 (NeXus) file for plotting, analysis, or simulations.  
+Since the original raw image is not stored, conversion functions that rely on it are not available.
+
+Supported operations include:
+
+- Loading, modifying, renaming, or deleting datasets  
+- Loading or overwriting sample and experimental metadata  
+- Loading a single frame, a list of frames, or the full entry as a `pygid.Conversion` instance for plotting and saving results separately  
 
 #### Initialization:
 ```python
@@ -846,22 +850,35 @@ analysis.plot_result(save_fig=True, plot_result=True)
 #### Modifying datasets:
 ```python
 # Overwrite the entire dataset
-nexus.change_data(
+nexus.change_dataset(
     data_root='/entry_0000/data/img_gid_q',  # Path to the dataset
     frame_num=None,                           # Index of frame to change; None = whole dataset (int or None)
     data=image                                # New image data to save; 
 )
 
 # Modify a single value in a dataset
-nexus.change_data(
+nexus.change_dataset(
     data_root='/entry_0000/instrument/angle_of_incidence',
     frame_num=2,
     data=0.1
 )
 
+#Get data
+nexus.get_dataset(
+    data_root='/entry_0000/instrument/angle_of_incidence',
+)
+
 # Delete dataset
-nexus.delete_data('/entry_0000/instrument/monitor')
+nexus.delete_dataset('/entry_0000/instrument/monitor')
+
+#Rename dataset 
+nexus.rename_dataset('/entry_0000/instrument/monitor', '/entry_0000/instrument/intensity')
+
 ```
+
+
+
+
 
 #### Retrieving pygid.ExpMetadata and pygid.SampleMetadata instances:
 
@@ -879,7 +896,7 @@ exp_metadata = nexus.get_exp_metadata('entry_0000')
 ```python
 # sample metadata
 smpl_metadata = pygid.SampleMetadata(path_to_load = '240124_PEN_DIP_metadata.yaml') # creation of SampleMetadata instance 
-nexus.change_smpl_metadata('entry_0000', smpl_metadata)  # rewritting of entry/sample group 
+nexus.change_smpl_metadata('entry_0000', smpl_metadata)  # overwriting of entry/sample group
 
 
 # experimental metadata
@@ -890,16 +907,16 @@ exp_metadata = pygid.ExpMetadata(
     source_name="ESRF",
     instrument_name="ID10-surf",
     detector="eiger4m",
-    monitor = 1.1e5,
+    monitor=1.1e5,
 )
-nexus.change_exp_metadata('entry_0000', exp_metadata)  # overwritting of entry/instrument group
+nexus.change_exp_metadata('entry_0000', exp_metadata)  # overwriting of entry/instrument group
 ```
 #### Extracting a single entry and saving separately:
 
 ```python
 import pygid
 nexus = pygid.NexusFile("converted_result.h5")
-analysis = pygid.NexusFile(filename).load_entry('entry_0000')
+analysis = nexus.load_entry('entry_0000')
 smpl_metadata = nexus.get_smpl_metadata('entry_0000')
 exp_metadata = nexus.get_exp_metadata('entry_0000')
 
