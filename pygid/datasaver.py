@@ -341,7 +341,14 @@ class DataSaver:
 
             # Save experimental metadata
             if self.exp_metadata is None:
-                self.exp_metadata = ExpMetadata(filename=self.original_path)
+                if isinstance(self.original_path, list):
+                    self.exp_metadata = ExpMetadata(filename=[str(Path(p).resolve())
+                                                              for p in self.original_path])
+                # self.exp_metadata = ExpMetadata(filename=self.original_path)
+                elif isinstance(self.original_path, str):
+                    self.exp_metadata = ExpMetadata(filename= str(Path(self.original_path).resolve()))
+                else:
+                    self.exp_metadata = ExpMetadata(filename=self.original_path)
             if not hasattr(self.exp_metadata, "filename"):
                 # self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
                 paths = self.original_path if isinstance(self.original_path, list) else [self.original_path]
