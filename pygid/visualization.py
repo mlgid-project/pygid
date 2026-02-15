@@ -290,9 +290,14 @@ def _plot_single_image(
 
         with plot_context:
             # fig, ax = plt.subplots()
-            fig = plt.figure()
-            margin = 0.2
-            ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+            # fig = plt.figure()
+            # margin = 0.2
+            # ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+
+            fig = plt.figure(constrained_layout=True)
+            ax = plt.gca()
+
+
             # plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, #wspace=0.4, hspace=0.4
             #                     )
 

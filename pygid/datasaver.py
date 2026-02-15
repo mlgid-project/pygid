@@ -200,7 +200,7 @@ class DataSaver:
         Container for detected boxes from mlgidDETECT. Default is None.
     img_container_fit : Any, optional
         Container for fitted peaks from pygidFIT. Default is None.
-    unique_solutions : Any, optional
+    container_matched : Any, optional
         Data resulting from matching from mlgidMATCH. Default is None.
     unit_cell_data : Any, optional
         Data containing unit cell parameters from mlgidMATCH. Default is None.
@@ -215,7 +215,7 @@ class DataSaver:
     smpl_metadata: SampleMetadata = None
     img_container_detect: Any = None
     img_container_fit: Any = None
-    unique_solutions: Any = None
+    container_matched: Any = None
     unit_cell_data: Any = None
 
     def __post_init__(self):
@@ -369,7 +369,7 @@ class DataSaver:
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
             fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
-                                self.unique_solutions, self.unit_cell_data)
+                                self.container_matched, self.unit_cell_data)
             self.logger.info(f"Saved in {Path(self.path_to_save).resolve()} in group {self.h5_group}")
         return
 
@@ -932,7 +932,7 @@ def fill_process_group(root, h5_group, matrix):
     save_single_data(group, 'NOTE', NOTE, extend_list=False)
 
 
-def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, unique_solutions,
+def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect, img_container_fit, container_matched,
                         unit_cell_data):
     """
     Create analysis-related fields in a specified HDF5 group.
@@ -956,7 +956,7 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
     img_container_fit : array-like or list, optional
         Fitted images to store in the new analysis frames. If not a list, it will
         be converted to a single-item list.
-    unique_solutions : list, optional
+    container_matched : list, optional
         Matched data to store in the new analysis frames. If not a list, it will
         be converted to a single-item list.
     unit_cell_data : array-like or list, optional
@@ -972,9 +972,9 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
     if img_container_fit is not None:
         if not isinstance(img_container_fit, list):
             img_container_fit = [img_container_fit]
-    if unique_solutions is not None:
-        if not isinstance(unique_solutions, list):
-            unique_solutions = [unique_solutions]
+    if container_matched is not None:
+        if not isinstance(container_matched, list):
+            container_matched = [container_matched]
 
     if unit_cell_data is not None:
         if not isinstance(unit_cell_data, list):
@@ -999,8 +999,8 @@ def fill_analysis_group(root, h5_group, img_number_to_add, img_container_detect,
             _save_img_container_detect(root, group_name, img_container_detect[i - img_number_current])
         if img_container_fit is not None and i - img_number_current < len(img_container_fit):
             _save_img_container_fit(root, group_name, img_container_fit[i - img_number_current])
-        if unique_solutions is not None and i - img_number_current < len(unique_solutions):
-            _save_matched_data(root, group_name, unique_solutions[i - img_number_current])
+        if container_matched is not None and i - img_number_current < len(container_matched):
+            _save_matched_data(root, group_name, container_matched[i - img_number_current])
         if unit_cell_data is not None and i - img_number_current < len(unit_cell_data):
             _save_unit_cell_data(root, group_name, unit_cell_data[i - img_number_current])
 
@@ -1088,7 +1088,7 @@ def _save_unit_cell_data(root, group_name, unit_cell_data):
     group.create_dataset(f"unit_cell_data", data=results_array, dtype=unit_cell_data_dtype)
 
 
-def _save_matched_data(root, group_name, unique_solutions):
+def _save_matched_data(root, group_name, container_matched):
     """
         Save mlgidMATCH data results to an HDF5 group.
 
@@ -1098,32 +1098,17 @@ def _save_matched_data(root, group_name, unique_solutions):
             The root HDF5 object containing the target group.
         group_name : str
             The HDF5 group where matched data will be stored.
-        unique_solutions : dict
+        container_matched : dict
             Dictionary mapping keys to lists of unique solutions.
     """
-    group = root[group_name]
-    try:
-        peaks_type = unique_solutions.pop('peaks_type')
-    except KeyError:
-        peaks_type = 'segments'
-    for sol_idx in unique_solutions.keys():
-        unique_solution = unique_solutions[sol_idx]
-        field_name = f"matched_{peaks_type}_{sol_idx}"
+    grp = root[group_name]
 
-        names = [f"{str(struct_data['cif'])} {str(tuple(int(x) for x in struct_data['orientation']))}" for struct_data
-                 in unique_solution]
-        matched_peaks = [struct_data['matched_peaks'] for struct_data in unique_solution]
+    for field_name, results_array in container_matched:
+        keys_to_delete = [key for key in grp.keys() if key.startswith(field_name[0:10])]
+        for key in keys_to_delete:
+            del grp[key]
+        grp.create_dataset(field_name, data=results_array)
 
-        dtype_descr = list({(n, np.float32) for n in names})
-        results_array = np.zeros(len(matched_peaks[0]), dtype=np.dtype(dtype_descr))
-        for name, peaks in zip(names, matched_peaks):
-            results_array[name] = peaks
-
-        # Overwrite existing dataset if it exists
-        if field_name in group:
-            del group[field_name]
-        # Create dataset for the solution
-        group.create_dataset(field_name, data=results_array, dtype=dtype_descr)
 
 pygid_results_dtype = np.dtype([
     ('amplitude', 'f4'),

@@ -4,11 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="Add GitHub Actions workflow to auto-run tutorials on push">
-      <change beforePath="$PROJECT_DIR$/.github/workflows/tutorials.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/tutorials.yml" afterDir="false" />
+    <list default="true" id="d69457e5-728d-438e-a31b-e1baee55e8ee" name="Changes" comment="Full path will be saved in the filename field">
+      <change afterPath="$PROJECT_DIR$/docs/Quick Start.rst" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/conf.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/images/logo_examples.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/index.rst" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/tutorials/General Information.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/tutorials/Quick start.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/tutorials_toctree.rst" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pygid.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/pygid.egg-info/SOURCES.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/tutorials/tutorial_08_batch_processing.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/docs/tutorials/tutorial_08_batch_processing.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/datasaver.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/datasaver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pygid/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/pygid/visualization.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -96,7 +103,7 @@
       <workItem from="1768298114298" duration="190000" />
       <workItem from="1768298326844" duration="14455000" />
       <workItem from="1768904544402" duration="72550000" />
-      <workItem from="1770714102257" duration="14567000" />
+      <workItem from="1770714102257" duration="33760000" />
     </task>
     <task id="LOCAL-00001" summary="first public commit">
       <option name="closed" value="true" />
@@ -266,7 +273,39 @@
       <option name="project" value="LOCAL" />
       <updated>1770730637269</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="Add GitHub Actions workflow to auto-run tutorials on push">
+      <option name="closed" value="true" />
+      <created>1770731692590</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1770731692590</updated>
+    </task>
+    <task id="LOCAL-00023" summary="Add GitHub Actions workflow to auto-run tutorials on push">
+      <option name="closed" value="true" />
+      <created>1770732785283</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1770732785283</updated>
+    </task>
+    <task id="LOCAL-00024" summary="Add GitHub Actions workflow to auto-run tutorials on push">
+      <option name="closed" value="true" />
+      <created>1770733198991</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1770733198991</updated>
+    </task>
+    <task id="LOCAL-00025" summary="Full path will be saved in the filename field">
+      <option name="closed" value="true" />
+      <created>1770992102007</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1770992102007</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -302,6 +341,7 @@
     <MESSAGE value="Tutorials were added" />
     <MESSAGE value="Added tutorials and documentation for pygid, including GID, transmission geometry, GISAXS, simulations, and NeXus workflows." />
     <MESSAGE value="Add GitHub Actions workflow to auto-run tutorials on push" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add GitHub Actions workflow to auto-run tutorials on push" />
+    <MESSAGE value="Full path will be saved in the filename field" />
+    <option name="LAST_COMMIT_MESSAGE" value="Full path will be saved in the filename field" />
   </component>
 </project>
