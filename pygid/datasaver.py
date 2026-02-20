@@ -352,7 +352,10 @@ class DataSaver:
             if not hasattr(self.exp_metadata, "filename"):
                 # self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
                 paths = self.original_path if isinstance(self.original_path, list) else [self.original_path]
-                self.exp_metadata.filename = [str(Path(p).resolve()) for p in paths]
+                if None in paths:
+                    self.exp_metadata.filename = paths
+                else:
+                    self.exp_metadata.filename = [str(Path(p).resolve()) for p in paths]
             if not 'filename' in self.exp_metadata.extend_fields:
                 self.exp_metadata.extend_fields.append('filename')
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
@@ -1279,3 +1282,4 @@ def get_results_fit_err_array(img_container):
     results_array['score'] = img_container.score
     results_array['id'] = img_container.id
     return results_array
+
