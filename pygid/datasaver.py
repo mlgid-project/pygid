@@ -353,7 +353,7 @@ class DataSaver:
                 # self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
                 paths = self.original_path if isinstance(self.original_path, list) else [self.original_path]
                 if None in paths:
-                    self.exp_metadata.filename = paths
+                    self.exp_metadata.filename = None
                 else:
                     self.exp_metadata.filename = [str(Path(p).resolve()) for p in paths]
             if not 'filename' in self.exp_metadata.extend_fields:
@@ -1282,4 +1282,5 @@ def get_results_fit_err_array(img_container):
     results_array['score'] = img_container.score
     results_array['id'] = img_container.id
     return results_array
+
 
