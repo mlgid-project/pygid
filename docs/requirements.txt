@@ -1,0 +1,6 @@
+sphinx>=7.0
+sphinx-rtd-theme
+nbsphinx
+myst-nb
+ipykernel
+nbconvert
