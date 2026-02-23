@@ -310,10 +310,11 @@ class ExpParams:
         """
         if self.transp:
             self.rot1, self.rot2 = -self.rot2, -self.rot1
-            self.rot3 = -self.rot3
+            # self.rot3 = -self.rot3
         if self.flipud:
             self.rot2 = -self.rot2
             self.rot3 = -self.rot3
         if self.fliplr:
             self.rot1 = -self.rot1
             self.rot3 = -self.rot3
+
