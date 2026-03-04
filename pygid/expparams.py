@@ -284,7 +284,8 @@ class ExpParams:
         """
         if self.transp:
             self.poni1, self.poni2 = self.poni2, self.poni1
-
+            if self.rot3 != 0:
+                logging.info(f"rot3! = 0 and transp = True should not be used simultaneously. Choose one key.")
         if self.flipud:
             self.poni1 = self.img_dim[0] * self.px_size - self.poni1
         if self.fliplr:
@@ -293,24 +294,13 @@ class ExpParams:
         self.centerY, self.centerX = ((self.SDD * np.tan(self.rot2) / np.cos(self.rot1) + self.poni1) / self.px_size,
                                       (-self.SDD * np.tan(self.rot1) + self.poni2) / self.px_size)
 
-    # def _cal_rot_(self):
-    #     """
-    #     Calculates detector rotation angles based on the flipping keys.
-    #     """
-    #     if self.transp:
-    #         self.rot1, self.rot2 = -self.rot2, -self.rot1
-    #     if self.flipud:
-    #         self.rot2 = -self.rot2
-    #     if self.fliplr:
-    #         self.rot1 = -self.rot1
-
     def _cal_rot_(self):
         """
         Calculates detector rotation angles based on the flipping keys.
         """
         if self.transp:
             self.rot1, self.rot2 = -self.rot2, -self.rot1
-            # self.rot3 = -self.rot3
+            # self.rot3 = np.pi+self.rot3
         if self.flipud:
             self.rot2 = -self.rot2
             self.rot3 = -self.rot3
