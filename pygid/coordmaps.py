@@ -1206,7 +1206,7 @@ def calc_pol_corr_matrix(kf, pol_type):
         raise TypeError('pol_type must be float')
     if pol_type > 1 or pol_type < 0:
         raise ValueError('pol_type must be between 0 and 1')
-    pol_corr_matrix = ne.evaluate('1 / (pol_corr_matrix_hor*pol_type + pol_corr_matrix_vert*(1-pol_type))')
+    pol_corr_matrix = ne.evaluate('pol_corr_matrix_hor*pol_type + pol_corr_matrix_vert*(1-pol_type)')
     norm = np.nanmax(pol_corr_matrix)
     pol_corr_matrix = ne.evaluate("pol_corr_matrix / norm")
     return pol_corr_matrix
@@ -1308,7 +1308,7 @@ def calc_absorption_corr_matrix(kf, ai, sample_attenuation_coeff, sample_thickne
     delta = ne.evaluate('arccos(cos_delta)') * np.sign(k3)
     ka = ne.evaluate("(1/sin(ai))+(1/sin(delta - ai))")
     absorption_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka))/(sin(ai) * ka)")
-    absorption_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka)) / sin(ai) * ka")
+    # absorption_corr_matrix = ne.evaluate("(1 - exp(-sample_attenuation_coeff * sample_thickness * ka)) / sin(ai) * ka")
     return absorption_corr_matrix
 
 
