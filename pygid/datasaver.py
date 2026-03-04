@@ -1105,11 +1105,12 @@ def _save_matched_data(root, group_name, container_matched):
             Dictionary mapping keys to lists of unique solutions.
     """
     grp = root[group_name]
-
+    field_example, _ = container_matched[0]
+    filed_type = f"{field_example.split('_')[0]}_{field_example.split('_')[1]}"
+    keys_to_delete = [key for key in grp.keys() if key.startswith(filed_type)]
+    for key in keys_to_delete:
+        del grp[key]
     for field_name, results_array in container_matched:
-        keys_to_delete = [key for key in grp.keys() if key.startswith(field_name[0:10])]
-        for key in keys_to_delete:
-            del grp[key]
         grp.create_dataset(field_name, data=results_array)
 
 
