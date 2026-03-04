@@ -97,23 +97,21 @@ class Conversion:
         batch analysis if applicable.
         """
 
-        # set default settings fot figures
-        # plot_params = type(self).plot_params.update(get_plot_params())
-
         if hasattr(self.matrix, "sub_matrices") and self.matrix.sub_matrices is not None:
             self.matrix_to_save = self.matrix
             self.matrix = self.matrix.sub_matrices
         self.matrix = [self.matrix] if not isinstance(self.matrix, list) else self.matrix
         self.params = self.matrix[0].params
 
-
         self.check_keys()
 
 
         if self.img_raw is None and self.path is None:
+            logging.info("img_raw or path should be specified")
             return
 
         if self.img_raw is not None:
+            self.img_raw = np.array(self.img_raw)
             if self.img_raw.ndim == 2:
                 self.img_raw = np.expand_dims(self.img_raw, axis=0)
             self.fmt = None
@@ -655,6 +653,9 @@ class Conversion:
                 img = getattr(self, key)
                 axes_labels = key_maps.get(key)
                 break
+
+        if img in None:
+            raise ValueError('conversion should be called first')
 
         if frame_num is None:
             frame_num = list(range(len(img)))
