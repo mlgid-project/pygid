@@ -32,7 +32,25 @@ Key features:
   <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
 </p>
 
+### **Input**
 
+- Experimental geometry parameters, e.g. a **PONI** file — see [Tutorial 1](./docs/tutorials/tutorial_01_experimental_parameters.ipynb).
+
+- One of the following:
+  - Detector image provided as a 2D **NumPy** array, a 3D array (with axis 0 representing the image stack axis) or list of 2D arrays.  
+  - Path to the raw data file(s) (**TIFF**, **EDF**, **HDF5**) — see [Tutorial 3](./docs/tutorials/tutorial_03_raw_data_loading.ipynb).
+
+### **Output**
+
+- Image converted to reciprocal-space coordinates, returned together with the corresponding coordinate axes as **NumPy** arrays — see [Tutorial 4](./docs/tutorials/tutorial_04_2D_conversion.ipynb) and [Tutorial 5](./docs/tutorials/tutorial_05_line_profiling.ipynb).
+
+- A standardized **NeXus** (HDF5) file — see [File format](./docs/tutorials/output_file_format.md).  
+  For example, for cylindrical GID coordinates:
+  - `img_gid_q` — converted image stored as a 3D array (with dimension #0 representing the image stack axis) under **/`entry`/data/img_gid_q**
+  - `q_z` — corresponding vertical axis (first dimension) stored as a 1D array under **/`entry`/data/q_z**
+  - `q_xy` — corresponding horizontal axis (second dimension) stored as a 1D array under **/`entry`/data/q_xy**
+
+- Image exported in a standard format such as **PNG**, **TIFF**, or **JPEG**.
 ## Installation
 
 ### Install using pip
@@ -71,8 +89,6 @@ to reciprocal space coordinates in a grazing-incidence diffraction (GID) geometr
 
 1. Download example dataset from Zenodo or set your own files: 
 ```python
-
-
 files = pygid.datasets.get_dataset("tutorial_00")
 data_path = files["data_peaks"]
 poni_path = files["poni_peaks"]
@@ -120,10 +136,10 @@ q_xy, q_z, img = analysis.det2q_gid(
 )
 ```
 
-For a detailed description of functionality, follow the tutorials.  
+For a detailed description of functionality, follow the [tutorials](https://pygid.readthedocs.io/en/latest/#).  
 
 Usage examples can be found in the Jupyter Notebook: [`example/pygid_example.ipynb`](example/pygid_example.ipynb), and on [Zenodo](https://doi.org/10.5281/zenodo.17466183) with data collected from different sources.  
 
 ## Citation
 Abukaev, A., Völter, C., Romodin, M., Schwartzkopff, S., Bertram, F., Konovalov, O., Hinderhofer, A., Lapkin, D. and Schreiber, F., 2026. pygid: a Python package for fast data reduction in grazing-incidence diffraction. J. Appl. Cryst., 59(1).
-[https://journals.iucr.org/j/issues/2026/01/00/yr5162/index.html]
+doi: [10.1107/S1600576725010593](https://doi.org/10.1107/S1600576725010593)
