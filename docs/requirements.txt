@@ -4,3 +4,4 @@ nbsphinx
 myst-nb
 ipykernel
 nbconvert
+pygid
