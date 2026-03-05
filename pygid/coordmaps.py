@@ -959,8 +959,10 @@ class CoordMaps:
             Q_z : ndarray
                 2D grid of out-of-plane q-values (Å⁻¹).
         """
-        q_xy = np.arange(q_xy_range[0], q_xy_range[1], dq)
-        q_z = np.arange(q_z_range[0], q_z_range[1], dq)
+        # q_xy = np.arange(q_xy_range[0], q_xy_range[1], dq)
+        # q_z = np.arange(q_z_range[0], q_z_range[1], dq)
+        q_xy = _cals_range(q_xy_range[0], q_xy_range[1], dq)
+        q_z = _cals_range(q_z_range[0], q_z_range[1], dq)
         self.q_z = q_z
         self.q_xy = q_xy
         Q_xy, Q_z = np.meshgrid(q_xy, q_z)
@@ -984,8 +986,11 @@ class CoordMaps:
             q_lab : ndarray
                 3D array of q-vectors in the laboratory frame (Å⁻¹), shape (..., 3).
         """
-        q_1 = np.arange(q_x_range[0], q_x_range[1], dq)
-        q_2 = np.arange(q_y_range[0], q_y_range[1], dq)
+        # q_1 = np.arange(q_x_range[0], q_x_range[1], dq)
+        # q_2 = np.arange(q_y_range[0], q_y_range[1], dq)
+        q_1 = _cals_range(q_x_range[0], q_x_range[1], dq)
+        q_2 = _cals_range(q_y_range[0], q_y_range[1], dq)
+
         Q_1, Q_2 = np.meshgrid(q_1, q_2)
         k = self.params.k
         QQ = Q_1 ** 2 + Q_2 ** 2
@@ -1019,8 +1024,10 @@ class CoordMaps:
             Q_z : ndarray
                 Out-of-plane q-values in Cartesian coordinates (Å⁻¹).
             """
-        q_pol = np.arange(q_range[0], q_range[1], dq)
-        ang_pol = np.arange(ang_range[0], ang_range[1], dang)
+        # q_pol = np.arange(q_range[0], q_range[1], dq)
+        # ang_pol = np.arange(ang_range[0], ang_range[1], dang)
+        q_pol = _cals_range(q_range[0], q_range[1], dq)
+        ang_pol = _cals_range(ang_range[0], ang_range[1], dang)
         self.q_gid_pol = q_pol
         self.ang_gid_pol = ang_pol
 
@@ -1049,8 +1056,10 @@ class CoordMaps:
             q_lab : ndarray
                 3D array of q-vectors in the laboratory frame (Å⁻¹), shape (..., 3).
             """
-        q_pol = np.arange(q_range[0], q_range[1], dq)
-        ang_pol = np.arange(ang_range[0], ang_range[1], dang)
+        # q_pol = np.arange(q_range[0], q_range[1], dq)
+        # ang_pol = np.arange(ang_range[0], ang_range[1], dang)
+        q_pol = _cals_range(q_range[0], q_range[1], dq)
+        ang_pol = _cals_range(ang_range[0], ang_range[1], dang)
         self.q_pol = q_pol
         self.ang_pol = ang_pol
         k = self.params.k
@@ -1437,3 +1446,7 @@ def rotation_matrix(angle, axis='x'):
             [np.sin(angle), np.cos(angle), 0],
             [0, 0, 1]
         ])
+
+def _cals_range(start, stop, delta):
+    N = int(np.round((stop - start) / delta))
+    return np.linspace(start, stop, N, endpoint=True)

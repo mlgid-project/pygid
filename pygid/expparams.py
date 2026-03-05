@@ -287,9 +287,9 @@ class ExpParams:
             if self.rot3 != 0:
                 logging.info(f"rot3! = 0 and transp = True should not be used simultaneously. Choose one key.")
         if self.flipud:
-            self.poni1 = self.img_dim[0] * self.px_size - self.poni1
+            self.poni1 = (self.img_dim[0]-1)* self.px_size - self.poni1
         if self.fliplr:
-            self.poni2 = (self.img_dim[1] - 1) * self.px_size - self.poni2
+            self.poni2 = (self.img_dim[1]-1) * self.px_size - self.poni2
 
         self.centerY, self.centerX = ((self.SDD * np.tan(self.rot2) / np.cos(self.rot1) + self.poni1) / self.px_size,
                                       (-self.SDD * np.tan(self.rot1) + self.poni2) / self.px_size)
