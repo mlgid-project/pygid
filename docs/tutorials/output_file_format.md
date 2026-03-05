@@ -26,31 +26,21 @@ or **h5py** package.
 Below is an example of the file structure generated after conversion:
 
 - `entry` group(s)
-
-<p align="center">
-  <img src="../images/output_file/root.png" width="400" alt="entry structure">
-</p>
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/root.png" width="400" alt="pygid"> </p>
 
 - Main `data` subgroup containing image(s) and corresponding axes
 
-<p align="center">
-  <img src="../images/output_file/data.png" width="400" alt="data subgroup">
-</p>
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/data.png" width="400" alt="pygid"> </p>
 
 - `instrument` subgroup containing experimental parameters and metadata
 
-<p align="center">
-  <img src="../images/output_file/instrument.png" width="400" alt="instrument subgroup">
-</p>
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/instrument.png" width="400" alt="pygid"> </p>
+
 
 - `process` subgroup containing conversion details
 
-<p align="center">
-  <img src="../images/output_file/process.png" width="400" alt="process subgroup">
-</p>
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/process.png" width="400" alt="pygid"> </p>
 
 - `sample` subgroup containing sample metadata describing thin-film layered structure
 
-<p align="center">
-  <img src="../images/output_file/sample.png" width="400" alt="sample subgroup">
-</p>
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/sample.png" width="400" alt="pygid"> </p>
