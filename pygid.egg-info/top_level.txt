@@ -1,5 +1,4 @@
 build
-dist
 docs
 example
 pygid

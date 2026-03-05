@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 project = 'pygid'
 author = 'Ainur Abukaev'
-release = '0.2.3'
+release = '0.2.4'
 
 extensions = [
     'sphinx.ext.autodoc',

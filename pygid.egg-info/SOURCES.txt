@@ -1,6 +1,7 @@
 LICENSE
 README.md
 pyproject.toml
+docs/conf.py
 pygid/__init__.py
 pygid/conversion.py
 pygid/coordmaps.py
