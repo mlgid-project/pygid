@@ -107,7 +107,7 @@ class Conversion:
 
 
         if self.img_raw is None and self.path is None:
-            logging.info("img_raw or path should be specified")
+            # logging.info("img_raw or path should be specified")
             return
 
         if self.img_raw is not None:
@@ -654,7 +654,7 @@ class Conversion:
                 axes_labels = key_maps.get(key)
                 break
 
-        if img in None:
+        if img is None:
             raise ValueError('conversion should be called first')
 
         if frame_num is None:

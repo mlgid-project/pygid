@@ -432,7 +432,9 @@ def save_matrix(root, h5_group, matrix, img_name):
                          np.array(data, dtype=np.float64), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
 
     # Add 'signal' and 'axes' attributes for NeXus compliance and silx visualisation
-    if len(keys) == 2:
+    if len(keys)==0:
+        raise ValueError("Conversion was incorrect, or data is already saved - repeat conversion")
+    elif len(keys) == 2:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
     else:
         root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[0]]})
@@ -1091,7 +1093,7 @@ def _save_unit_cell_data(root, group_name, unit_cell_data):
     group.create_dataset(f"unit_cell_data", data=results_array, dtype=unit_cell_data_dtype)
 
 
-def _save_matched_data(root, group_name, container_matched):
+def _save_matched_data(root, group_name, container_matched, process_metadata = None):
     """
         Save mlgidMATCH data results to an HDF5 group.
 
@@ -1105,6 +1107,8 @@ def _save_matched_data(root, group_name, container_matched):
             Dictionary mapping keys to lists of unique solutions.
     """
     grp = root[group_name]
+    if container_matched is None:
+        return
     field_example, _ = container_matched[0]
     filed_type = f"{field_example.split('_')[0]}_{field_example.split('_')[1]}"
     keys_to_delete = [key for key in grp.keys() if key.startswith(filed_type)]
@@ -1112,6 +1116,11 @@ def _save_matched_data(root, group_name, container_matched):
         del grp[key]
     for field_name, results_array in container_matched:
         grp.create_dataset(field_name, data=results_array)
+    if not process_metadata is None:
+        save_process_metadata_matched(root, process_metadata)
+
+def save_process_metadata_matched(root, process_metadata):
+    ensure_group_exists(root, f'/{h5_group}/process', {'NX_class': 'NXprocess', 'EX_required': 'true'})
 
 
 pygid_results_dtype = np.dtype([
