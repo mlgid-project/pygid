@@ -362,7 +362,10 @@ class DataSaver:
 
             # Save sample metadata
             if self.smpl_metadata is not None:
-                save_smpl_metadata(root, self.smpl_metadata, self.h5_group)
+                try:
+                    save_smpl_metadata(root, self.smpl_metadata, self.h5_group)
+                except:
+                    warnings.warn("Sample metadata could not be saved.", category=UserWarning)
 
             # Save processed data
             if data is not None:
