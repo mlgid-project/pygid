@@ -622,6 +622,7 @@ def _make_groups_(root, h5_group="entry"):
     ensure_group_exists(root, f'/{h5_group}/data',
                         {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
     ensure_group_exists(root, f'/{h5_group}/process', {'NX_class': 'NXprocess', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/process/pygid', {'NX_class': 'NXprocess', 'EX_required': 'true'})
 
 
 def save_single_data(root, dataset_name, data, extend_list=False, attrs=None):
@@ -908,8 +909,7 @@ def fill_process_group(root, h5_group, matrix):
     """
     corr_matrices = matrix.corr_matrices
     params = matrix.params
-    h5_group = "/" + h5_group
-    group = root[h5_group + '/process']
+    group = root[f"/{h5_group}/process/pygid"]
     # Save program metadata
     save_single_data(group, 'program', "pygid", extend_list=False)
     from . import __version__ as pygid_version
@@ -1096,7 +1096,7 @@ def _save_unit_cell_data(root, group_name, unit_cell_data):
     group.create_dataset(f"unit_cell_data", data=results_array, dtype=unit_cell_data_dtype)
 
 
-def _save_matched_data(root, group_name, container_matched, process_metadata = None):
+def _save_matched_data(root, group_name, container_matched):
     """
         Save mlgidMATCH data results to an HDF5 group.
 
@@ -1112,19 +1112,17 @@ def _save_matched_data(root, group_name, container_matched, process_metadata = N
     grp = root[group_name]
     if container_matched is None:
         return
-    field_example, _ = container_matched[0]
+    field_example = container_matched.field_names[0]
     filed_type = f"{field_example.split('_')[0]}_{field_example.split('_')[1]}"
     keys_to_delete = [key for key in grp.keys() if key.startswith(filed_type)]
     for key in keys_to_delete:
         del grp[key]
-    for field_name, results_array in container_matched:
+    for i in range(len(container_matched.field_names)):
+        field_name = container_matched.field_names[i]
+        results_array = container_matched.results_arrays[i]
         grp.create_dataset(field_name, data=results_array)
-    if not process_metadata is None:
-        save_process_metadata_matched(root, process_metadata)
-
-def save_process_metadata_matched(root, process_metadata):
-    ensure_group_exists(root, f'/{h5_group}/process', {'NX_class': 'NXprocess', 'EX_required': 'true'})
-
+    if hasattr(container_matched, 'metadata'):
+        _save_metadata_dict(container_matched.metadata, root, group_name.split('/')[1], 'mlgidmatched')
 
 pygid_results_dtype = np.dtype([
     ('amplitude', 'f4'),
@@ -1170,7 +1168,27 @@ def _save_img_container_detect(root, group_name, img_container_detect):
 
     # Create dataset for detected peaks
     group.create_dataset('detected_peaks', data=results_array, dtype=pygid_results_dtype)
+    if hasattr(img_container_detect, 'metadata'):
+        _save_metadata_dict(img_container_detect.metadata, root, group_name.split('/')[1], 'mlgiddetect')
 
+def _save_metadata_dict(metadata, root, h5_group, package):
+    if metadata is None:
+        return
+    # Create the group if it doesn't exist
+    group_name = f"/{h5_group}/process/{package}"
+    ensure_group_exists(root, group_name, {'NX_class': 'NXprocess', 'EX_required': 'true'})
+    group = root[group_name]
+
+    for key, value in metadata.items():
+        # Convert unsupported types to HDF5-friendly types
+        if key in group:
+            del group[key]
+        if value is None:
+            continue
+        try:
+            group.create_dataset(key, data=value)
+        except:
+            group.create_dataset(key, data=str(value))
 
 def get_results_detect_array(img_container):
     """
@@ -1230,6 +1248,9 @@ def _save_img_container_fit(root, group_name, img_container_fit):
     # Create datasets for fitted peaks and errors
     group.create_dataset('fitted_peaks', data=results_array, dtype=pygid_results_dtype)
     group.create_dataset('fitted_peaks_errors', data=results_err_array, dtype=pygid_results_dtype)
+
+    if hasattr(img_container_fit, 'metadata'):
+        _save_metadata_dict(img_container_fit.metadata, root, group_name.split('/')[1], 'pygidfit')
 
 
 def get_results_fit_array(img_container):
