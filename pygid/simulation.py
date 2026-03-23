@@ -127,13 +127,13 @@ def simul_single_data(crystal, simul_params, move_fromMW):
     """
     if crystal.get("path_to_cif"):
         logging.info(
-            f"Simulating GIWAXS data from CIF: {crystal.get("path_to_cif")}, "
-            f"orientation: {crystal.get('orientation', "random")}"
+            f"Simulating GIWAXS data from CIF: {crystal.get('path_to_cif')}, "
+            f"orientation: {crystal.get('orientation', 'random')}"
         )
     else:
         logging.info(
-            "Simulating GIWAXS data from Crystal, "
-            f"orientation: {crystal.get('orientation', "random")}"
+            f"Simulating GIWAXS data from Crystal, "
+            f"orientation: {crystal.get('orientation', 'random')}"
         )
 
     crystal['orientation'] = crystal.get('orientation', "random")
