@@ -289,17 +289,9 @@ def _plot_single_image(
             clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
 
         with plot_context:
-            # fig, ax = plt.subplots()
-            # fig = plt.figure()
-            # margin = 0.2
-            # ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
-
             fig = plt.figure(constrained_layout=True)
             ax = plt.gca()
 
-
-            # plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, #wspace=0.4, hspace=0.4
-            #                     )
 
             p = ax.imshow(np.clip(img, clims[0], clims[1]),
                           norm=LogNorm(vmin=clims[0], vmax=clims[1]),
@@ -309,12 +301,6 @@ def _plot_single_image(
 
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
-            # ax.xaxis.set_major_locator(ticker.MaxNLocator()) #integer=False, prune=None , nbins=4
-            # ax.yaxis.set_major_locator(ticker.MaxNLocator()) # integer=False, prune=None, nbins=4
-            # if aspect == 'equal':
-            #     tick = ticker.AutoLocator()
-            #     ax.xaxis.set_major_locator(tick)
-            #     ax.yaxis.set_major_locator(tick)
             ax.tick_params(axis='both')
 
             divider = make_axes_locatable(ax)
@@ -332,16 +318,6 @@ def _plot_single_image(
 
         if save_fig:
             if path_to_save_fig is not None:
-                # if (path_to_save_fig.endswith('.svg') or path_to_save_fig.endswith('.pdf')
-                #         or path_to_save_fig.endswith('.eps') or path_to_save_fig.endswith('.pgf')):
-                #     if aspect == 'equal':
-                #         plt.axis('square')
-                #     else:
-                #         ax.set_aspect('auto', 'box')
-                #
-                #     plt.savefig(path_to_save_fig)
-                # else:
-                #     plt.savefig(path_to_save_fig, bbox_inches='tight')
                 plt.savefig(path_to_save_fig) #,  pad_inches=0.5
                 logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
             else:
@@ -353,8 +329,182 @@ def _plot_single_image(
         if plot_result:
             plt.show()
 
-def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, save_result, path_to_save,
-                    vmin, vmax, linewidth, radius, text_color, plot_mi):
+
+
+def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, path_to_save,
+                    xlim, ylim):
+
+
+    if clims is None:
+        clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
+    with plot_context:
+        fig = plt.figure()
+        margin = 0.2
+        ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+        p = ax.imshow(np.clip(img, clims[0], clims[1]),
+                      norm=LogNorm(vmin=clims[0], vmax=clims[1]),
+                      extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
+                      aspect='equal',
+                      origin='lower')
+
+        ax.set_xlabel(r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]')
+        ax.set_ylabel(r'$q_{z}$ [$\mathrm{\AA}^{-1}$]')
+        ax.tick_params(axis='both')
+
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cb = fig.colorbar(p, cax=cax)
+        cb.set_label('Intensity [arb. units]')
+        cb.ax.yaxis.labelpad = 5
+
+        cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
+        cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
+        cb.update_ticks()
+
+        if None not in (xlim[0], xlim[1]):
+            ax.set_xlim(xlim)
+        else:
+            ax.set_xlim(np.min(q_xy), np.max(q_xy))
+
+        if None not in (ylim[0], ylim[1]):
+            ax.set_ylim(ylim)
+        else:
+            ax.set_ylim(np.min(q_z), np.max(q_z))
+
+        for i, cr in enumerate(crystal):
+            add_single_simul_data(cr, ax)
+
+    if save_result:
+        plt.savefig(path_to_save)
+        logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
+    plt.show()
+
+
+def add_single_simul_data(
+        crystal,
+        ax
+):
+    """
+        Plots simulated scattering data (either q-2D or radial) on a given matplotlib axis.
+
+        Parameters
+        ----------
+        dataset : tuple
+            A tuple of (q, intensity, mi):
+            - `q` : array-like
+                2D array with shape (2, N) for (q_x, q_z) coordinates or 1D array with shape (N,)
+                for radial values.
+            - `intensity` : array-like
+                Corresponding intensity values.
+            - `mi` : array-like
+                Metadata (e.g., model index, fit ID).
+        ax : matplotlib.axes.Axes
+            Axis object on which to plot the data.
+        cmap : matplotlib.colors.Colormap
+            Colormap used for mapping intensities to colors.
+        vmin : float
+            Minimum intensity value for logarithmic normalization.
+        vmax : float or None
+            Maximum intensity value for normalization. If None, it is set automatically.
+        linewidth : float
+            Line width for circle outlines.
+        radius : float
+            Circle radius (used for q-2D data visualization).
+        text_color : str
+            Color of the text labels (metadata).
+        plot_mi : bool
+            Whether to annotate the plot with metadata labels (`mi` values).
+
+        Returns
+        -------
+        norm : matplotlib.colors.LogNorm
+            Logarithmic normalization object used for color mapping.
+
+        Notes
+        -----
+        - For 2D q data, the function draws colored circles centered at (q_x, q_z).
+        - For 1D q data, it draws concentric dashed rings (e.g., for isotropic scattering).
+        - If `plot_mi=True`, metadata labels are drawn and adjusted to avoid overlap.
+        """
+    q, intensity, mi = crystal['q'], crystal['intensity'], crystal['mi']
+    vmin, vmax = crystal.get('vmin', intensity.min()), crystal.get('vmax', intensity.max())
+    plot_mi = crystal.get('plot_mi', False)
+    cmap = plt.get_cmap(crystal.get('cmap', 'winter'))
+    norm = LogNorm(vmin=vmin, vmax=vmax)
+    colors = cmap(norm(intensity))
+
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    q_xy_max = xlim[1]
+    q_z_max = ylim[1]
+
+    if q.ndim == 2:
+        texts = []
+        x, y = q[0], q[1]
+
+        marker = crystal.get('marker', 'o')
+        sc = ax.scatter(
+            x, y,
+            # c=colors,
+            s=crystal.get('marker_size', 50),
+            marker=marker,
+            linewidths=crystal.get('line_width', 0.5),
+            facecolors='none',
+            edgecolors=colors
+        )
+        if plot_mi:
+            for xi, yi, text in zip(x, y, mi):
+                txt = ax.text(
+                    xi, yi, str(text),
+                    fontsize=8,
+                    color=crystal.get('text_color', 'black'),
+                    weight='bold',
+                    ha='center',
+                    va='bottom'
+                )
+                texts.append(txt)
+
+        if plot_mi and texts:
+            adjust_text(
+                texts,
+                ax=ax,
+                arrowprops=dict(arrowstyle='-', color='gray', lw=0.5)
+            )
+
+    else:
+        size = len(intensity)
+        num = 1
+        texts = []
+        for rad, i, text in zip(q, intensity, mi):
+            color = cmap(norm(i))
+            circle = plt.Circle((0, 0), rad, color=color, fill=False,
+                                linestyle=crystal.get('line_style', 'dashed'), linewidth=crystal.get('line_width', 0.5))
+            ax.add_patch(circle)
+            if plot_mi:
+                angle_to_plot = np.pi / 2 / size * num - 0.1
+                pos_xy = rad * np.sin(angle_to_plot)
+                pos_z = rad * np.cos(angle_to_plot)
+
+                if pos_xy > q_xy_max or pos_z > q_z_max:
+                    angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
+                    pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
+                    pos_z = rad * np.cos(angle_to_plot)
+
+                txt = ax.text(pos_xy, pos_z, str(text), fontsize=8, color=crystal.get('text_color', 'black'), weight='bold')
+                texts.append(txt)
+                num += 1
+
+            if plot_mi and texts:
+                adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    return norm
+
+
+
+
+def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, save_result, path_to_save,
+                    vmin, vmax, linewidth, radius, text_color, plot_mi, xlim, ylim):
     if cmap is not None:
         cmap = [cmap] if not isinstance(cmap, list) else cmap
         if len(cmap) != len(simulated_data):
@@ -394,9 +544,15 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
         cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
         cb.update_ticks()
 
+        if None not in (xlim[0], xlim[1]):
+            ax.set_ylim(xlim)
+        # ax.set_xlim(xlim)
+        if None not in (ylim[0], ylim[1]):
+            ax.set_ylim(ylim)
+
         for i, dataset in enumerate(simulated_data):
             cmap_i = cmap[i]
-            norm = add_single_simul_data(dataset, ax, cmap_i, vmin, vmax,
+            norm = add_single_simul_data_old(dataset, ax, cmap_i, vmin, vmax,
                                           linewidth, radius, text_color, plot_mi,
                                           )
 
@@ -411,7 +567,7 @@ def plot_simul_data(plot_context, img, q_xy, q_z, clims, simulated_data, cmap, s
         logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
     plt.show()
 
-def add_single_simul_data(
+def add_single_simul_data_old(
         dataset,
         ax,
         cmap,
@@ -564,7 +720,7 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
 
             if None not in (xlim[0], xlim[1]):
                 ax.set_ylim(xlim)
-            ax.set_xlim(xlim)
+            # ax.set_xlim(xlim)
             if None not in (ylim[0], ylim[1]):
                 ax.set_ylim(ylim)
 
