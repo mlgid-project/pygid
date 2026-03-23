@@ -20,7 +20,7 @@ Key features:
 - **Reuses the coordinate maps** for several images with the same geometry.  
 - Supports **several interpolation techniques**.  
 - Saves the results of conversion and metadata as a **NXsas** (NeXus) file.  
-- Can be used as a first step in the **`mlgid` analysis pipeline**.
+- Can be used as a first step in the [**`mlgid` analysis pipeline**](https://github.com/mlgid-project/mlgidBASE).
 
 [//]: # (<p align="center">)
 
@@ -93,9 +93,10 @@ files = pygid.datasets.get_dataset("tutorial_00")
 data_path = files["data_peaks"]
 poni_path = files["poni_peaks"]
 mask_path = files["mask_peaks"]
+yaml_path = files["yaml"]
 ```
 
-2. Load experimental parameters from the PONI file
+2. Load experimental parameters from the PONI file — see [Tutorial 1](./docs/tutorials/tutorial_01_experimental_parameters.ipynb)
 ```python
 import pygid
 
@@ -108,7 +109,34 @@ params = pygid.ExpParams(
     ai=0.075,                   # angle of incidence in degrees
 )
 ```
-3. Create coordinate maps based on geometry and experimental setup
+3. **Enter sample and experimental metadata** — see [Tutorial 6](./docs/tutorials/tutorial_06_metadata_curation.ipynb)
+
+#### Experimental Metadata (`ExpMetadata`)
+
+Dictionary-like object containing experiment information:
+
+```python
+exp_metadata = pygid.ExpMetadata(
+    start_time="2024-03-29T15:51:41.343788",
+    end_time="2024-07-12T08:26:22Z",
+    source_type="synchrotron",
+    source_name="ESRF ID10",
+    instrument_name="ID10-surf",
+    detector="eiger4m",
+    monitor=1.1e5,              # Optional
+    extend_fields=["monitor"]   # Fields appended instead of overwritten
+)
+```
+#### Sample Metadata (`SampleMetadata`)
+
+Load sample information from a YAML file:
+
+```python
+smpl_metadata = pygid.SampleMetadata(
+    path_to_load=yaml_path,
+)
+```
+4. Create coordinate maps based on geometry and experimental setup  — see [Tutorial 2](./docs/tutorials/tutorial_02_coordinate_maps_and_corrections.ipynb)
 ```python
 matrix = pygid.CoordMaps(
     params,
@@ -116,7 +144,7 @@ matrix = pygid.CoordMaps(
     hor_positive=False,         # Cut the positive values for the horizontal axis
 )
 ```
-4. Initialize pygid.Conversion instance and load the detector image
+5. Initialize pygid.Conversion instance and load the detector image  — see [Tutorial 3](./docs/tutorials/tutorial_03_raw_data_loading.ipynb)
 
 ```python
 analysis = pygid.Conversion(
@@ -124,7 +152,7 @@ analysis = pygid.Conversion(
     path=data_path,             # path to the data file
 )
 ```
-5. Perform GID geometry conversion and plot the result, returns the axes and the converted image (list of images)
+6. Perform GID geometry conversion and plot the result, returns the axes and the converted image (list of images) — see [Tutorial 4](./docs/tutorials/tutorial_04_2D_conversion.ipynb)
 ```python
 q_xy, q_z, img = analysis.det2q_gid(
     plot_result=True,                             # plot the result of conversion
