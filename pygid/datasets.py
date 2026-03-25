@@ -13,6 +13,7 @@ ZENODO_FILES = {
         "poni": "LaB6_2024_07_ESRF_ID10.poni",
         "mask": "mask_2024_07_ESRF_ID10.npy",
         "yaml": "240124_PEN_DIP_metadata.yaml",
+        "cif":  "DIP_thin_film_642482.cif",
     },
     "tutorial_01": {
         # "data": "eiger4m_0000_240124_PEN_DIP.h5",

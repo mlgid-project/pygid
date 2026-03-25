@@ -133,10 +133,6 @@ class Conversion:
                 self.img_raw = loaded_data.img_raw
             del loaded_data
 
-
-
-
-
         self.update_conversion()
 
     def check_keys(self):

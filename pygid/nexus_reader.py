@@ -349,11 +349,11 @@ def read_single_group(h5grp, prohibited_keys = None):
 
 def load_analysis(root_entry, matrix, img_name, frame_num = None):
     img = get_img(root_entry, img_name, frame_num)
-
     analysis = Conversion(matrix, img_raw = None)
     setattr(analysis, img_name, img)
     analysis.ai_list = analysis.matrix[0].params.ai
-    analysis.converted_frame_num = root_entry['data/frame_num'][()]
+    # analysis.converted_frame_num = root_entry['data/frame_num'][()]
+    analysis.converted_frame_num = list(range(len(img)))
     analysis.filename = get_filename(root_entry, frame_num)
     return analysis
 

@@ -1,3 +1,5 @@
+from example.pygid_example import exp_metadata
+
 # pygid
 [![Documentation](https://img.shields.io/badge/Documentation%20%26%20Tutorials-blue)](https://pygid.readthedocs.io/en/latest/#)
 [![Zenodo](https://img.shields.io/badge/-Zenodo-red)](https://zenodo.org/records/17466183)
@@ -21,12 +23,6 @@ Key features:
 - Supports **several interpolation techniques**.  
 - Saves the results of conversion and metadata as a **NXsas** (NeXus) file.  
 - Can be used as a first step in the [**`mlgid` analysis pipeline**](https://github.com/mlgid-project/mlgidBASE).
-
-[//]: # (<p align="center">)
-
-[//]: # (  <img src="docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">)
-
-[//]: # (</p>)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/mlgid_logo_pygid.png" width="400" alt="pygid">
@@ -81,10 +77,11 @@ to reciprocal space coordinates in a grazing-incidence diffraction (GID) geometr
 
 1. Download example dataset from Zenodo or set your own files: 
 ```python
+import pygid
 files = pygid.datasets.get_dataset("tutorial_00")
-data_path = files["data_peaks"]
-poni_path = files["poni_peaks"]
-mask_path = files["mask_peaks"]
+data_path = files["data"]
+poni_path = files["poni"]
+mask_path = files["mask"]
 yaml_path = files["yaml"]
 ```
 
@@ -142,6 +139,7 @@ matrix = pygid.CoordMaps(
 analysis = pygid.Conversion(
     matrix=matrix,
     path=data_path,             # path to the data file
+    dataset = '/entry_0000/ESRF-ID10/eiger4m/data',
 )
 ```
 6. Perform GID geometry conversion and plot the result, returns the axes and the converted image (list of images) — see [Tutorial 4](./docs/tutorials/tutorial_04_2D_conversion.ipynb)
@@ -153,6 +151,8 @@ q_xy, q_z, img = analysis.det2q_gid(
     return_result=True,                          # return arrays
     save_result=True, path_to_save="240124_PEN_DIP_result.h5",   # save data as a NXsas (NeXus) file
     overwrite_file=False,                        # overwrite the existing file
+    smpl_metadata=smpl_metadata,
+    exp_metadata=exp_metadata
 )
 ```
 
