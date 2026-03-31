@@ -5,6 +5,8 @@ from example.pygid_example import exp_metadata
 [![Zenodo](https://img.shields.io/badge/-Zenodo-red)](https://zenodo.org/records/17466183)
 [![IUCr Journals](https://img.shields.io/badge/-IUCr%20Article-yellow)](https://journals.iucr.org/j/issues/2026/01/00/yr5162/index.html)
 [![PyPI](https://img.shields.io/pypi/v/pygid?color=green)](https://pypi.org/project/pygid/)
+[![Python version](https://img.shields.io/badge/python-3.9%7C3.10%7C3.11%7C3.12%7C3.13%7C3.14-blue.svg)](https://www.python.org/)
+
 ## Fast Preprocessing of Grazing Incidence Diffraction (GID) Data
 
 `pygid` is a Python-based package for fast conversion of 2D detector images into reciprocal (Cartesian and polar) coordinates. Although the package focuses on the grazing-incidence geometry, it can also be used for transmission (SAXS/WAXS) experiments.  
