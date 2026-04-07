@@ -1,5 +1,3 @@
-from example.pygid_example import exp_metadata
-
 # pygid
 [![Documentation](https://img.shields.io/badge/Documentation%20%26%20Tutorials-blue)](https://pygid.readthedocs.io/en/latest/#)
 [![Zenodo](https://img.shields.io/badge/-Zenodo-red)](https://zenodo.org/records/17466183)
