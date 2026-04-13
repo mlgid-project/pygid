@@ -73,7 +73,7 @@ class Conversion:
     path: str = None
     dataset: str = 'measurement/eiger4m'
     frame_num: float = None
-    img_raw: Optional[np.array] = None
+    img_raw: Optional[Any] = None
     average_all: bool = False
     sum_all: bool = False
     use_gpu: bool = True
@@ -87,6 +87,7 @@ class Conversion:
     number_to_sum: int = None
     batch_activated: bool = False
     build_image_P03: bool = False
+    global_frame_offset: int = 0  # Tracks global frame index offset for batch processing
     plot_params = get_plot_params()
 
     def __post_init__(self):
@@ -152,200 +153,485 @@ class Conversion:
             if self.sum_all:
                 raise ValueError("sum_all and number_to_average/number_to_sum cannot be used at the same time")
 
+    def _adjust_batch_size(self):
+        """
+        Adjusts batch size to be compatible with number_to_combine.
+        
+        If number_to_combine is set, ensures batch_size is a multiple of it
+        to avoid processing incomplete groups.
+        """
+        if self.number_to_combine is not None:
+            rest = self.batch_size % self.number_to_combine
+            if rest != 0:
+                self.batch_size -= rest
+                logging.info(f"Adjusted batch_size to {self.batch_size} for compatibility with number_to_combine={self.number_to_combine}")
+
+    def _create_path_batches(self):
+        """
+        Creates batches from a list of file paths.
+        
+        Returns
+        -------
+        list of list
+            Batches of file paths.
+        """
+        return [self.path[i:i + self.batch_size] for i in range(0, len(self.path), self.batch_size)]
+
+    def _create_frame_batches(self):
+        """
+        Creates batches from frame numbers in a single file.
+        
+        Returns
+        -------
+        list of list
+            Batches of frame indices.
+        """
+        if isinstance(self.frame_num, list):
+            batches = []
+            for i in range(0, self.number_of_frames, self.batch_size):
+                batches.append(self.frame_num[i:min(i + self.batch_size, len(self.frame_num))])
+            return batches
+        else:
+            return [list(range(i, min(i + self.batch_size, self.number_of_frames)))
+                    for i in range(0, self.number_of_frames, self.batch_size)]
+
+    def _load_batch_images(self, batch_data, is_path_batch=True):
+        """
+        Loads raw images from a batch of paths or frames.
+        
+        Parameters
+        ----------
+        batch_data : list
+            Either list of file paths or frame indices.
+        is_path_batch : bool
+            Whether batch_data contains paths (True) or frame indices (False).
+        
+        Returns
+        -------
+        np.ndarray
+            Loaded raw image data.
+        """
+        loader_kwargs = {
+            "frame_num": self.frame_num if is_path_batch else batch_data,
+            "dataset": self.dataset,
+            "roi_range": self.roi_range,
+            "batch_size": self.batch_size,
+            "multiprocessing": self.multiprocessing,
+            "build_image_P03": self.build_image_P03
+        }
+        
+        if is_path_batch:
+            loader_kwargs["path"] = batch_data
+        else:
+            loader_kwargs["path"] = self.path
+        
+        return DataLoader(**loader_kwargs).img_raw
+
+    def _aggregate_batch_images(self, batch_images):
+        """
+        Aggregates batch images using average or sum operation.
+        
+        Parameters
+        ----------
+        batch_images : np.ndarray
+            Array of images to aggregate.
+        
+        Returns
+        -------
+        np.ndarray
+            Aggregated image.
+        """
+        if self.average_all:
+            return np.nanmean(batch_images, axis=0, keepdims=False)
+        elif self.sum_all:
+            return np.nansum(batch_images, axis=0, keepdims=False)
+        return None
+
+    def _process_aggregated_batches(self, batches, remap_func, is_path_batch, path_to_save, 
+                                   h5_group, exp_metadata, smpl_metadata, overwrite_file, 
+                                   overwrite_group, plot_result, return_result, save_result):
+        """
+        Processes batches with aggregation (average/sum) into a single result.
+        
+        Parameters
+        ----------
+        batches : list of list
+            Batches of paths or frame indices.
+        remap_func : str
+            Name of the remapping function to call.
+        is_path_batch : bool
+            Whether batches contain paths or frame indices.
+        ... (other parameters as per Batch signature)
+        
+        Returns
+        -------
+        result or None
+            Result from remap function if return_result is True, otherwise None.
+        """
+        aggregated_images = []
+        
+        for batch in log_progress(batches, desc='Processing batches'):
+            batch_img = self._load_batch_images(batch, is_path_batch)
+            aggregated = self._aggregate_batch_images(batch_img)
+            if aggregated is not None:
+                aggregated_images.append(aggregated)
+        
+        # Set aggregated images and prepare for final remapping
+        if aggregated_images:
+            self.img_raw = np.array(aggregated_images)
+            self.update_conversion()
+            
+            remap = getattr(self, remap_func, None)
+            if remap is None:
+                raise ValueError(f"Remapping function '{remap_func}' not found")
+            
+            self.batch_activated = False
+            
+            return remap(
+                plot_result=plot_result,
+                return_result=return_result,
+                multiprocessing=False,
+                save_result=save_result,
+                overwrite_file=overwrite_file,
+                overwrite_group=overwrite_group,
+                exp_metadata=exp_metadata,
+                smpl_metadata=smpl_metadata,
+                path_to_save=path_to_save,
+                h5_group=h5_group
+            )
+        
+        return None
+
+    def _process_individual_batches(self, batches, remap_func, is_path_batch, path_to_save, 
+                                   h5_group, exp_metadata, smpl_metadata, overwrite_file, 
+                                   overwrite_group, plot_result, return_result):
+        """
+        Processes batches individually, saving each one separately.
+        
+        Tracks global frame indices to ensure correct matrix selection across batches.
+
+        Parameters
+        ----------
+        batches : list of list
+            Batches of paths or frame indices.
+        remap_func : str
+            Name of the remapping function to call.
+        is_path_batch : bool
+            Whether batches contain paths or frame indices.
+        ... (other parameters as per Batch signature)
+        """
+        _overwrite_file = overwrite_file
+        _overwrite_group = overwrite_group
+        _exp_metadata = exp_metadata
+        _smpl_metadata = smpl_metadata
+        
+        global_frame_offset = 0  # Track global position across batches
+
+        for batch_idx, batch in enumerate(log_progress(batches, desc='Processing batches')):
+            # logging.info(f"Processing batch {batch_idx + 1}/{len(batches)} "
+            #             f"(global frame offset: {global_frame_offset})")
+
+            # Update frame_num for frame-based batches
+            if not is_path_batch:
+                self.frame_num = batch
+                # For frame-based batches, set global offset for matrix selection
+                self.global_frame_offset = global_frame_offset
+
+            # Process batch
+            batch_path = batch if is_path_batch else self.path
+            self.process_batch(
+                path_batch=batch_path,
+                frame_num=None if is_path_batch else batch,
+                remap_func=remap_func,
+                overwrite_file=_overwrite_file,
+                overwrite_group=_overwrite_group,
+                exp_metadata=_exp_metadata,
+                smpl_metadata=_smpl_metadata,
+                path_to_save=path_to_save,
+                h5_group=h5_group,
+                global_frame_offset=global_frame_offset
+            )
+
+            # Update global offset for next batch
+            if not is_path_batch:
+                global_frame_offset += len(batch)
+            else:
+                # For path-based batches, update offset by the number of frames that were just processed
+                # Use the AI list size as indicator of how many frames were loaded
+                if hasattr(self, 'ai_list') and self.ai_list:
+                    global_frame_offset += len(self.ai_list)
+                else:
+                    # Fallback: assume single frame per file in the batch
+                    global_frame_offset += len(batch) if isinstance(batch, list) else 1
+
+            # Only write metadata on first batch
+            _overwrite_file = False
+            _overwrite_group = False
+            _exp_metadata = None
+            _smpl_metadata = None
+        
+        # Reset state for frame-based batches
+        if not is_path_batch:
+            self.frame_num = None
+            self.global_frame_offset = 0
+
+        # Warn if unsupported options were used
+        if plot_result or return_result:
+            warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
+                         category=UserWarning)
+
     def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None,
               overwrite_file=True, overwrite_group=False,
               save_result=True, plot_result=False, return_result=False):
         """
-        Devidea raw images in batches and process them separately. There are two cases: either path amount
-        or frames number in a single h5-file can be bigger than batch size.
+        Divides raw images into batches and processes them separately.
+        
+        Two batching modes are supported:
+        1. Path-based: Multiple files, each processed as a batch
+        2. Frame-based: Single file with many frames, split into batches
+        
+        Supports aggregation (average/sum) of batches into a single result,
+        or individual processing and saving of each batch.
 
         Parameters
         ----------
         path_to_save : str
             Path where the processed data will be saved.
-        remap_func : str or callable, optional
-            Name or function used to remap the data. Default is "det2q_gid".
-        h5_group : h5py.Group, optional
-            The name of the group within the HDF5 file under which the matrix data will be stored.
-        metadata : Metadata, optional
-            Metadata class instance containing metadata values.
+        remap_func : str, optional
+            Name of the remapping function to call. Default is "det2q_gid".
+        h5_group : str or None, optional
+            HDF5 group name under which to store results. Default is None.
+        exp_metadata : ExpMetadata or None, optional
+            Experimental metadata for first batch. Default is None.
+        smpl_metadata : SampleMetadata or None, optional
+            Sample metadata for first batch. Default is None.
         overwrite_file : bool, optional
-            Whether to overwrite the file if it already exists. Default is True.
+            Whether to overwrite existing file. Default is True.
+        overwrite_group : bool, optional
+            Whether to overwrite existing group. Default is False.
+        save_result : bool, optional
+            Whether to save results. Default is True.
+        plot_result : bool, optional
+            Whether to plot results. Default is False.
+        return_result : bool, optional
+            Whether to return results. Default is False.
+        
+        Returns
+        -------
+        result or None
+            Result from aggregated batch processing if return_result is True, otherwise None.
         """
-
-        if self.number_to_combine is not None:
-            rest = self.batch_size % self.number_to_combine
-            if rest != 0:
-                self.batch_size -= rest
-        if isinstance(self.path, list):
-            self.path_batches = [self.path[i:i + self.batch_size] for i in range(0, len(self.path), self.batch_size)]
-            if self.average_all or self.sum_all:
-                averaged_image = []
-                for path_batch in log_progress(self.path_batches, desc='Progress'):
-                    self.img_raw = DataLoader(
-                        path=path_batch,
-                        frame_num=self.frame_num,
-                        dataset=self.dataset,
-                        roi_range=self.roi_range,
-                        batch_size=self.batch_size,
-                        multiprocessing=self.multiprocessing,
-                        build_image_P03=self.build_image_P03
-                    ).img_raw
-                    if self.average_all:
-                        averaged_image.append(np.nanmean(self.img_raw, axis=0, keepdims=False))
-                    elif self.sum_all:
-                        averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
-
-                self.update_conversion()
-                remap = getattr(self, remap_func, None)
-                self.batch_activated = False
-
-                return remap(
-                    plot_result=plot_result,
-                    return_result=return_result,
-                    multiprocessing=False,
-                    save_result=save_result,
-                    overwrite_file=overwrite_file,
-                    overwrite_group=overwrite_group,
-                    exp_metadata=exp_metadata,
-                    smpl_metadata=smpl_metadata,
-                    path_to_save=path_to_save,
-                    h5_group=h5_group
-                )
-
-
-            else:
-                for path_batch in log_progress(self.path_batches, desc='Progress'):
-                    self.process_batch(
-                        path_batch=path_batch,
-                        frame_num=self.frame_num,
-                        remap_func=remap_func,
-                        overwrite_file=overwrite_file,
-                        overwrite_group=overwrite_group,
-                        exp_metadata=exp_metadata,
-                        smpl_metadata=smpl_metadata,
-                        path_to_save=path_to_save,
-                        h5_group=h5_group
-                    )
-                    overwrite_file = False
-                    overwrite_group = False
-                    exp_metadata = None
-                    smpl_metadata = None
-                if plot_result or return_result:
-                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
-                                  category=UserWarning)
-
+        # Adjust batch size for compatibility
+        self._adjust_batch_size()
+        
+        # Determine if path-based or frame-based batching
+        is_path_batch = isinstance(self.path, list)
+        
+        # Create batches
+        batches = self._create_path_batches() if is_path_batch else self._create_frame_batches()
+        
+        logging.info(f"Processing {len(batches)} batches using {'path-based' if is_path_batch else 'frame-based'} mode")
+        
+        # Process batches
+        if self.average_all or self.sum_all:
+            # Aggregate all batches into single result
+            return self._process_aggregated_batches(
+                batches, remap_func, is_path_batch, path_to_save, h5_group,
+                exp_metadata, smpl_metadata, overwrite_file, overwrite_group,
+                plot_result, return_result, save_result
+            )
         else:
-            if isinstance(self.frame_num, list):
-                self.frame_batches = []
-                for i in range(0, self.number_of_frames, self.batch_size):
-                    self.frame_batches.append(self.frame_num[i:min(i + self.batch_size, len(self.frame_num))])
-            else:
-                self.frame_batches = [list(range(i, min(i + self.batch_size, self.number_of_frames)))
-                                      for i in range(0, self.number_of_frames, self.batch_size)]
-            if self.average_all or self.sum_all:
-                averaged_image = []
-                for frame_num in log_progress(self.frame_batches, desc='Progress'):
-                    self.img_raw = DataLoader(
-                        path=self.path,
-                        frame_num=frame_num,
-                        dataset=self.dataset,
-                        roi_range=self.roi_range,
-                        batch_size=self.batch_size,
-                        multiprocessing=self.multiprocessing,
-                        build_image_P03=self.build_image_P03
-                    ).img_raw
-                    if self.average_all:
-                        averaged_image.append(np.nanmean(self.img_raw, axis=0, keepdims=False))
-                    elif self.sum_all:
-                        averaged_image.append(np.nansum(self.img_raw, axis=0, keepdims=False))
+            # Process each batch individually
+            self._process_individual_batches(
+                batches, remap_func, is_path_batch, path_to_save, h5_group,
+                exp_metadata, smpl_metadata, overwrite_file, overwrite_group,
+                plot_result, return_result
+            )
 
+    def _load_batch_data(self, path_batch, frame_num):
+        """
+        Loads raw image data from a batch.
+        
+        Parameters
+        ----------
+        path_batch : str or list
+            File path(s) to load.
+        frame_num : int, list, or None
+            Frame number(s) to load.
+        
+        Returns
+        -------
+        np.ndarray
+            Loaded raw image data.
+        """
+        try:
+            return DataLoader(
+                path=path_batch,
+                frame_num=frame_num,
+                dataset=self.dataset,
+                roi_range=self.roi_range,
+                batch_size=self.batch_size,
+                multiprocessing=self.multiprocessing,
+                build_image_P03=self.build_image_P03
+            ).img_raw
+        except Exception as e:
+            logging.error(f"Failed to load batch data: {e}")
+            raise
 
-                self.update_conversion()
-                remap = getattr(self, remap_func, None)
-                self.batch_activated = False
-
-                return remap(
-                    plot_result=plot_result,
-                    return_result=return_result,
-                    multiprocessing=False,
-                    save_result=save_result,
-                    overwrite_file=overwrite_file,
-                    overwrite_group=overwrite_group,
-                    exp_metadata=exp_metadata,
-                    smpl_metadata=smpl_metadata,
-                    path_to_save=path_to_save,
-                    h5_group=h5_group
-                )
-            else:
-                for frame_num in log_progress(self.frame_batches, desc='Progress'):
-                    self.frame_num = frame_num
-                    self.process_batch(
-                        path_batch=self.path,
-                        frame_num=frame_num,
-                        remap_func=remap_func,
-                        overwrite_file=overwrite_file,
-                        overwrite_group=overwrite_group,
-                        exp_metadata=exp_metadata,
-                        smpl_metadata=smpl_metadata,
-                        path_to_save=path_to_save,
-                        h5_group=h5_group
-                    )
-                    overwrite_file = False
-                    overwrite_group = False
-                    exp_metadata = None
-                    smpl_metadata = None
-                self.frame_num = None
-                if plot_result or return_result:
-                    warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
-                                  category=UserWarning)
-
-    def process_batch(
-            self, path_batch, frame_num, remap_func, overwrite_file, overwrite_group,
-            exp_metadata, smpl_metadata, path_to_save, h5_group
-    ):
-        self.img_raw = DataLoader(
-            path=path_batch,
-            frame_num=frame_num,
-            dataset=self.dataset,
-            roi_range=self.roi_range,
-            batch_size=self.batch_size,
-            multiprocessing=self.multiprocessing,
-            build_image_P03=self.build_image_P03
-        ).img_raw
-
-        self.batch_activated = False
-
-
-        self.update_conversion()
-
-        remap = getattr(self, remap_func, None)
+    def _prepare_batch_metadata(self, exp_metadata, path_batch):
+        """
+        Prepares or creates batch metadata.
+        
+        Parameters
+        ----------
+        exp_metadata : ExpMetadata or None
+            Existing metadata to update, or None to create new.
+        path_batch : str or list
+            Path or paths for this batch.
+        
+        Returns
+        -------
+        ExpMetadata
+            Prepared metadata object.
+        """
         if exp_metadata is None:
-            exp_metadata = ExpMetadata(filename=path_batch)
+            # Extract filename from path_batch
+            filename = path_batch[0] if isinstance(path_batch, list) else path_batch
+            exp_metadata = ExpMetadata(filename=filename)
+            logging.debug(f"Created new ExpMetadata for batch: {filename}")
         else:
-            exp_metadata.filename = path_batch
+            # Update filename
+            filename = path_batch[0] if isinstance(path_batch, list) else path_batch
+            exp_metadata.filename = filename
+        
+        return exp_metadata
 
-        remap(
-            plot_result=False,
-            return_result=False,
-            multiprocessing=self.multiprocessing,
-            save_result=True,
-            overwrite_file=overwrite_file,
-            overwrite_group=overwrite_group,
-            exp_metadata=exp_metadata,
-            smpl_metadata=smpl_metadata,
-            path_to_save=path_to_save,
-            h5_group=h5_group
-        )
+    def _get_remap_function(self, remap_func):
+        """
+        Retrieves and validates the remapping function.
+        
+        Parameters
+        ----------
+        remap_func : str
+            Name of the remapping function.
+        
+        Returns
+        -------
+        callable
+            The remapping function.
+        
+        Raises
+        ------
+        ValueError
+            If the remapping function is not found.
+        """
+        remap = getattr(self, remap_func, None)
+        if remap is None:
+            raise ValueError(f"Remapping function '{remap_func}' not found in {self.__class__.__name__}")
+        return remap
 
-        self.img_raw = None
-        for attr in [
+    def _clean_batch_results(self):
+        """
+        Cleans up temporary result attributes after batch processing.
+        
+        Removes all cached result attributes to free memory and prevent conflicts.
+        """
+        result_attrs = [
             "img_gid_q", "img_q", "img_gid_pol", "img_pol",
             "img_gid_pseudopol", "img_pseudopol",
             "rad_cut", "azim_cut", "horiz_cut"
-        ]:
+        ]
+        
+        count = 0
+        for attr in result_attrs:
             if hasattr(self, attr):
                 delattr(self, attr)
+                count += 1
+        
+        if count > 0:
+            logging.debug(f"Cleaned up {count} result attributes")
+
+    def process_batch(
+            self, path_batch, frame_num, remap_func, overwrite_file, overwrite_group,
+            exp_metadata, smpl_metadata, path_to_save, h5_group, global_frame_offset=0
+    ):
+        """
+        Processes a single batch of data: loads, converts, and saves results.
+        
+        Supports global frame index tracking for correct matrix selection in batch processing.
+
+        Parameters
+        ----------
+        path_batch : str or list
+            File path(s) for this batch.
+        frame_num : int, list, or None
+            Frame number(s) for this batch (local indices within batch).
+        remap_func : str
+            Name of the remapping function to call.
+        overwrite_file : bool
+            Whether to overwrite existing file.
+        overwrite_group : bool
+            Whether to overwrite existing group.
+        exp_metadata : ExpMetadata or None
+            Experiment metadata for this batch.
+        smpl_metadata : SampleMetadata or None
+            Sample metadata for this batch.
+        path_to_save : str
+            Path to save results.
+        h5_group : str or None
+            HDF5 group name.
+        global_frame_offset : int, optional
+            Global frame index offset for matrix selection during batch processing.
+            Default is 0.
+        """
+        try:
+            # Step 1: Load batch data
+            logging.debug(f"Loading batch: {path_batch}")
+            self.img_raw = self._load_batch_data(path_batch, frame_num)
+            
+            # Step 2: Mark batch processing as complete
+            self.batch_activated = False
+            
+            # Step 3: Update conversion parameters
+            logging.debug("Updating conversion parameters")
+            self.update_conversion()
+            
+            # Step 4: Prepare metadata
+            exp_metadata = self._prepare_batch_metadata(exp_metadata, path_batch)
+            
+            # Step 5: Get remapping function
+            remap = self._get_remap_function(remap_func)
+            
+            # Step 6: Set global frame offset for matrix selection
+            self.global_frame_offset = global_frame_offset
+
+            # Step 7: Execute remapping with global frame offset
+            # logging.info(f"Remapping batch with {remap_func} (global offset: {global_frame_offset})")
+
+            # Call remap function with proper parameters
+            # The remap function will handle frame processing through _remap_general_
+            # which will use global_frame_offset for matrix selection
+            remap(
+                plot_result=False,
+                return_result=False,
+                multiprocessing=self.multiprocessing,
+                save_result=True,
+                overwrite_file=overwrite_file,
+                overwrite_group=overwrite_group,
+                exp_metadata=exp_metadata,
+                smpl_metadata=smpl_metadata,
+                path_to_save=path_to_save,
+                h5_group=h5_group
+            )
+            
+            # Step 8: Clean up temporary data
+            logging.debug("Cleaning up batch results")
+            self.img_raw = None
+            self._clean_batch_results()
+            
+        except Exception as e:
+            logging.error(f"Error processing batch: {e}")
+            raise
 
     def update_conversion(self):
 
@@ -691,6 +977,321 @@ class Conversion:
                           path_to_save_fig = path_to_save_fig)
 
 
+    def _clean_previous_results(self):
+        """
+        Removes previous result attributes to avoid conflicts.
+        
+        Deletes all cached result attributes from previous conversions.
+        """
+        result_keys = [
+            "img_gid_q", "img_q", "img_gid_pol",
+            "img_pol", "img_gid_pseudopol", "img_pseudopol",
+            "rad_cut", "azim_cut", "horiz_cut"
+        ]
+        for key in result_keys:
+            if hasattr(self, key):
+                delattr(self, key)
+
+    def _get_matrix_for_frame(self, frame_num, global_frame_index=None):
+        """
+        Retrieves the appropriate coordinate matrix for a given frame.
+        
+        Supports both local (within batch) and global (across all data) frame indexing.
+        Uses global frame index when available for correct matrix selection during batch processing.
+
+        Parameters
+        ----------
+        frame_num : int
+            Frame index to get the matrix for (local index within batch or overall).
+        global_frame_index : int or None, optional
+            Global frame index across all data. Used during batch processing to select
+            the correct matrix when processing multiple batches. If None, uses frame_num.
+
+        Returns
+        -------
+        matrix : CoordMaps
+            The coordinate matrix for the frame. If a single matrix is used for all frames,
+            returns matrix[0]; otherwise returns matrix[index], where index is either
+            global_frame_index (if provided) or frame_num.
+
+        Raises
+        ------
+        IndexError
+            If the frame index exceeds available matrices.
+        """
+        # Use global index if provided, otherwise use local frame_num
+        index = global_frame_index if global_frame_index is not None else frame_num
+
+        # Handle single matrix case (same for all frames)
+        if len(self.matrix) == 1:
+            return self.matrix[0]
+
+        # Validate index
+        if index >= len(self.matrix):
+            logging.warning(
+                f"Frame index {index} exceeds available matrices ({len(self.matrix)}). "
+                f"Using last matrix. This may indicate incorrect global_frame_index tracking."
+            )
+            return self.matrix[-1]
+
+        if index < 0:
+            logging.warning(f"Negative frame index {index}. Using first matrix.")
+            return self.matrix[0]
+
+        return self.matrix[index]
+
+    def _remap_frame_internal(self, img, mat, **kwargs):
+        """
+        Performs remapping for a single image with the given coordinate matrix.
+        
+        Parameters
+        ----------
+        img : np.ndarray
+            Raw detector image to remap.
+        mat : CoordMaps
+            Coordinate transformation matrix.
+        **kwargs : dict
+            Dictionary containing transformation parameters:
+            - p_y_key : str, attribute name for Y coordinates in matrix
+            - p_x_key : str, attribute name for X coordinates in matrix
+            - interp_type : str, interpolation method
+            - multiprocessing : bool, whether multiprocessing is enabled
+        
+        Returns
+        -------
+        result_img : np.ndarray
+            Remapped image data.
+        """
+        return self._remap_single_image_(
+            img_raw=img,
+            p_y=getattr(mat, kwargs["p_y_key"]),
+            p_x=getattr(mat, kwargs["p_x_key"]),
+            interp_type=kwargs["interp_type"],
+            multiprocessing=kwargs["multiprocessing"],
+        )
+
+    def _build_ai_list(self, frame_num, global_frame_offset=0):
+        """
+        Builds a list of angle of incidence values for each frame.
+        
+        Parameters
+        ----------
+        frame_num : list or int
+            Frame indices to process.
+        global_frame_offset : int, optional
+            Global frame index offset for batch processing. Default is 0.
+
+        Returns
+        -------
+        ai_list : list
+            List of angle of incidence values corresponding to each frame.
+        """
+        ai_list = []
+        for frame in frame_num:
+            if isinstance(self.params.ai, list) or isinstance(self.params.ai, np.ndarray):
+                ai_list.append(self.params.ai[frame + global_frame_offset])
+            else:
+                ai_list.append(self.params.ai)
+        return ai_list
+
+    def _build_converted_frame_num(self, frame_num):
+        """
+        Builds a list of original frame numbers for converted frames.
+        
+        Parameters
+        ----------
+        frame_num : list or int
+            Frame indices that were converted.
+        
+        Returns
+        -------
+        converted_frame_num : list
+            List of original frame numbers (if available) or indices.
+        """
+        converted_frame_num = []
+        if self.frame_num is None:
+            converted_frame_num = frame_num
+        else:
+            for i in frame_num:
+                if isinstance(self.frame_num, (int, np.int64)):
+                    converted_frame_num.append(self.frame_num)
+                else:
+                    converted_frame_num.append(self.frame_num[i])
+        return converted_frame_num
+
+    def _process_frame_list_multiprocessing(self, frame_num, **kwargs):
+        """
+        Processes multiple frames using multiprocessing.
+        
+        Handles global frame index tracking for batch processing.
+
+        Parameters
+        ----------
+        frame_num : list
+            List of frame indices to process (local within batch or overall).
+        **kwargs : dict
+            Configuration dictionary for remapping.
+            May include 'global_frame_index' for matrix selection context.
+
+        Returns
+        -------
+        result_img : list
+            List of remapped images.
+        """
+        result_img = []
+        kwargs_copy = kwargs.copy()
+        kwargs_copy["return_result"] = True
+        kwargs_copy["save_result"] = False
+        
+        with ThreadPoolExecutor() as executor:
+            # Use enumerate to track position in batch for global indexing
+            futures = []
+            for local_idx, frame in enumerate(frame_num):
+                # Calculate global index if offset is provided
+                if "global_frame_index" in kwargs:
+                    kwargs_copy["global_frame_index"] = kwargs["global_frame_index"] + local_idx
+
+                future = executor.submit(self._remap_general_, frame, **kwargs_copy)
+                futures.append(future)
+
+            # Collect results in order
+            for future in futures:
+                result_img.append(future.result()[2])
+
+        return result_img
+
+    def _process_frame_list_sequential(self, frame_num, **kwargs):
+        """
+        Processes multiple frames sequentially (without multiprocessing).
+        
+        Handles global frame index tracking for batch processing.
+
+        Parameters
+        ----------
+        frame_num : list
+            List of frame indices to process (local within batch or overall).
+        **kwargs : dict
+            Configuration dictionary for remapping.
+            May include 'global_frame_index' for matrix selection context.
+
+        Returns
+        -------
+        result_img : list
+            List of remapped images.
+        """
+        result_img = []
+        kwargs_copy = kwargs.copy()
+        kwargs_copy["return_result"] = True
+        kwargs_copy["save_result"] = False
+        
+        # Use enumerate to track position in batch for global indexing
+        for local_idx, frame in enumerate(frame_num):
+            # Calculate global index if offset is provided
+            if "global_frame_index" in kwargs:
+                kwargs_copy["global_frame_index"] = kwargs["global_frame_index"] + local_idx
+
+            result_img.append(self._remap_general_(frame, **kwargs_copy)[2])
+        
+        return result_img
+
+    def _process_frame_list(self, frame_num, **kwargs):
+        """
+        Handles processing of multiple frames with optional multiprocessing and result saving.
+        
+        Parameters
+        ----------
+        frame_num : list
+            List of frame indices to process.
+        **kwargs : dict
+            Configuration dictionary containing transformation and saving parameters.
+        
+        Returns
+        -------
+        tuple or None
+            If return_result is True, returns (matrix_x, matrix_y, result_img).
+            Otherwise returns None.
+        """
+         # Process frames
+        if kwargs["multiprocessing"]:
+            result_img = self._process_frame_list_multiprocessing(frame_num, **kwargs)
+        else:
+            result_img = self._process_frame_list_sequential(frame_num, **kwargs)
+        
+        # Build metadata lists
+        self.ai_list = self._build_ai_list(frame_num, global_frame_offset=self.global_frame_offset)
+        self.converted_frame_num = self._build_converted_frame_num(frame_num)
+        
+        # Store results
+        setattr(self, kwargs["result_attr"], result_img)
+        
+        # Save if requested
+        if kwargs["save_result"]:
+            self.save_nxs(
+                path_to_save=kwargs["path_to_save"],
+                h5_group=kwargs["h5_group"],
+                overwrite_file=kwargs["overwrite_file"],
+                overwrite_group=kwargs["overwrite_group"],
+                exp_metadata=kwargs["exp_metadata"],
+                smpl_metadata=kwargs["smpl_metadata"],
+            )
+        
+        # Return if requested
+        if kwargs["return_result"]:
+            matrix_x = getattr(self.matrix[0], kwargs["x_key"])
+            matrix_y = getattr(self.matrix[0], kwargs["y_key"])
+            return matrix_x, matrix_y, result_img
+        
+        return None
+
+    def _process_single_frame(self, frame_num, **kwargs):
+        """
+        Handles processing of a single frame with optional result saving.
+        
+        Parameters
+        ----------
+        frame_num : int
+            Frame index to process (local within batch or overall).
+        **kwargs : dict
+            Configuration dictionary containing transformation and saving parameters.
+            May include 'global_frame_index' for batch processing context.
+
+        Returns
+        -------
+        tuple or None
+            If return_result is True, returns (matrix_x, matrix_y, result_img).
+            Otherwise returns None.
+        """
+        img = self.img_raw[frame_num]
+
+        # Get global frame index for matrix selection (used in batch processing)
+        global_frame_idx = kwargs.get("global_frame_index", None)
+        mat = self._get_matrix_for_frame(frame_num, global_frame_index=global_frame_idx)
+        result_img = self._remap_frame_internal(img, mat, **kwargs)
+        
+        # Set metadata
+        self.ai_list = mat.ai
+        self.converted_frame_num = [self.frame_num] if hasattr(self, 'frame_num') else [frame_num]
+        
+        # Store results
+        setattr(self, kwargs["result_attr"], [result_img])
+        
+        # Save if requested
+        if kwargs["save_result"]:
+            self.save_nxs(
+                path_to_save=kwargs["path_to_save"],
+                h5_group=kwargs["h5_group"],
+                overwrite_file=kwargs["overwrite_file"],
+                overwrite_group=kwargs["overwrite_group"],
+                exp_metadata=kwargs["exp_metadata"],
+                smpl_metadata=kwargs["smpl_metadata"],
+            )
+        
+        # Return if requested
+        if kwargs["return_result"]:
+            return getattr(mat, kwargs["x_key"]), getattr(mat, kwargs["y_key"]), result_img
+        
+        return None
+
     def _remap_general_(self, frame_num, **kwargs):
         """
         Chooses a coordinate matrix for the given frame and calls remapping. Activates multiprocessing if True.
@@ -703,95 +1304,27 @@ class Conversion:
             Frame number to plot. If None, uses the first frame.
         kwargs: dict
             A dictionary with saving parameters.
+            Can include 'global_frame_index' for batch processing context.
         """
-
-        def process_frame(img, mat, path_to_save_fig):
-            """
-            Calls remapping for a single image.
-            """
-            return self._remap_single_image_(
-                img_raw=img,
-                p_y=getattr(mat, kwargs["p_y_key"]),
-                p_x=getattr(mat, kwargs["p_x_key"]),
-                interp_type=kwargs["interp_type"],
-                multiprocessing=kwargs["multiprocessing"],
-            )
-
-        keys = [
-            "img_gid_q", "img_q", "img_gid_pol",
-            "img_pol", "img_gid_pseudopol", "img_pseudopol",
-            "rad_cut", "azim_cut", "horiz_cut"
-        ]
-        for key in keys:
-            if hasattr(self, key):
-                delattr(self, key)
-
-        result_img = []
-        matrix = self.matrix[0] if len(self.matrix) == 1 else None
+        # Clean previous results
+        self._clean_previous_results()
+        
+        # Default to all frames if not specified
         if frame_num is None:
             frame_num = list(range(len(self.img_raw)))
+        
+        # Set up global frame index for matrix selection if not already provided
+        if "global_frame_index" not in kwargs and self.global_frame_offset > 0:
+            if isinstance(frame_num, list):
+                kwargs["global_frame_index"] = self.global_frame_offset
+            else:
+                kwargs["global_frame_index"] = self.global_frame_offset + frame_num
 
+        # Process based on frame_num type
         if isinstance(frame_num, list):
-            result_img = []
-            kwargs_copy = kwargs.copy()
-            kwargs_copy["return_result"] = True
-            kwargs_copy["save_result"] = False
-            if kwargs["multiprocessing"]:
-                with ThreadPoolExecutor() as executor:
-                    result_img = list(
-                        executor.map(lambda frame: self._remap_general_(frame, **kwargs_copy)[2], frame_num))
-
-            else:
-                for frame in frame_num:
-                    result_img.append(self._remap_general_(frame, **kwargs_copy)[2])
-
-            self.ai_list = []
-            for frame in frame_num:
-                if isinstance(self.params.ai, list):
-                    self.ai_list.append(self.params.ai[frame])
-                else:
-                    self.ai_list.append(self.params.ai)
-
-            self.converted_frame_num = []
-            if self.frame_num is None:
-                self.converted_frame_num = frame_num
-            else:
-                for i in frame_num:
-                    if isinstance(self.frame_num, int) or isinstance(self.frame_num, np.int64):
-                        self.converted_frame_num.append(self.frame_num)
-                    else:
-                        self.converted_frame_num.append(self.frame_num[i])
-
-            setattr(self, kwargs["result_attr"], result_img)
-            if kwargs["save_result"]:
-                self.save_nxs(path_to_save=kwargs["path_to_save"],
-                              h5_group=kwargs["h5_group"],
-                              overwrite_file=kwargs["overwrite_file"],
-                              overwrite_group=kwargs["overwrite_group"],
-                              exp_metadata=kwargs["exp_metadata"],
-                              smpl_metadata=kwargs["smpl_metadata"],
-                              )
-            if kwargs["return_result"]:
-                matrix_x = getattr(self.matrix[0], kwargs["x_key"])
-                matrix_y = getattr(self.matrix[0], kwargs["y_key"])
-                return matrix_x, matrix_y, result_img
+            return self._process_frame_list(frame_num, **kwargs)
         else:
-            img = self.img_raw[frame_num]
-            mat = matrix or self.matrix[frame_num]
-            result_img = process_frame(img, mat, frame_num)
-            self.ai_list = mat.ai
-            self.converted_frame_num = [self.frame_num] if hasattr(self, 'frame_num') else [frame_num]
-            setattr(self, kwargs["result_attr"], [result_img])
-            if kwargs["save_result"]:
-                self.save_nxs(path_to_save=kwargs["path_to_save"],
-                              h5_group=kwargs["h5_group"],
-                              overwrite_file=kwargs["overwrite_file"],
-                              overwrite_group=kwargs["overwrite_group"],
-                              exp_metadata=kwargs["exp_metadata"],
-                              smpl_metadata=kwargs["smpl_metadata"],
-                              )
-            if kwargs["return_result"]:
-                return getattr(mat, kwargs["x_key"]), getattr(mat, kwargs["y_key"]), result_img
+            return self._process_single_frame(frame_num, **kwargs)
 
     def det2q_gid(
             self,
@@ -846,7 +1379,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -979,7 +1512,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -1113,7 +1646,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -1164,7 +1697,7 @@ class Conversion:
                            radial_range=radial_range,
                            angular_range=angular_range, dang=dang, dq=dq)
 
-        # Remap detector image from pixel space to polar reciprocal space
+        # Remap detector image from pixel space to polar reciprocal space (|q|, χ)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_lab_pol",
@@ -1181,18 +1714,17 @@ class Conversion:
             overwrite_file=overwrite_file,
             overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
-            smpl_metadata=smpl_metadata
-        )
+            smpl_metadata=smpl_metadata)
+
         img = [img] if not isinstance(img, list) else img
 
-        # Plot and/or save each polar reciprocal-space map if requested
+        # Plot and/or save polar reciprocal-space maps if requested
         if plot_result or save_fig:
             for i in range(len(img)):
                 _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$",
                                    r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-
         # Return calculated axes and polar image(s) if requested
         if return_result:
             return x, y, img
@@ -1253,7 +1785,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -1302,11 +1834,9 @@ class Conversion:
         # Compute polar transformation matrices for GID geometry (|q|, χ mapping)
         self.calc_matrices("p_y_smpl_pol", recalc, multiprocessing=multiprocessing or self.multiprocessing,
                            radial_range=radial_range,
-                           angular_range=angular_range,
-                           dang=dang,
-                           dq=dq)
+                           angular_range=angular_range, dang=dang, dq=dq)
 
-        # Remap detector image from pixel space to polar reciprocal space
+        # Remap detector image from pixel space to polar reciprocal space (|q|, χ)
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_smpl_pol",
@@ -1349,8 +1879,7 @@ class Conversion:
             dq=None,
             plot_result=False,
             clims=None,
-            xlim=(None, None),
-            ylim=(None, None),
+            xlim=(None, None), ylim=(None, None),
             save_fig=False,
             path_to_save_fig="img.png",
             save_result=False,
@@ -1373,7 +1902,7 @@ class Conversion:
         multiprocessing : bool or None, optional
             Whether to use multiprocessing during computation. If None, the class default is used.
         return_result : bool, optional
-            If True, returns the calculated axes and pseudopolar image(s).
+            If True, returns the calculated axes and image(s).
         q_rad_range : tuple of float or None, optional
             (min, max) limits for the radial q-axis. If None, the full range is used.
         q_azimuth_range : tuple of float or None, optional
@@ -1419,7 +1948,7 @@ class Conversion:
             The pseudopolar image(s) corresponding to (q_rad, q_azimuth).
         """
 
-        # Delegate to batch processor if batch mode is active
+        # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pseudopol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1452,7 +1981,7 @@ class Conversion:
                            q_rad_range=q_rad_range,
                            q_azimuth_range=q_azimuth_range, dang=dang, dq=dq)
 
-        # Remap detector image to pseudopolar coordinates
+        # Remap detector image from pixel space to pseudopolar coordinates
         x, y, img = self._remap_general_(
             frame_num,
             p_y_key="p_y_lab_pseudopol",
@@ -1520,7 +2049,7 @@ class Conversion:
         multiprocessing : bool or None, optional
             Whether to use multiprocessing during computation. If None, the class default is used.
         return_result : bool, optional
-            If True, returns the calculated axes and pseudopolar image(s).
+            If True, returns the calculated axes and image(s).
         q_rad_range : tuple of float or None, optional
             (min, max) limits for the radial q-axis. If None, the full range is used.
         q_azimuth_range : tuple of float or None, optional
@@ -1566,7 +2095,7 @@ class Conversion:
             The pseudopolar GID image(s) corresponding to (q_rad, q_azimuth).
         """
 
-        # Delegate to batch processor if batch mode is active
+        # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1650,6 +2179,11 @@ class Conversion:
             Angular resolution step size (in degrees).
         dq : float
             Radial resolution step size.
+
+        Returns
+        -------
+        tuple
+            Contains arrays for q values, azimuthal angles, and the remapped image.
         """
         method = self.det2pol_gid if key == "gid" else self.det2pol
         return method(return_result=True, plot_result=False, frame_num=frame_num,
@@ -2032,29 +2566,29 @@ class Conversion:
             frame_num : int, list, or None, optional
                 Frame index or list of indices to analyze. If None, all frames are used.
             radial_range : list or tuple, optional
-                Radial q-range as [min, max] in Å⁻¹. If None, full range is used.
+                Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
             angular_range : list, optional
                 Azimuthal integration range in degrees as [min, max] (default [0, 90]).
             multiprocessing : bool or None, optional
-                If True, use multiprocessing for faster processing. If None, uses default class setting.
+                If True, use multiprocessing for faster processing. If None, use default setting.
             return_result : bool, optional
                 If True, returns the computed azimuthal profile.
             save_result : bool, optional
-                If True, saves the profile to an HDF5 file.
+                If True, saves the computed profile to an HDF5 file.
             save_fig : bool, optional
-                If True, saves a plot of the profile.
+                If True, saves the plot of the profile to a file.
             path_to_save_fig : str, optional
                 File path for saving the figure if `save_fig` is True. Default is 'azim_cut.tiff'.
             plot_result : bool, optional
                 If True, displays the azimuthal profile plot.
             shift : float, optional
-                Vertical shift applied to the profile for display purposes. Default is 1.
+                Vertical shift applied to the profile for display purposes.
             xlim : tuple or None, optional
-                Limits for the X-axis (degrees). Default is None (auto).
+                X-axis limits as (min, max). If None, limits are auto-scaled.
             ylim : tuple or None, optional
-                Limits for the Y-axis. Default is None (auto).
+                Y-axis limits as (min, max). If None, limits are auto-scaled.
             dang : float, optional
-                Angular resolution in degrees for binning. Default is 0.5.
+                Angular resolution in degrees for binning (default: 0.5).
             dq : float or None, optional
                 Radial bin width in Å⁻¹. If None, uses default binning.
             path_to_save : str, optional
@@ -2064,7 +2598,7 @@ class Conversion:
             overwrite_file : bool, optional
                 If True, overwrites existing HDF5 file. Default is True.
             overwrite_group : bool, optional
-                If True, overwrites existing HDF5 group. Default is False.
+                If True, overwrites existing group within the HDF5 file. Default is False.
             exp_metadata : pygid.ExpMetadata or None, optional
                 Experimental metadata to store with results.
             smpl_metadata : pygid.SampleMetadata or None, optional
@@ -2137,17 +2671,17 @@ class Conversion:
         frame_num : int, list, or None, optional
             Frame index or list of indices to analyze. If None, all frames are used.
         radial_range : list or tuple, optional
-            Radial q-range as [min, max] in Å⁻¹. If None, full range is used.
+            Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
         angular_range : list, optional
             Azimuthal integration range in degrees as [min, max] (default [0, 90]).
         multiprocessing : bool or None, optional
-            If True, use multiprocessing for faster processing. If None, uses default class setting.
+            If True, use multiprocessing for faster processing. If None, use default setting.
         return_result : bool, optional
             If True, returns the computed azimuthal profile.
         save_result : bool, optional
-            If True, saves the profile to an HDF5 file.
+            If True, saves the computed profile to an HDF5 file.
         save_fig : bool, optional
-            If True, saves a plot of the profile.
+            If True, saves the plot of the profile to a file.
         path_to_save_fig : str, optional
             File path for saving the figure if `save_fig` is True. Default is 'azim_cut.tiff'.
         plot_result : bool, optional
@@ -2169,7 +2703,7 @@ class Conversion:
         overwrite_file : bool, optional
             If True, overwrites existing HDF5 file. Default is True.
         overwrite_group : bool, optional
-            If True, overwrites existing HDF5 group. Default is False.
+            If True, overwrites existing group within the HDF5 file. Default is False.
         exp_metadata : pygid.ExpMetadata or None, optional
             Experimental metadata to store with results.
         smpl_metadata : pygid.SampleMetadata or None, optional
@@ -2638,7 +3172,6 @@ class Conversion:
                 linewidth=linewidth, radius=radius, cmap=cmap,
                 text_color=text_color, save_fig=save_fig, path_to_save_fig=path_to_save_fig,
                 xlim=xlim, ylim=ylim)
-
 def determine_recalc_key(current_range, global_range, array, step):
     """
         Determines whether recalculation is needed based on the position of minimum and maximum values
@@ -2861,5 +3394,4 @@ def add_frame_number(filename, frame_num):
     file_root, file_ext = os.path.splitext(filename)
     frame_str = str(frame_num).zfill(4)
     return f"{file_root}_{frame_str}{file_ext}"
-
 
