@@ -433,7 +433,6 @@ def load_martix(root_entry, axes, frame_num):
 
 def load_params(root_entry, frame_num):
     ai = get_ai(root_entry, frame_num)
-
     params = ExpParams(
         SDD=root_entry['instrument/detector/distance'][()],
         wavelength=root_entry['instrument/monochromator/wavelength'][()] * 1e10,
@@ -499,6 +498,7 @@ def get_description(img_type):
         'azim_cut_gid': 'azimuthal profile for GID geometry',
         'azim_cut': 'azimuthal profile for transmission geometry',
         'horiz_cut_gid': 'horizontal profile for GID geometry',
+        'vert_cut_gid': 'vertical profile for GID geometry',
     }
     return description_dict.get(img_type)
 
