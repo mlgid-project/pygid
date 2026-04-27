@@ -245,12 +245,6 @@ class DataSaver:
         else:
             raise ValueError("conversion process is not correct. ai_list was not calculated")
 
-        # Ensure the converted frame number exists
-        if hasattr(self.sample, 'converted_frame_num'):
-            self.frame_num = self.sample.converted_frame_num
-        else:
-            raise ValueError("conversion process is not correct. converted_frame_num was not calculated")
-
         # Set default save path and entry group if none provided
         if self.path_to_save is None:
             self.path_to_save = "result.h5"
@@ -262,7 +256,7 @@ class DataSaver:
         keys = [
             "img_gid_q", "img_q", "img_gid_pol",
             "img_pol", "img_gid_pseudopol", "img_pseudopol",
-            "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid",
+            "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid", "vert_cut_gid",
             "rad_cut", "azim_cut"
         ]
 
@@ -337,27 +331,11 @@ class DataSaver:
 
             # Save incident angles and frame numbers
             save_single_data(root[f"/{self.h5_group}/instrument"], 'angle_of_incidence', self.ai_list, extend_list=True)
-            save_single_data(root[f"/{self.h5_group}/data"], 'frame_num', self.frame_num, extend_list=True)
+            # save_single_data(root[f"/{self.h5_group}/data"], 'frame_num', self.frame_num, extend_list=True)
 
             # Save experimental metadata
-            if self.exp_metadata is None:
-                if isinstance(self.original_path, list):
-                    self.exp_metadata = ExpMetadata(filename=[str(Path(p).resolve())
-                                                              for p in self.original_path])
-                # self.exp_metadata = ExpMetadata(filename=self.original_path)
-                elif isinstance(self.original_path, str):
-                    self.exp_metadata = ExpMetadata(filename= str(Path(self.original_path).resolve()))
-                else:
-                    self.exp_metadata = ExpMetadata(filename=self.original_path)
-            if not hasattr(self.exp_metadata, "filename"):
-                # self.exp_metadata.filename = self.original_path if isinstance(self.original_path, list) else [self.original_path]
-                paths = self.original_path if isinstance(self.original_path, list) else [self.original_path]
-                if None in paths:
-                    self.exp_metadata.filename = None
-                else:
-                    self.exp_metadata.filename = [str(Path(p).resolve()) for p in paths]
-            if not 'filename' in self.exp_metadata.extend_fields:
-                self.exp_metadata.extend_fields.append('filename')
+            self.exp_metadata = self._setup_exp_metadata(len(data))
+            self._set_frame_num(self.sample.converted_frame_num, len(data))
             save_exp_metadata(root, self.exp_metadata, self.h5_group)
 
             # Save sample metadata
@@ -379,6 +357,51 @@ class DataSaver:
             self.logger.info(f"Saved in {Path(self.path_to_save).resolve()} in group {self.h5_group}")
         return
 
+    def _setup_exp_metadata(self, size):
+        """
+        Set up experimental metadata, ensuring filename is properly configured.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            The data array being saved, used to determine filename list length for batch processing.
+
+        Returns
+        -------
+        ExpMetadata
+            Properly configured experimental metadata instance.
+        """
+        if isinstance(self.original_path, list):
+            filename = [str(Path(p).resolve()) for p in self.original_path]
+        elif isinstance(self.original_path, str):
+            filename = [str(Path(self.original_path).resolve())] * size
+        else:
+            filename = self.original_path
+
+        if self.exp_metadata is None:
+            self.exp_metadata = ExpMetadata(filename=filename)
+        else:
+            if hasattr(self.exp_metadata, "filename") and self.exp_metadata.filename is not None:
+                pass
+            else:
+                self.exp_metadata.filename = filename
+
+        # Ensure filename is in extend_fields for proper HDF5 saving
+        if not hasattr(self.exp_metadata, 'extend_fields'):
+            self.exp_metadata.extend_fields = []
+        if 'filename' not in self.exp_metadata.extend_fields:
+            self.exp_metadata.extend_fields.append('filename')
+
+        return self.exp_metadata
+
+    def _set_frame_num(self, frame_num, size):
+        if isinstance(frame_num, int):
+            frame_num = [frame_num]*size
+        elif isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
+            frame_num = frame_num
+        else:
+            raise ValueError("Frame number must be int or list")
+        self.exp_metadata.frame_num = frame_num
 
 def save_matrix(root, h5_group, matrix, img_name):
     """
@@ -418,7 +441,8 @@ def save_matrix(root, h5_group, matrix, img_name):
         "rad_cut_gid": ["q_gid_pol"],
         "azim_cut": ["ang_pol"],
         "azim_cut_gid": ["ang_gid_pol"],
-        "horiz_cut_gid": ["q_xy"]
+        "horiz_cut_gid": ["q_xy"],
+        "vert_cut_gid": ["q_z"]
     }
 
     # Determine which keys to save for this image type
@@ -431,16 +455,18 @@ def save_matrix(root, h5_group, matrix, img_name):
     # Save each coordinate array as float32 with proper NeXus attributes
     for name in coords_dict:
         data = coords_dict[name]
+        attrs = {'interpretation': 'axis', 'units': '1/Angstrom'} if name.startswith("q_") else {'interpretation': 'axis', 'units': 'deg'}
         save_single_data(root[f"{h5_group}/data"], name,
-                         np.array(data, dtype=np.float64), attrs={'interpretation': 'axis', 'units': '1/Angstrom'})
+                         np.array(data, dtype=np.float64), attrs=attrs
+                         )
 
     # Add 'signal' and 'axes' attributes for NeXus compliance and silx visualisation
     if len(keys)==0:
         raise ValueError("Conversion was incorrect, or data is already saved - repeat conversion")
     elif len(keys) == 2:
-        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[1], keys[0]]})
+        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_ind", keys[1], keys[0]]})
     else:
-        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_num", keys[0]]})
+        root[f"{h5_group}/data"].attrs.update({'signal': img_name, 'axes': ["frame_ind", keys[0]]})
 
 
 def modify_string(s, first_modification=True):
@@ -482,7 +508,7 @@ def read_dataset_size(root, h5_group):
         "img_gid_q", "img_q", "img_gid_pol",
         "img_pol", "img_gid_pseudopol", "img_pseudopol",
         "rad_cut", "azim_cut",
-        "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid",
+        "rad_cut_gid", "azim_cut_gid", "horiz_cut_gid", "vert_cut_gid",
 
     ]
 
@@ -573,9 +599,21 @@ def create_dataset(root, h5_group, name, data):
             name=name,
             data=data,
             maxshape=maxshape,
-            chunks=True)
-    # if root[dataset_name].ndim != 3:
-    #     raise ValueError(f"The dataset '{dataset_name}' must have 3 dimensions.")
+            chunks=True,
+            dtype=np.float32)
+
+    root_data = root[f'/{h5_group}/data']
+    if 'frame_ind' not in root_data:
+        dset = root_data.create_dataset(
+            'frame_ind',
+            data=np.arange(len(data), dtype=np.float32),
+            maxshape=(None,)
+        )
+    else:
+        dset = root_data['frame_ind']
+        old_len = dset.shape[0]
+        dset.resize(old_len + len(data), axis=0)
+        dset[old_len:] = np.arange(dset[old_len - 1] + 1, dset[old_len - 1] + 1 + len(data))
 
 
 def ensure_group_exists(root, group_name, attrs=None):
@@ -694,7 +732,7 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
         if hasattr(metadata, data_name):
             data = getattr(metadata, data_name)
         else:
-            data = str(data_name)
+            data = 'nan'
         if data_name in root and not extend_list:
             # return
             del root[data_name]
@@ -765,10 +803,12 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
     # metadata that shold be extended
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
+    save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'frame_num', 'frame_num', required=True,
+                         extend_list=True)
 
     saved_attr = ['extend_fields','instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
                   'source_name', 'start_time', 'end_time', 'detector_name', 'detector', 'source',
-                  'filename']
+                  'filename', 'frame_num']
     for attr_name in exp_metadata.__dict__:
         if attr_name not in saved_attr:
             save_single_metadata(root[f"/{h5_group}/instrument"], exp_metadata, attr_name, attr_name,
@@ -1109,6 +1149,8 @@ def _save_matched_data(root, group_name, container_matched):
         container_matched : dict
             Dictionary mapping keys to lists of unique solutions.
     """
+    if container_matched is None:
+        return
     grp = root[group_name]
     if container_matched is None:
         return
@@ -1159,6 +1201,8 @@ def _save_img_container_detect(root, group_name, img_container_detect):
         Container of detected image results to be saved.
     """
     # Convert detected images to structured array
+    if img_container_detect is None:
+        return
     results_array = get_results_detect_array(img_container_detect)
     group = root[group_name]
 
@@ -1234,6 +1278,8 @@ def _save_img_container_fit(root, group_name, img_container_fit):
     img_container_fit : pygidFIT.ImageContainer object
         Container of fitted image results.
     """
+    if img_container_fit is None:
+        return
 
     # Convert fitted images to structured arrays
     results_array = get_results_fit_array(img_container_fit)
