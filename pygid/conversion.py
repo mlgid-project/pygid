@@ -160,11 +160,12 @@ class Conversion:
         If number_to_combine is set, ensures batch_size is a multiple of it
         to avoid processing incomplete groups.
         """
+        if self.number_to_combine>self.batch_size:
+            raise ValueError("number_to_combine cannot be greater than batch size")
         if self.number_to_combine is not None:
             rest = self.batch_size % self.number_to_combine
             if rest != 0:
                 self.batch_size -= rest
-                logging.info(f"Adjusted batch_size to {self.batch_size} for compatibility with number_to_combine={self.number_to_combine}")
 
     def _create_path_batches(self):
         """
@@ -377,8 +378,7 @@ class Conversion:
 
         # Warn if unsupported options were used
         if plot_result or return_result:
-            warnings.warn("Plotting and returning of the result are not supported in batch analysis mode.",
-                         category=UserWarning)
+            logging.getLogger().warning("Plotting and returning of the result are not supported in batch analysis mode.")
 
     def Batch(self, path_to_save, remap_func="det2q_gid", h5_group=None, exp_metadata=None, smpl_metadata=None,
               overwrite_file=True, overwrite_group=False,
@@ -654,7 +654,7 @@ class Conversion:
                 averaged_images.append(np.nanmean(self.img_raw[i:i + self.number_to_combine], axis=0))
             remaining = num_images % self.number_to_combine
             if remaining > 0:
-                warnings.warn(f"{remaining} images left, averaging them separately.", UserWarning)
+                logging.getLogger().warning(f"{remaining} images left, averaging them separately.")
                 averaged_images.append(np.mean(self.img_raw[-remaining:], axis=0))
             self.img_raw = np.array(averaged_images)
 
@@ -1030,14 +1030,14 @@ class Conversion:
 
         # Validate index
         if index >= len(self.matrix):
-            logging.warning(
+            logging.getLogger().warning(
                 f"Frame index {index} exceeds available matrices ({len(self.matrix)}). "
                 f"Using last matrix. This may indicate incorrect global_frame_index tracking."
             )
             return self.matrix[-1]
 
         if index < 0:
-            logging.warning(f"Negative frame index {index}. Using first matrix.")
+            logging.getLogger().warning(f"Negative frame index {index}. Using first matrix.")
             return self.matrix[0]
 
         return self.matrix[index]
