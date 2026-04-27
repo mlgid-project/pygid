@@ -478,7 +478,7 @@ class Conversion:
             logging.error(f"Failed to load batch data: {e}")
             raise
 
-    def _prepare_batch_metadata(self, exp_metadata, path_batch):
+    def _prepare_batch_metadata(self, exp_metadata, path_batch, size):
         """
         Prepares or creates batch metadata.
         
@@ -494,14 +494,15 @@ class Conversion:
         ExpMetadata
             Prepared metadata object.
         """
+        if isinstance(path_batch, list):
+            filename = path_batch
+        else:
+            filename = [path_batch]*size
         if exp_metadata is None:
             # Extract filename from path_batch
-            filename = path_batch[0] if isinstance(path_batch, list) else path_batch
             exp_metadata = ExpMetadata(filename=filename)
-            logging.debug(f"Created new ExpMetadata for batch: {filename}")
         else:
             # Update filename
-            filename = path_batch[0] if isinstance(path_batch, list) else path_batch
             exp_metadata.filename = filename
         
         return exp_metadata
@@ -597,7 +598,7 @@ class Conversion:
             self.update_conversion()
             
             # Step 4: Prepare metadata
-            exp_metadata = self._prepare_batch_metadata(exp_metadata, path_batch)
+            exp_metadata = self._prepare_batch_metadata(exp_metadata, path_batch, len(self.img_raw))
             
             # Step 5: Get remapping function
             remap = self._get_remap_function(remap_func)
@@ -928,7 +929,8 @@ class Conversion:
             "rad_cut_gid": ["q_gid_pol", r"$|q|\ \mathrm{[\AA^{-1}]}$"],
             "azim_cut": ["ang_pol", r"$\chi$ [$\degree$]"],
             "azim_cut_gid": ["ang_gid_pol", r"$\chi$ [$\degree$]"],
-            "horiz_cut_gid": ["q_xy", r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]']
+            "horiz_cut_gid": ["q_xy", r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]'],
+            "vert_cut_gid": ["q_z", r'$q_{z}$ [$\mathrm{\AA}^{-1}$]']
         }
 
         img, axes_labels = None, [None, None]
@@ -986,7 +988,7 @@ class Conversion:
         result_keys = [
             "img_gid_q", "img_q", "img_gid_pol",
             "img_pol", "img_gid_pseudopol", "img_pseudopol",
-            "rad_cut", "azim_cut", "horiz_cut"
+            "rad_cut", "azim_cut", "horiz_cut", "vert_cut"
         ]
         for key in result_keys:
             if hasattr(self, key):
@@ -1672,7 +1674,7 @@ class Conversion:
             The polar reciprocal-space image(s) corresponding to (|q|, χ).
         """
 
-        # If batch mode is active, delegate execution to the batch processor
+        # If batch mode is active, delegate the task to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pol", h5_group, exp_metadata, smpl_metadata, overwrite_file,
                              overwrite_group,
@@ -1722,8 +1724,7 @@ class Conversion:
         if plot_result or save_fig:
             for i in range(len(img)):
                 _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
-                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                   r"$\chi$ [$\degree$]", 'auto', plot_result,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
         # Return calculated axes and polar image(s) if requested
         if return_result:
@@ -1814,8 +1815,7 @@ class Conversion:
         # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                             overwrite_group,
-                             save_result, plot_result, return_result)
+                             overwrite_group, save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
@@ -1854,14 +1854,14 @@ class Conversion:
             overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
+
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save each polar GID map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
                 _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
-                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                   r"$\chi$ [$\degree$]", 'auto', plot_result,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
         # Return calculated axes and polar GID image(s) if requested
         if return_result:
@@ -1922,7 +1922,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -1999,16 +1999,15 @@ class Conversion:
             overwrite_group=overwrite_group,
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata)
+
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save each pseudopolar map if requested
         if plot_result or save_fig:
             for i in range(len(img)):
                 _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
-                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                   r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-
         # Return calculated axes and pseudopolar image(s) if requested
         if return_result:
             return x, y, img
@@ -2069,7 +2068,7 @@ class Conversion:
         save_fig : bool, optional
             If True, saves the plotted figure. Default is False.
         path_to_save_fig : str, optional
-            Path to save the figure if `save_fig` is True. Default is "img.png".
+            Path to save the figure if save_fig is True. Default is "img.png".
         save_result : bool, optional
             If True, saves the resulting data to an HDF5 file. Default is False.
         path_to_save : str, optional
@@ -2098,8 +2097,7 @@ class Conversion:
         # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
             res = self.Batch(path_to_save, "det2pseudopol_gid", h5_group, exp_metadata, smpl_metadata, overwrite_file,
-                             overwrite_group,
-                             save_result, plot_result, return_result)
+                             overwrite_group, save_result, plot_result, return_result)
             self.batch_activated = True
             return res
 
@@ -2154,8 +2152,7 @@ class Conversion:
         if plot_result or save_fig:
             for i in range(len(img)):
                 _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
-                                   r"$|q|\ \mathrm{[\AA^{-1}]}$",
-                                   r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
+                                   r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
         # Return calculated axes and pseudopolar GID image(s) if requested
         if return_result:
@@ -2323,7 +2320,7 @@ class Conversion:
 
         Parameters
         ----------
-        frame_num : int, list or None, optional
+        frame_num : int, list, or None, optional
             Frame number to analyze. If None, all data will be used.
         radial_range : list or tuple, optional
             Radial (q) range as [min, max] in Å⁻¹. If None, full range is used.
@@ -2485,7 +2482,7 @@ class Conversion:
             q_abs_values : ndarray
                 Scattering vector magnitude values in Å⁻¹.
             radial_profile : ndarray or list of ndarray
-                Computed radial intensity profile(s).
+                Computed radial profile(s).
         """
         # Check if batch mode is active
         if self.batch_activated:
@@ -2689,7 +2686,7 @@ class Conversion:
         shift : float, optional
             Vertical shift applied to the profile for display purposes. Default is 1.
         xlim : tuple or None, optional
-            Limits for the X-axis (degrees). Default is None (auto).
+            Limits for the X-axis (phi range). Default is None (auto).
         ylim : tuple or None, optional
             Limits for the Y-axis. Default is None (auto).
         dang : float, optional
@@ -2833,7 +2830,7 @@ class Conversion:
         phi_abs_values : ndarray
             Azimuthal angle values in degrees.
         azim_profile : ndarray or list of ndarray
-            Computed azimuthal intensity profile(s).
+            Computed azimuthal profile(s).
         """
 
         if self.batch_activated:
@@ -3017,6 +3014,123 @@ class Conversion:
             return (q_hor_values, horiz_profile[0]) if horiz_profile.shape[0] == 1 else (
                 q_hor_values, horiz_profile)
 
+    def vert_profile(self, **kwargs):
+        return self.vert_profile_gid(**kwargs)
+
+    def vert_profile_gid(
+            self,
+            frame_num=None,
+            q_xy_range=[0, 0.2],
+            q_z_range=[0, 4],
+            dq=None,
+            multiprocessing=None,
+            return_result=False,
+            save_result=False,
+            save_fig=False,
+            path_to_save_fig='vert_cut.tiff',
+            plot_result=False,
+            shift=1,
+            xlim=(None, None),
+            ylim=(None, None),
+            path_to_save='result.h5',
+            h5_group=None,
+            overwrite_file=True,
+            overwrite_group=False,
+            exp_metadata=None,
+            smpl_metadata=None
+    ):
+        """
+        Computes and optionally plots the vertical (q_z) line profile from a GID reciprocal-space map.
+
+        The method integrates the 2D reciprocal-space image along the q_xy axis within a given range,
+        resulting in a 1D vertical intensity profile as a function of q_z.
+
+        Parameters
+        ----------
+        frame_num : int, list, or None, optional
+            Frame index or list of indices to analyze. If None, the first or current frame is used.
+        q_xy_range : list or tuple, optional
+            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 4].
+        q_z_range : list or tuple, optional
+            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 0.2].
+        dq : float or None, optional
+            Reciprocal-space step size (Δq). If None, existing resolution is used.
+        multiprocessing : bool or None, optional
+            If True, enables multiprocessing for faster computation. If None, uses default setting.
+        return_result : bool, optional
+            If True, returns the computed vertical profile.
+        save_result : bool, optional
+            If True, saves the computed profile to an HDF5 file.
+        save_fig : bool, optional
+            If True, saves the vertical profile plot to file.
+        path_to_save_fig : str, optional
+            Path for saving the figure if `save_fig` is True. Default is 'vert_cut.tiff'.
+        plot_result : bool, optional
+            If True, displays the computed vertical profile. Default is False.
+        shift : float, optional
+            Vertical offset applied to the plotted profile. Default is 1.
+        xlim : tuple or None, optional
+            Limits for the X-axis (q_z). Default is None (auto).
+        ylim : tuple or None, optional
+            Limits for the Y-axis (intensity). Default is None (auto).
+        path_to_save : str, optional
+            Path where the results will be saved if `save_result` is True. Default is 'result.h5'.
+        h5_group : str or None, optional
+            HDF5 group name under which to store the data. Default is None.
+        overwrite_file : bool, optional
+            If True, overwrites existing HDF5 file when saving. Default is True.
+        overwrite_group : bool, optional
+            If True, overwrites existing group within the HDF5 file. Default is False.
+        exp_metadata : pygid.ExpMetadata or None, optional
+            Experimental metadata to be stored with the result. Default is None.
+        smpl_metadata : pygid.SampleMetadata or None, optional
+            Sample-related metadata to be stored with the result. Default is None.
+
+        Returns
+        -------
+        q_vert_values : ndarray
+            q_z-axis values of the vertical profile (Å⁻¹).
+        vert_cut : ndarray or list of ndarray
+            Computed vertical intensity profile(s).
+        """
+
+        if self.batch_activated:
+            res = self.Batch(path_to_save, "vert_profile", h5_group, exp_metadata, smpl_metadata, overwrite_file,
+                             overwrite_group,
+                             save_result, plot_result, return_result)
+            self.batch_activated = True
+            return res
+
+        q_hor_values, q_vert_values, img_q = self._get_q_data(frame_num, q_xy_range, q_z_range, dq)
+        img_q = np.array(img_q)
+        img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
+        vert_profile = np.nanmean(img_q, axis=2)
+        if plot_result or save_fig:
+            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+                          x_values = q_vert_values,
+                          profiles = vert_profile,
+                          xlabel = r'$q_{z}$ [$\mathrm{\AA}^{-1}$]',
+                          shift = shift,
+                          xlim = xlim,
+                          ylim = ylim,
+                          plot_result = plot_result,
+                          save_fig = save_fig,
+                          path_to_save_fig = path_to_save_fig)
+
+        setattr(self, "vert_cut_gid", vert_profile)
+        delattr(self, "img_gid_q")
+        if save_result:
+            self.save_nxs(path_to_save=path_to_save,
+                          h5_group=h5_group,
+                          overwrite_file=overwrite_file,
+                          overwrite_group=overwrite_group,
+                          exp_metadata=exp_metadata,
+                          smpl_metadata=smpl_metadata)
+
+        if return_result:
+            return (q_vert_values, vert_profile[0]) if vert_profile.shape[0] == 1 else (
+                q_vert_values, vert_profile)
+
     def _remap_single_image_(self, img_raw=None, interp_type="INTER_LINEAR", multiprocessing=False, p_y=None, p_x=None):
         """
         Applies a geometric transformation to a single 2D image using remapping coordinates.
@@ -3040,6 +3154,7 @@ class Conversion:
         np.ndarray
             The remapped image as a 2D array.
         """
+
         remap_image = fast_pixel_remap(img_raw, p_y, p_x, use_gpu=self.use_gpu, interp_type=interp_type,
                                        multiprocessing=multiprocessing)
         return remap_image
@@ -3057,12 +3172,12 @@ class Conversion:
         else:
             self.matrix[0].save_instance()
 
-    def make_simulation(self, frame_num=0, crystal = None,
+    def make_simulation(self, frame_num=0, crystal=None,
                         path_to_cif=None, orientation=None,
                         plot_result=True, plot_mi=False, return_result=False, move_fromMW=False,
                         min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=None,
                         text_color='black', save_fig=False, path_to_save_fig='simul_result.png',
-                        xlim = (None, None), ylim = (None, None)
+                        xlim=(None, None), ylim=(None, None)
                         ):
         """
             Perform GIWAXS simulation based on crystal definitions.
@@ -3159,19 +3274,20 @@ class Conversion:
 
         if crystal:
             return make_simulation_new(self,
-                frame_num=frame_num, crystal=crystal, plot_result=plot_result,
-                return_result=return_result, move_fromMW=move_fromMW,
-                save_fig=save_fig, path_to_save_fig=path_to_save_fig,
-                clims = clims, xlim=xlim, ylim=ylim
-            )
+                                       frame_num=frame_num, crystal=crystal, plot_result=plot_result,
+                                       return_result=return_result, move_fromMW=move_fromMW,
+                                       save_fig=save_fig, path_to_save_fig=path_to_save_fig,
+                                       clims=clims, xlim=xlim, ylim=ylim
+                                       )
         else:
             return make_simulation_old(self,
-                frame_num=frame_num, path_to_cif=path_to_cif, orientation=orientation,
-                plot_result=plot_result, plot_mi=plot_mi, return_result=return_result,
-                move_fromMW=move_fromMW, min_int=min_int, clims=clims, vmin=vmin, vmax=vmax,
-                linewidth=linewidth, radius=radius, cmap=cmap,
-                text_color=text_color, save_fig=save_fig, path_to_save_fig=path_to_save_fig,
-                xlim=xlim, ylim=ylim)
+                                       frame_num=frame_num, path_to_cif=path_to_cif, orientation=orientation,
+                                       plot_result=plot_result, plot_mi=plot_mi, return_result=return_result,
+                                       move_fromMW=move_fromMW, min_int=min_int, clims=clims, vmin=vmin, vmax=vmax,
+                                       linewidth=linewidth, radius=radius, cmap=cmap,
+                                       text_color=text_color, save_fig=save_fig, path_to_save_fig=path_to_save_fig,
+                                       xlim=xlim, ylim=ylim)
+
 def determine_recalc_key(current_range, global_range, array, step):
     """
         Determines whether recalculation is needed based on the position of minimum and maximum values

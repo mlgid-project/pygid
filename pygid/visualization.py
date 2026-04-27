@@ -709,8 +709,8 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
             fig.tight_layout(pad=3)
             cmap = colors.LinearSegmentedColormap.from_list("mycmap", ["royalblue", "mediumorchid", "orange"])
             norm = Normalize(vmin=0, vmax=len(profiles))
-            if not plot_result:
-                plt.close()
+            # if not plot_result:
+            #     plt.close()
             for i, line in enumerate(profiles):
                 ax.plot(x_values, line * 2 ** (i * shift), color=cmap(norm(i)))
 
