@@ -308,7 +308,51 @@ class NexusFile:
                 raise ValueError(f"data_root {data_root} not found")
             del root[data_root]
 
+    def set_user_info(self, user_information:dict, entry=None):
+        """
+        Parameters
+        ----------
+        user_information : dict
+            Dictionary of user information. Can include:
+                - field_name
+                - name
+                - role: 'local_contact', 'principal_investigator', or 'proposer'
+                - affiliation
+                - address
+                - telephone_number
+                - fax_number
+                - email
+                - facility_user_id
+                - ORCID
 
+        entry : str or None (all entries)
+            NXentry group to add the user information to.
+        """
+        with h5py.File(self.path, "r+") as root:
+            if entry is None:
+                for e in self.entry_dict:
+                    _set_user_information_single_entry(root[e], user_information)
+            elif isinstance(entry, str):
+                _set_user_information_single_entry(root[entry], user_information)
+            else:
+                raise TypeError(f"entry {entry} is not a string")
+
+
+def _set_user_information_single_entry(h5grp, user_information):
+    """Saves the user information."""
+
+    h5subgrp = h5grp.require_group('users')
+    h5subgrp.attrs.update({'NX_class': 'NXuser', 'EX_required': 'true'})
+
+    field_name = user_information.get('field_name', 'user_1')
+    if field_name in h5subgrp:
+        del h5subgrp[field_name]
+    h5subgrp.create_group(field_name)
+    h5subgrp[field_name].attrs.update({'NX_class': 'NXuser', 'EX_required': 'true'})
+    for name in user_information:
+        if name == field_name:
+            continue
+        h5subgrp[field_name].create_dataset(name, data = user_information[name]).attrs.update({'type': 'NX_CHAR'})
 
 def read_group(h5grp):
     """Recursively read an HDF5 group into a dictionary."""

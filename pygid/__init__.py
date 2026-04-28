@@ -6,4 +6,4 @@ from .conversion import Conversion
 from .nexus_reader import NexusFile
 from .datasets import get_dataset
 
-__version__ = "0.2.8"
+__version__ = "0.2.9"
