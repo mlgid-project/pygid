@@ -1164,7 +1164,7 @@ def _save_matched_data(root, group_name, container_matched):
         results_array = container_matched.results_arrays[i]
         grp.create_dataset(field_name, data=results_array)
     if hasattr(container_matched, 'metadata'):
-        _save_metadata_dict(container_matched.metadata, root, group_name.split('/')[1], 'mlgidmatched')
+        _save_metadata_dict(container_matched.metadata, root, group_name.split('/')[1], 'mlgidmatch')
 
 pygid_results_dtype = np.dtype([
     ('amplitude', 'f4'),

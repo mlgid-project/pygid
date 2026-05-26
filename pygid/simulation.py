@@ -272,15 +272,22 @@ def make_simulation_new(conversion, frame_num=0, crystal=None, plot_result=True,
             If `return_result` is False, returns None.
         """
     try:
+        q_xy_min = conversion.matrix[0].q_xy_range[0]
+        q_z_min = conversion.matrix[0].q_z_range[0]
         q_xy_max = conversion.matrix[0].q_xy_range[1]
         q_z_max = conversion.matrix[0].q_z_range[1]
     except:
+        q_xy_min = conversion.matrix[0].q_xy[0]
+        q_z_min = conversion.matrix[0].q_z[0]
         q_xy_max = conversion.matrix[0].q_xy[-1]
         q_z_max = conversion.matrix[0].q_z[-1]
 
     ai = conversion.matrix[0].ai if len(conversion.matrix) == 1 else conversion.matrix[frame_num].ai
 
-    simul_params = ExpParameters(q_xy_max=q_xy_max, q_z_max=q_z_max, en=12398 / conversion.params.wavelength, ai=ai)
+    simul_params = ExpParameters(
+        q_xy_range=(q_xy_min, q_xy_max),
+        q_z_range=(q_z_min, q_z_max),
+        en=12398 / conversion.params.wavelength, ai=ai)
 
     if crystal is None:
         raise ValueError("No structures were set in crystal parameter")
@@ -512,6 +519,7 @@ def sort_simul_data_old(simulated_data):
     Raises
     ------
     AssertionError
+        If input arrays within a tuple do not have consistent lengths.
         If input arrays within a tuple do not have consistent lengths.
     ValueError
         If the shape of `q` is not supported.

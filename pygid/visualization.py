@@ -456,7 +456,7 @@ def add_single_simul_data(
             for xi, yi, text in zip(x, y, mi):
                 txt = ax.text(
                     xi, yi, str(text),
-                    fontsize=8,
+                    fontsize=crystal.get('text_size', 8),
                     color=crystal.get('text_color', 'black'),
                     weight='bold',
                     ha='center',
@@ -489,8 +489,7 @@ def add_single_simul_data(
                     angle_to_plot = np.arctan(q_z_max / q_xy_max) - 0.1
                     pos_xy = rad * np.sin(angle_to_plot) - q_xy_max * 0.2
                     pos_z = rad * np.cos(angle_to_plot)
-
-                txt = ax.text(pos_xy, pos_z, str(text), fontsize=8, color=crystal.get('text_color', 'black'), weight='bold')
+                txt = ax.text(pos_xy, pos_z, str(text), fontsize=crystal.get('text_size', 8), color=crystal.get('text_color', 'black'), weight='bold')
                 texts.append(txt)
                 num += 1
 
