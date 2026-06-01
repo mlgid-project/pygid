@@ -719,7 +719,6 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
 
             if None not in (xlim[0], xlim[1]):
                 ax.set_ylim(xlim)
-            # ax.set_xlim(xlim)
             if None not in (ylim[0], ylim[1]):
                 ax.set_ylim(ylim)
 

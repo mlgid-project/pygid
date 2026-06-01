@@ -884,6 +884,73 @@ class Conversion:
                             plot_result, clims, xlim, ylim,
                             save_fig, path_to_save_fig)
 
+    def get_result(self, frame_num=None):
+        """
+        Returns axes and image(s) after the conversion.
+
+        Parameters
+        -----------
+        frame_num : int or None, optional
+            Frame number to return. If None, returns all frames. Default is None.
+
+        Returns
+        -------
+        x : array
+            The x-axis values of the image (in pixels).
+        y : array
+            The y-axis values of the image (in pixels).
+        img : single 2D-array or 1D-array or list of arrays
+            The converted image/profile.
+        """
+        key_maps = {
+            "img_gid_q": ["q_xy", "q_z"],
+            "img_q": ["q_x", "q_y"],
+            "img_gid_pol": ["q_gid_pol", "ang_gid_pol"],
+            "img_pol": ["q_pol", "ang_pol"],
+            "img_gid_pseudopol": ["q_gid_rad", "q_gid_azimuth"],
+            "img_pseudopol": ["q_rad", "q_azimuth"],
+            "rad_cut": ["q_pol"],
+            "rad_cut_gid": ["q_gid_pol"],
+            "azim_cut": ["ang_pol"],
+            "azim_cut_gid": ["ang_gid_pol"],
+            "horiz_cut_gid": ["q_xy"],
+            "vert_cut_gid": ["q_z"]
+        }
+
+        img, axes_labels = None, [None, None]
+        for key in key_maps.keys():
+            if hasattr(self, key):
+                img = getattr(self, key)
+                axes_labels = key_maps.get(key)
+                break
+
+        if img is None:
+            raise ValueError('conversion should be called first')
+
+        if isinstance(frame_num, int):
+            img = np.array(img[frame_num])
+        elif isinstance(frame_num, (list, tuple, np.ndarray)):
+            img = np.array([img[i] for i in frame_num])
+        elif frame_num is None:
+            pass
+        else:
+            raise ValueError(
+                "frame_num should be an integer, a sequence of integers, or None"
+            )
+        if len(img)==1:
+            img=img[0]
+
+        if len(axes_labels) == 2:
+            x_key, y_key = tuple(axes_labels)
+            x = getattr(self.matrix[0], x_key)
+            y = getattr(self.matrix[0], y_key)
+            return x, y, img
+        else:
+            x_key = axes_labels[0]
+            x = getattr(self.matrix[0], x_key)
+            return x, img
+
+
     def plot_result(self, return_result=False, frame_num=None, plot_result=True, shift=1,
                      clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img_result.png"):
         """
@@ -977,6 +1044,7 @@ class Conversion:
                           plot_result = plot_result,
                           save_fig = save_fig,
                           path_to_save_fig = path_to_save_fig)
+            return x, img_list
 
 
     def _clean_previous_results(self):
