@@ -785,10 +785,10 @@ class Conversion:
         return
 
     @classmethod
-    def set_plot_defaults(cls, font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
-                          grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=14, ytick_labelsize=14,
-                          legend_fontsize=12, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
-                          legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6.4, 4.8), axes_linewidth=0.5,
+    def set_plot_defaults(cls, font_size=14, axes_titlesize=None, axes_labelsize=None, grid=False, grid_color='gray',
+                          grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=None, ytick_labelsize=None,
+                          legend_fontsize=None, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
+                          legend_borderaxespad=1.0, figure_titlesize=None, figsize=(6.4, 4.8), axes_linewidth=0.5,
                           savefig_dpi=600, savefig_transparent=False, savefig_bbox_inches=None,
                           savefig_pad_inches=0.1, line_linewidth=2, line_color='blue', line_linestyle='-',
                           line_marker=None, scatter_marker='o', scatter_edgecolors='black',
@@ -837,7 +837,6 @@ class Conversion:
                                                savefig_pad_inches, line_linewidth, line_color, line_linestyle,
                                                line_marker, scatter_marker, scatter_edgecolors,
                                                cmap))
-        # type(self).plot_params.update()
 
     def plot_raw_image(self, **kwargs):
         """

@@ -15,3 +15,4 @@ Tutorials
    tutorials/tutorial_09_simulations
    tutorials/tutorial_10_transmission_and_gisaxs
    tutorials/tutorial_11_saved_data
+   tutorials/tutorial_12_visualization

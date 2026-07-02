@@ -23,10 +23,10 @@ def get_plot_context(rc_params):
     return plt.rc_context(rc=rc_params)
 
 
-def get_plot_params(font_size=14, axes_titlesize=14, axes_labelsize=18, grid=False, grid_color='gray',
-                    grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=14, ytick_labelsize=14,
-                    legend_fontsize=12, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
-                    legend_borderaxespad=1.0, figure_titlesize=16, figsize=(6, 5), axes_linewidth=0.5,
+def get_plot_params(font_size=14, axes_titlesize=None, axes_labelsize=None, grid=False, grid_color='gray',
+                    grid_linestyle='--', grid_linewidth=0.5, xtick_labelsize=None, ytick_labelsize=None,
+                    legend_fontsize=None, legend_loc='best', legend_frameon=True, legend_borderpad=1.0,
+                    legend_borderaxespad=1.0, figure_titlesize=None, figsize=(6, 5), axes_linewidth=0.5,
                     savefig_dpi=600, savefig_transparent=False, savefig_bbox_inches=None,
                     savefig_pad_inches=0.1, line_linewidth=2, line_color='blue', line_linestyle='-',
                     line_marker=None, scatter_marker='o', scatter_edgecolors='black',
@@ -72,12 +72,12 @@ def get_plot_params(font_size=14, axes_titlesize=14, axes_labelsize=18, grid=Fal
     rc_params = {
         # Font
         'font.size': font_size,
-        'axes.titlesize': axes_titlesize,
-        'axes.labelsize': axes_labelsize,
-        'xtick.labelsize': xtick_labelsize,
-        'ytick.labelsize': ytick_labelsize,
-        'legend.fontsize': legend_fontsize,
-        'figure.titlesize': figure_titlesize,
+        'axes.titlesize': font_size + 2 if axes_titlesize is None else axes_titlesize,
+        'axes.labelsize': font_size + 2 if axes_labelsize is None else axes_labelsize,
+        'xtick.labelsize': font_size if xtick_labelsize is None else xtick_labelsize,
+        'ytick.labelsize': font_size if ytick_labelsize is None else ytick_labelsize,
+        'legend.fontsize': font_size - 2 if legend_fontsize is None else legend_fontsize,
+        'figure.titlesize': font_size + 2 if figure_titlesize is None else figure_titlesize,
         # Axes and grid
         'axes.grid': grid,
         'axes.linewidth': axes_linewidth,
@@ -178,11 +178,8 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
         xlim = fill_limits(xlim, x)
         ylim = fill_limits(ylim, y)
 
-        # with plot_context:
-        # with plot_context.__class__(*plot_context.args, **plot_context.kwds):
         fig = plt.figure()
-        margin = 0.2
-        ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+        ax = plt.gca()
 
         img[img < 0] = clims[0]
 
@@ -332,15 +329,14 @@ def _plot_single_image(
 
 
 def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, path_to_save,
-                    xlim, ylim):
+                    xlim, ylim, plot_result):
 
 
     if clims is None:
         clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
     with plot_context:
-        fig = plt.figure()
-        margin = 0.2
-        ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+        fig = plt.figure(constrained_layout=True)
+        ax = plt.gca()
         p = ax.imshow(np.clip(img, clims[0], clims[1]),
                       norm=LogNorm(vmin=clims[0], vmax=clims[1]),
                       extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
@@ -377,8 +373,10 @@ def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, p
     if save_result:
         plt.savefig(path_to_save)
         logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
-    plt.show()
-
+    if plot_result:
+        plt.show()
+    else:
+        plt.close()
 
 def add_single_simul_data(
         crystal,
@@ -518,9 +516,8 @@ def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cma
     if clims is None:
         clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
     with plot_context:
-        fig = plt.figure()
-        margin = 0.2
-        ax = fig.add_axes([margin, margin, 1 - 2 * margin, 1 - 2 * margin])
+        fig = plt.figure(constrained_layout=True)
+        ax = plt.gca()
         p = ax.imshow(np.clip(img, clims[0], clims[1]),
                       norm=LogNorm(vmin=clims[0], vmax=clims[1]),
                       extent=[np.nanmin(q_xy), np.nanmax(q_xy), np.nanmin(q_z), np.nanmax(q_z)],
@@ -698,14 +695,15 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
         """
 
         with plot_context:
-            fig, ax = plt.subplots()
+            fig = plt.figure(constrained_layout=True)
+            ax = plt.gca()
             ax.set_xlabel(xlabel)
             ax.set_ylabel("Intensity [arb. units]")
             ax.set_yscale('log')
             ax.tick_params(axis='both')
 
             # if ylim: ax.set_ylim(ylim)
-            fig.tight_layout(pad=3)
+            # fig.tight_layout(pad=3)
             cmap = colors.LinearSegmentedColormap.from_list("mycmap", ["royalblue", "mediumorchid", "orange"])
             norm = Normalize(vmin=0, vmax=len(profiles))
             # if not plot_result:
