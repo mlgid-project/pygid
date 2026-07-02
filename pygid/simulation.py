@@ -8,7 +8,6 @@ import sys
 import os
 import logging
 
-# logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 def sort_simul_data(crystal_list):

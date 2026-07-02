@@ -204,10 +204,6 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
         cb.ax.yaxis.set_minor_locator(ticker.NullLocator())
         cb.locator = LogLocator(base=10.0, subs=[1.0], numticks=5)
         cb.update_ticks()
-        # cb.set_ticks([clims[0], clims[1]])
-        # cb.ax.yaxis.set_tick_params(which='both', direction='out')
-        # cb.set_ticklabels([change_clim_format(str(clims[0])),
-        #                    change_clim_format(str(clims[1]))])
 
         if save_fig:
             if path_to_save_fig is not None:
@@ -553,12 +549,6 @@ def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cma
                                           )
 
     if save_result:
-        # if (path_to_save.endswith('.svg') or path_to_save.endswith('.pdf')
-        #         or path_to_save.endswith('.eps') or path_to_save.endswith('.pgf')):
-        #     plt.axis('square')
-        #     plt.savefig(path_to_save)
-        # else:
-        #     plt.savefig(path_to_save, bbox_inches='tight')
         plt.savefig(path_to_save)
         logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
     plt.show()
