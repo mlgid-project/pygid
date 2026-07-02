@@ -1152,8 +1152,6 @@ def _save_matched_data(root, group_name, container_matched):
     if container_matched is None:
         return
     grp = root[group_name]
-    if container_matched is None:
-        return
     field_example = container_matched.field_names[0]
     filed_type = f"{field_example.split('_')[0]}_{field_example.split('_')[1]}"
     keys_to_delete = [key for key in grp.keys() if key.startswith(filed_type)]

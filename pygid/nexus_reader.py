@@ -337,6 +337,42 @@ class NexusFile:
             else:
                 raise TypeError(f"entry {entry} is not a string")
 
+    def set_beamtime_info(self, beamtime_information:dict, entry=None):
+        """
+        Parameters
+        ----------
+        beamtime_information : dict
+            Dictionary of the beamtime information. Can include:
+                - name
+
+        entry : str or None (all entries)
+            NXentry group to add the user information to.
+        """
+        with h5py.File(self.path, "r+") as root:
+            if entry is None:
+                for e in self.entry_dict:
+                    _set_beamtime_information_single_entry(root[f"{e}/instrument/source"], beamtime_information)
+            elif isinstance(entry, str):
+                _set_beamtime_information_single_entry(root[f"{entry}/instrument/source"], beamtime_information)
+            else:
+                raise TypeError(f"entry {entry} is not a string")
+
+
+def _set_beamtime_information_single_entry(h5grp, information_dict):
+    """Saves the beamtime information."""
+
+    if 'notes' in h5grp:
+        del h5grp['notes']
+    # h5subgrp = h5grp.require_group('notes')
+    h5subgrp = h5grp.create_group('notes')
+    h5subgrp.attrs.update({'NX_class': 'NXnote', 'EX_required': 'true'})
+    required_keys = ['description','proposal_id', 'principal_investigator', 'title', 'DOI', ]
+
+    for name in information_dict:
+        h5subgrp.create_dataset(name, data = information_dict[name]).attrs.update({'type': 'NX_CHAR'})
+    for required_key in required_keys:
+        if required_key not in h5subgrp.keys():
+            h5subgrp.create_dataset(required_key, data = 'nan')
 
 def _set_user_information_single_entry(h5grp, user_information):
     """Saves the user information."""
@@ -344,13 +380,13 @@ def _set_user_information_single_entry(h5grp, user_information):
     h5subgrp = h5grp.require_group('users')
     h5subgrp.attrs.update({'NX_class': 'NXuser', 'EX_required': 'true'})
 
-    field_name = user_information.get('field_name', 'user_1')
+    field_name = user_information.pop('field_name', 'user_1')
     if field_name in h5subgrp:
         del h5subgrp[field_name]
     h5subgrp.create_group(field_name)
     h5subgrp[field_name].attrs.update({'NX_class': 'NXuser', 'EX_required': 'true'})
     for name in user_information:
-        if name == field_name:
+        if name == 'field_name':
             continue
         h5subgrp[field_name].create_dataset(name, data = user_information[name]).attrs.update({'type': 'NX_CHAR'})
 
