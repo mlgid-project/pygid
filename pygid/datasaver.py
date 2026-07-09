@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 import warnings
 import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+# logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 # from silx.io.h5py_utils import open_item
 
 if TYPE_CHECKING:

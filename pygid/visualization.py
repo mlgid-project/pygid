@@ -12,12 +12,12 @@ from matplotlib.colors import Normalize
 from matplotlib import cm
 from matplotlib.ticker import LogLocator, NullLocator
 
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s - %(message)s"
-)
+# for handler in logging.root.handlers[:]:
+#     logging.root.removeHandler(handler)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(levelname)s - %(message)s"
+# )
 
 def get_plot_context(rc_params):
     return plt.rc_context(rc=rc_params)
