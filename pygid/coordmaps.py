@@ -3,19 +3,8 @@ import numpy as np
 import numexpr as ne
 from typing import Optional, Any
 from dataclasses import dataclass
-import pickle
-import joblib, os, re
+import joblib
 import logging
-import warnings
-
-# warnings.filterwarnings("ignore", category=RuntimeWarning)
-# warnings.filterwarnings("ignore", category=SyntaxWarning)
-# for handler in logging.root.handlers[:]:
-#     logging.root.removeHandler(handler)
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(levelname)s - %(message)s"
-# )
 
 @dataclass
 class CorrMaps:

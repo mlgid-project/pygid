@@ -219,7 +219,8 @@ class SuppressPrint:
 def make_simulation_new(conversion, frame_num=0, crystal=None, plot_result=True,
             return_result=False, move_fromMW=True,
             save_fig=False, path_to_save_fig='simul_result.png',
-            clims = None, xlim=(None, None), ylim=(None, None)):
+            clims = None, xlim=(None, None), ylim=(None, None),
+            return_fig = False):
     """
         Perform GIWAXS simulation using conversion data and plot or return the results.
 
@@ -263,16 +264,29 @@ def make_simulation_new(conversion, frame_num=0, crystal=None, plot_result=True,
         xlim, ylim : tuple, optional
             Axis limits for the plot in reciprocal space coordinates.
 
+        return_fig: bool, optional
+            If True, return the matplotlib figure and axes objects.
+
         Returns
         -------
-        list or dict or None
-            If `return_result` is True:
-            - Returns a list of simulated datasets (one per crystal), or
-            - A single dataset if only one crystal is provided.
+        list, dict, tuple, or None
+            The returned value depends on the selected options:
 
-            Each dataset is produced by `sort_simul_data`.
+            - If `return_result=True`, returns the simulated dataset(s):
+                - A list of datasets, one for each crystal, if multiple crystals
+                  are provided.
+                - A single dataset if only one crystal is provided.
 
-            If `return_result` is False, returns None.
+            - If `return_fig=True`, returns a tuple ``(fig, ax)`` containing
+              the generated matplotlib figure and axes.
+
+            - If both `return_result=True` and `return_fig=True`, returns the
+              simulation result together with the figure and axes.
+
+            - If both `return_result=False` and `return_fig=False`, returns
+              ``None``.
+
+            Each simulated dataset is generated using `sort_simul_data`.
         """
     q_xy_min, q_xy_max, q_z_min, q_z_max = _get_simul_ranges(conversion.matrix[0], xlim, ylim)
     need_update = True
@@ -320,9 +334,11 @@ def make_simulation_new(conversion, frame_num=0, crystal=None, plot_result=True,
     else:
         q_xy, q_z, img = conversion._get_q_data(frame_num)
 
-    if plot_result or save_fig:
-        plot_simul_data(get_plot_context(type(conversion).plot_params), img[0], q_xy, q_z,
-         crystal, clims, save_fig, path_to_save_fig, xlim, ylim, plot_result)
+    if plot_result or save_fig or return_fig:
+        fig, ax = plot_simul_data(get_plot_context(type(conversion).plot_params), img[0], q_xy, q_z,
+         crystal, clims, save_fig, path_to_save_fig, xlim, ylim, plot_result, save_fig)
+        if return_fig:
+            return fig, ax
 
     if return_result:
         simulated_data = sort_simul_data(crystal)
@@ -395,6 +411,9 @@ def make_simulation_old(conversion, frame_num=0, path_to_cif=None, orientation=N
        The intensity values of the simulated data.
     mi : array
        Miller indices of the simulated data.
+
+    If `return_fig=True`, returns a tuple ``(fig, ax)`` containing
+              the generated matplotlib figure and axes.
 
 
     NOTE

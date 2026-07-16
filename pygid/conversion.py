@@ -844,15 +844,14 @@ class Conversion:
         """
         return self.plot_img_raw(**kwargs)
 
-    def plot_img_raw(self, return_result=False, frame_num=None, plot_result=True,
-                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png"):
+    def plot_img_raw(self, frame_num=None, plot_result=True,
+                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
+                     return_fig = False):
         """
         Plots the raw image from the detector with optional display, return and saving.
 
         Parameters
         ----------
-        return_result : bool, optional
-            If True, returns the image data and axes used for plotting. Default is False.
         frame_num : int or None, optional
             Frame number to plot. If None, uses the first frame.
         plot_result : bool, optional
@@ -867,6 +866,31 @@ class Conversion:
             Whether to save the figure to a file. Default is False.
         path_to_save_fig : str, optional
             Path to save the figure if save_fig is True. Default is "img.png".
+        return_fig: bool, optional
+            If True, returns the figure and axes objects. Default is False.
+
+        Returns
+        -------
+        Tuple or list
+        If `return_fig=True`, returns:
+            fig, ax : tuple
+                Matplotlib figure and axes containing the generated plot.
+        If there are several images, returns list of (fig, ax) tuples
+        """
+        with get_plot_context(type(self).plot_params):
+            return plot_img_raw(self.img_raw, self.x, self.y,
+                            frame_num, plot_result,
+                            clims, xlim, ylim,
+                            save_fig, path_to_save_fig, return_fig)
+
+    def get_raw(self, frame_num=None):
+        """
+        Returns axes and raw image(s) after the conversion.
+
+        Parameters
+        -----------
+        frame_num : int or None, optional
+            Frame number to return. If None, returns all frames. Default is None.
 
         Returns
         -------
@@ -874,14 +898,17 @@ class Conversion:
             The x-axis values of the image (in pixels).
         y : array
             The y-axis values of the image (in pixels).
-        img : 2D-array or list of 2D-arrays
-            The raw image data plotted.
+        img : single 2D-array or 1D-array or list of arrays
+            Raw image(s).
         """
-        with get_plot_context(type(self).plot_params):
-            return plot_img_raw(self.img_raw, self.x, self.y, return_result,
-                            frame_num,
-                            plot_result, clims, xlim, ylim,
-                            save_fig, path_to_save_fig)
+        if frame_num is None:
+            return self.x, self.y, self.img_raw
+        elif isinstance(frame_num, int):
+            return self.x, self.y, self.img_raw[frame_num]
+        elif isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
+            return self.x, self.y, np.array(self.img_raw[i] for i in frame_num)
+        else:
+            raise ValueError("frame_num must be an integer or None")
 
     def get_result(self, frame_num=None):
         """
@@ -950,7 +977,7 @@ class Conversion:
             return x, img
 
 
-    def plot_result(self, return_result=False, frame_num=None, plot_result=True, shift=1,
+    def plot_result(self, return_fig=False, frame_num=None, plot_result=True, shift=1,
                      clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img_result.png"):
         """
         Plots the converted images/profiles with optional display, return and saving.
@@ -961,8 +988,8 @@ class Conversion:
             If True, returns the image data and axes used for plotting. Default is False.
         frame_num : int or None, optional
             Frame number to plot. If None, uses the first frame.
-        plot_result : bool, optional
-            Whether to display the plot. Default is True.
+        return_fig: bool, optional
+            If True, returns the figure and axes objects. Default is False.
         clims : tuple, optional
             Tuple specifying color limits (vmin, vmax) for the image. Default is (1e1, 4e4).
         xlim : tuple or None, optional
@@ -976,12 +1003,12 @@ class Conversion:
 
         Returns
         -------
-        x : array
-            The x-axis values of the image (in pixels).
-        y : array
-            The y-axis values of the image (in pixels).
-        img : list of 2D-array or 1D-arrays
-            The converted image/profile plotted.
+        Tuple or list
+        If `return_fig=True`, returns:
+            fig, ax : tuple
+                Matplotlib figure and axes containing the generated plot.
+        If there are several images, returns list of (fig, ax) tuples
+
         """
 
         key_maps = {
@@ -1018,15 +1045,17 @@ class Conversion:
             x_key, y_key, x_label, y_label, aspect = tuple(axes_labels)
             x = getattr(self.matrix[0], x_key)
             y = getattr(self.matrix[0], y_key)
-            img_list = []
+            fig_list = []
             for i in frame_num:
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    x_label,
                                    y_label, aspect, plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                img_list.append(img)
-            if return_result:
-                return x, y, img_list
+                fig_list.append((fig, ax))
+            if return_fig:
+                if len(fig_list) == 1:
+                    return fig_list[0]
+                return fig_list
 
         elif len(axes_labels) == 2:
             x_key, x_label = tuple(axes_labels)
@@ -1417,6 +1446,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Converts a detector image to a reciprocal-space map (q_xy, q_z) for grazing-incidence diffraction (GID) geometry.
@@ -1463,15 +1493,31 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
-        q_xy : ndarray
-            The q_xy-axis values of the converted data (Å⁻¹).
-        q_z : ndarray
-            The q_z-axis values of the converted data (Å⁻¹).
-        img_gid_q : ndarray or list of ndarray
-            The reciprocal-space image(s) corresponding to (q_xy, q_z).
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_xy, q_z, img_gid_q)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
+            q_xy : ndarray
+                The q_xy-axis values of the converted reciprocal-space map (Å⁻¹).
+            q_z : ndarray
+                The q_z-axis values of the converted reciprocal-space map (Å⁻¹).
+            img_gid_q : ndarray or list of ndarray
+                The converted reciprocal-space image(s).
+            fig : matplotlib.figure.Figure
+                The generated matplotlib figure.
+            ax : matplotlib.axes.Axes
+                The axes of the generated figure.
         """
 
         # If batch mode is active, delegate the task to the batch processor
@@ -1517,13 +1563,21 @@ class Conversion:
 
         # Ensure result is always a list (for consistent handling of multiple frames)
         img = [img] if not isinstance(img, list) else img
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
                                    r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and image(s) if required
+                fig_list.append((fig, ax))
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list)==1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -1549,6 +1603,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
 
         """
@@ -1596,15 +1651,31 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_x, q_y, img_q)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_x : ndarray
             The q_x-axis values of the converted data (Å⁻¹).
         q_y : ndarray
             The q_y-axis values of the converted data (Å⁻¹).
         img_q : ndarray or list of ndarray
             The reciprocal-space image(s) corresponding to (q_x, q_y).
+        fig : matplotlib.figure.Figure
+                The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
         # If batch mode is active, delegate execution to the batch processor
         if self.batch_activated:
@@ -1649,13 +1720,21 @@ class Conversion:
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save reciprocal-space maps if requested
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r'$q_{x}$ [$\mathrm{\AA}^{-1}$]',
                                    r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and reciprocal-space image(s) if requested
+                fig_list.append((fig, ax))
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list) == 1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -1682,6 +1761,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Converts a detector image to a polar reciprocal-space map (|q|, χ) for transmission geometry.
@@ -1730,15 +1810,30 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
-
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_pol, ang_pol, img_pol)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_pol : ndarray
             The radial q-axis values of the converted data (Å⁻¹).
         ang_pol : ndarray
             The azimuthal angle χ values of the converted data (degrees).
         img_pol : ndarray or list of ndarray
             The polar reciprocal-space image(s) corresponding to (|q|, χ).
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         # If batch mode is active, delegate the task to the batch processor
@@ -1788,12 +1883,20 @@ class Conversion:
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save polar reciprocal-space maps if requested
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and polar image(s) if requested
+                fig_list.append((fig, ax))
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list) == 1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -1820,6 +1923,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Converts a detector image to a polar reciprocal-space map (|q|, χ) for grazing-incidence diffraction (GID) geometry.
@@ -1868,15 +1972,31 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_gid_pol, ang_gid_pol, img_gid_pol)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_gid_pol : ndarray
             The radial q-axis values of the converted data (Å⁻¹).
         ang_gid_pol : ndarray
             The azimuthal angle χ values of the converted data (degrees).
         img_gid_pol : ndarray or list of ndarray
             The polar reciprocal-space image(s) corresponding to (|q|, χ).
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         # If batch mode is active, delegate execution to the batch processor
@@ -1925,12 +2045,20 @@ class Conversion:
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save each polar GID map if requested
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and polar GID image(s) if requested
+                fig_list.append((fig, ax))
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list) == 1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -1956,6 +2084,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Converts a detector image to pseudopolar coordinates (q_rad, q_azimuth) for transmission geometry.
@@ -2004,15 +2133,31 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_rad, q_azimuth, img_pseudopol)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_rad : ndarray
             The radial q-axis values of the converted data (Å⁻¹).
         q_azimuth : ndarray
             The azimuthal q-axis values of the converted data (Å⁻¹).
         img_pseudopol : ndarray or list of ndarray
             The pseudopolar image(s) corresponding to (q_rad, q_azimuth).
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         # If batch mode is active, delegate execution to the batch processor
@@ -2070,12 +2215,21 @@ class Conversion:
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save each pseudopolar map if requested
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and pseudopolar image(s) if requested
+                fig_list.append((fig, ax))
+
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list) == 1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -2102,6 +2256,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Converts a detector image to pseudopolar coordinates (q_rad, q_azimuth) for grazing-incidence diffraction (GID) geometry.
@@ -2150,15 +2305,31 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_gid_rad, q_gid_azimuth, img_gid_pseudopol)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_gid_rad : ndarray
             The radial q-axis values of the converted data (Å⁻¹).
         q_gid_azimuth : ndarray
             The azimuthal q-axis values of the converted data (Å⁻¹).
         img_gid_pseudopol : ndarray or list of ndarray
             The pseudopolar GID image(s) corresponding to (q_rad, q_azimuth).
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         # If batch mode is active, delegate execution to the batch processor
@@ -2216,12 +2387,21 @@ class Conversion:
         img = [img] if not isinstance(img, list) else img
 
         # Plot and/or save each pseudopolar GID map if requested
-        if plot_result or save_fig:
+        if plot_result or save_fig or return_fig:
+            fig_list = []
             for i in range(len(img)):
-                _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-        # Return calculated axes and pseudopolar GID image(s) if requested
+                fig_list.append((fig, ax))
+
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            if len(fig_list) == 1:
+                return fig_list[0]
+            else:
+                return fig_list
         if return_result:
             return x, y, img
 
@@ -2277,6 +2457,8 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
+
     ):
         """
         Computes and optionally plots the radial profile from 2D scattering data for GID geometry.
@@ -2321,13 +2503,29 @@ class Conversion:
                 Experimental metadata to include in the output file.
         smpl_metadata : pygid.SampleMetadata or None
                 Sample metadata to include in the output file.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_abs_values, rad_cut_gid)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_abs_values : array
             The q_abs_values-axis values of the converted data (in 1/A).
         rad_cut_gid : 1D-array or list of 1D-arrays
             Integrated image profile rad_cut.
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         key = 'gid'
@@ -2357,7 +2555,8 @@ class Conversion:
             exp_metadata = exp_metadata,
             smpl_metadata = smpl_metadata,
             remap_func = remap_func,
-            name = name)
+            name = name,
+            return_fig=return_fig)
 
     def radial_profile(
             self,
@@ -2381,6 +2580,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
         Computes and optionally plots the radial profile from 2D scattering data for transmission geometry.
@@ -2425,6 +2625,8 @@ class Conversion:
                 Experimental metadata to include in the output file.
         smpl_metadata : pygid.SampleMetadata or None
                 Sample metadata to include in the output file.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
@@ -2432,6 +2634,10 @@ class Conversion:
             The q_abs_values-axis values of the converted data (in 1/A).
         rad_cut : 1D-array or list of 1D-arrays
             Integrated image profile rad_cut.
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         key = 'transmission'
@@ -2461,7 +2667,8 @@ class Conversion:
             exp_metadata=exp_metadata,
             smpl_metadata=smpl_metadata,
             remap_func=remap_func,
-            name=name)
+            name=name,
+            return_fig=return_fig)
 
     def calculate_radial_profile(
             self,
@@ -2487,7 +2694,8 @@ class Conversion:
             exp_metadata,
             smpl_metadata,
             remap_func,
-            name
+            name,
+            return_fig
     ):
         """
             Computes and optionally plots the radial intensity profile from 2D scattering data.
@@ -2571,8 +2779,8 @@ class Conversion:
         radial_profile = np.nanmean(img_pol, axis=1)
 
         # Plot the radial profile if requested
-        if plot_result or save_fig:
-            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+        if plot_result or save_fig or return_fig:
+            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_abs_values,
                           profiles = radial_profile,
                           xlabel = r"$q_{abs}\ [\AA^{-1}]$",
@@ -2595,6 +2803,10 @@ class Conversion:
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
         # Return computed profile if requested
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            return fig, ax
         if return_result:
             return (q_abs_values, radial_profile[0]) if radial_profile.shape[0] == 1 else (
                 q_abs_values, radial_profile)
@@ -2621,6 +2833,7 @@ class Conversion:
             overwrite_group=False,
             exp_metadata=None,
             smpl_metadata=None,
+            return_fig=False
     ):
         """
             Computes and optionally plots the azimuthal profile from 2D scattering data for GID geometry.
@@ -2667,13 +2880,29 @@ class Conversion:
                 Experimental metadata to store with results.
             smpl_metadata : pygid.SampleMetadata or None, optional
                 Sample metadata to store with results.
+            return_fig : bool, optional
+                If True, return the matplotlib figure and axes objects.
 
             Returns
             -------
+            tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(phi_abs_values, azim_cut_gid)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
             phi_abs_values : ndarray
                 Azimuthal angle values in degrees.
             azim_cut_gid : ndarray or list of ndarray
                 Integrated azimuthal profile(s).
+            fig : matplotlib.figure.Figure
+                The generated matplotlib figure.
+            ax : matplotlib.axes.Axes
+                The axes of the generated figure.
         """
         remap_func = "azim_profile_gid"
         name = "azim_cut_gid"
@@ -2702,7 +2931,8 @@ class Conversion:
             exp_metadata,
             smpl_metadata,
             remap_func,
-            name
+            name,
+            return_fig
         )
 
     def azim_profile(
@@ -2726,7 +2956,8 @@ class Conversion:
             overwrite_file=True,
             overwrite_group=False,
             exp_metadata=None,
-            smpl_metadata=None):
+            smpl_metadata=None,
+            return_fig=False):
         """
         Computes and optionally plots the azimuthal profile from 2D scattering data for transmission geometry.
 
@@ -2772,13 +3003,29 @@ class Conversion:
             Experimental metadata to store with results.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample metadata to store with results.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+        The returned value depends on the `return_result` and `return_fig` arguments:
+        - If `return_result=True` and `return_fig=False`:
+          `(phi_abs_values, azim_cut)`
+        - If `return_result=False` and `return_fig=True`:
+          `(fig, ax)`
+        - If `return_result=True` and `return_fig=True`:
+          raise a ValueError
+        - If both are False:
+          `None`.
         phi_abs_values : ndarray
             Azimuthal angle values in degrees.
         azim_cut : ndarray or list of ndarray
             Integrated azimuthal profile(s).
+        fig : matplotlib.figure.Figure
+            The generated matplotlib figure.
+        ax : matplotlib.axes.Axes
+            The axes of the generated figure.
         """
 
         remap_func = "azim_profile"
@@ -2808,7 +3055,8 @@ class Conversion:
             exp_metadata,
             smpl_metadata,
             remap_func,
-            name
+            name,
+            return_fig
         )
 
     def calculate_azim_profile(
@@ -2835,7 +3083,8 @@ class Conversion:
             exp_metadata,
             smpl_metadata,
             remap_func,
-            name
+            name,
+            return_fig
     ):
         """
         Computes and optionally plots the azimuthal intensity profile from 2D scattering data.
@@ -2916,8 +3165,8 @@ class Conversion:
         azim_profile = np.nanmean(img_pol, axis=2)
 
         # Plot profile if requested
-        if plot_result or save_fig:
-            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+        if plot_result or save_fig or return_fig:
+            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = phi_abs_values,
                           profiles = azim_profile,
                           xlabel = r"$\chi\ [\degree]$",
@@ -2941,6 +3190,10 @@ class Conversion:
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
         # Return results if requested
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            return fig, ax
         if return_result:
             return (phi_abs_values, azim_profile[0]) if azim_profile.shape[0] == 1 else (
                 phi_abs_values, azim_profile)
@@ -2987,7 +3240,8 @@ class Conversion:
             overwrite_file=True,
             overwrite_group=False,
             exp_metadata=None,
-            smpl_metadata=None
+            smpl_metadata=None,
+            return_fig=False,
     ):
         """
         Computes and optionally plots the horizontal (q_xy) line profile from a GID reciprocal-space map.
@@ -3035,9 +3289,21 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_hor_values, horiz_cut)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_hor_values : ndarray
             q_xy-axis values of the horizontal profile (Å⁻¹).
         horiz_cut : ndarray or list of ndarray
@@ -3055,8 +3321,8 @@ class Conversion:
         img_q = np.array(img_q)
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         horiz_profile = np.nanmean(img_q, axis=1)
-        if plot_result or save_fig:
-            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+        if plot_result or save_fig or return_fig:
+            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_hor_values,
                           profiles = horiz_profile,
                           xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
@@ -3076,7 +3342,10 @@ class Conversion:
                           overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
-
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            return fig, ax
         if return_result:
             return (q_hor_values, horiz_profile[0]) if horiz_profile.shape[0] == 1 else (
                 q_hor_values, horiz_profile)
@@ -3104,7 +3373,8 @@ class Conversion:
             overwrite_file=True,
             overwrite_group=False,
             exp_metadata=None,
-            smpl_metadata=None
+            smpl_metadata=None,
+            return_fig=False,
     ):
         """
         Computes and optionally plots the vertical (q_z) line profile from a GID reciprocal-space map.
@@ -3152,9 +3422,21 @@ class Conversion:
             Experimental metadata to be stored with the result. Default is None.
         smpl_metadata : pygid.SampleMetadata or None, optional
             Sample-related metadata to be stored with the result. Default is None.
+        return_fig : bool, optional
+            If True, return the matplotlib figure and axes objects.
 
         Returns
         -------
+        tuple or None or list
+            The returned value depends on the `return_result` and `return_fig` arguments:
+            - If `return_result=True` and `return_fig=False`:
+              `(q_vert_values, vert_cut)`
+            - If `return_result=False` and `return_fig=True`:
+              `(fig, ax)`
+            - If `return_result=True` and `return_fig=True`:
+              raise a ValueError
+            - If both are False:
+              `None`.
         q_vert_values : ndarray
             q_z-axis values of the vertical profile (Å⁻¹).
         vert_cut : ndarray or list of ndarray
@@ -3172,8 +3454,8 @@ class Conversion:
         img_q = np.array(img_q)
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         vert_profile = np.nanmean(img_q, axis=2)
-        if plot_result or save_fig:
-            _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+        if plot_result or save_fig or return_fig:
+            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_vert_values,
                           profiles = vert_profile,
                           xlabel = r'$q_{z}$ [$\mathrm{\AA}^{-1}$]',
@@ -3193,7 +3475,10 @@ class Conversion:
                           overwrite_group=overwrite_group,
                           exp_metadata=exp_metadata,
                           smpl_metadata=smpl_metadata)
-
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
+        if return_fig:
+            return fig, ax
         if return_result:
             return (q_vert_values, vert_profile[0]) if vert_profile.shape[0] == 1 else (
                 q_vert_values, vert_profile)
@@ -3244,7 +3529,7 @@ class Conversion:
                         plot_result=True, plot_mi=False, return_result=False, move_fromMW=False,
                         min_int=None, clims=None, vmin=0, vmax=1, linewidth=1, radius=0.1, cmap=None,
                         text_color='black', save_fig=False, path_to_save_fig='simul_result.png',
-                        xlim=(None, None), ylim=(None, None)
+                        xlim=(None, None), ylim=(None, None), return_fig = False
                         ):
         """
             Perform GIWAXS simulation based on crystal definitions.
@@ -3283,6 +3568,9 @@ class Conversion:
             xlim, ylim : tuple, optional
                 Axis limits for the plot in reciprocal space coordinates.
 
+            return_fig: bool, optional
+                If True, return the matplotlib figure and axes objects.
+
 
             Examples
             --------
@@ -3310,41 +3598,59 @@ class Conversion:
 
             Returns
             -------
-            list of tuples or tuple or None
-                If `return_result` is True:
+            list of tuples, tuple, or None
+                The returned value depends on the selected options.
 
-                - Returns a list of tuples, one per crystal:
+                If `return_result=True`:
+
+                - For multiple crystals:
+                    Returns a list of tuples, one tuple per crystal:
+
                     (q, intensity, mi)
 
-                  where:
+                - For a single crystal:
+                    Returns a single tuple:
+
+                    (q, intensity, mi)
+
+                where:
+
                     q : ndarray
-                        Scattering vector(s), either:
-                        - shape (2, N) for 2D data (q_xy, q_z), or
-                        - shape (N,) for 1D data (|q|)
+                        Scattering vector(s):
+                        - shape (2, N) for 2D data containing (q_xy, q_z)
+                        - shape (N,) for 1D data containing |q|
 
                     intensity : ndarray
-                        Normalized intensities sorted in ascending order of |q|.
+                        Normalized intensity values, sorted in ascending order
+                        of |q|.
 
                     mi : ndarray
-                        Miller indices corresponding to each q-point, sorted consistently.
+                        Miller indices corresponding to each scattering vector,
+                        sorted consistently with `q` and `intensity`.
 
-                - If only a single crystal is provided, returns a single tuple
-                  (q, intensity, mi) instead of a list.
+                If `return_fig=True`:
+                    Returns a tuple ``(fig, ax)`` containing the generated
+                    matplotlib figure and axes.
 
-                If `return_result` is False, returns None.
+                If `return_result=False` and `return_fig=False`:
+                    Returns ``None``.
+
+
 
             Notes
             -----
             - Data are sorted by increasing scattering vector magnitude |q|.
             - For 2D q (shape (2, N)), sorting is based on sqrt(q_xy^2 + q_z^2).
             """
+        if return_result and return_fig:
+            raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
 
         if crystal:
             return make_simulation_new(self,
                                        frame_num=frame_num, crystal=crystal, plot_result=plot_result,
                                        return_result=return_result, move_fromMW=move_fromMW,
                                        save_fig=save_fig, path_to_save_fig=path_to_save_fig,
-                                       clims=clims, xlim=xlim, ylim=ylim
+                                       clims=clims, xlim=xlim, ylim=ylim, return_fig=return_fig
                                        )
         else:
             return make_simulation_old(self,

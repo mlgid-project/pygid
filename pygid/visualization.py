@@ -7,17 +7,10 @@ import os
 from pathlib import Path
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
 from matplotlib import cm
 from matplotlib.ticker import LogLocator, NullLocator
-
-# for handler in logging.root.handlers[:]:
-#     logging.root.removeHandler(handler)
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(levelname)s - %(message)s"
-# )
+from matplotlib.colors import LogNorm, is_color_like, to_rgba
 
 def get_plot_context(rc_params):
     return plt.rc_context(rc=rc_params)
@@ -108,15 +101,15 @@ def get_plot_params(font_size=14, axes_titlesize=None, axes_labelsize=None, grid
     return rc_params
 
 
-def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result=True,
-                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png"):
+def plot_img_raw(img_raw, x, y, frame_num=None, plot_result=True,
+                     clims=None, xlim=(None, None), ylim=(None, None), save_fig=False, path_to_save_fig="img.png",
+                 return_fig=False):
         """
         Plots the raw image from the detector with optional display, return and saving.
 
         Parameters
         ----------
-        return_result : bool, optional
-            If True, returns the image data and axes used for plotting. Default is False.
+
         frame_num : int or None, optional
             Frame number to plot. If None, uses the first frame.
         plot_result : bool, optional
@@ -148,16 +141,16 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
             img_raw = np.array(img_raw)
 
         if frame_num is None and img_raw.shape[0] != 1:
-            frame_num = np.arange(1, img_raw.shape[0],1)
+            frame_num = np.arange(0, img_raw.shape[0],1)
         if isinstance(frame_num, list) or isinstance(frame_num, np.ndarray):
-            img_list = []
+            fig_list = []
             for num in frame_num:
-                x, y, img = plot_img_raw(img_raw, x, y, return_result=True, frame_num=num, plot_result=plot_result,
+                fig, ax = plot_img_raw(img_raw, x, y, frame_num=num, plot_result=plot_result,
                              clims=clims, xlim=xlim, ylim=ylim, save_fig=save_fig,
-                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num))
-                img_list.append(img)
-            if return_result:
-                return x, y, img_list
+                             path_to_save_fig=make_numbered_filename(path_to_save_fig, num), return_fig=return_fig)
+                fig_list.append((fig, ax))
+            if return_fig:
+                return fig_list
             return
 
         if frame_num is None:
@@ -165,7 +158,7 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
         img = np.array(img_raw[frame_num])
 
         if clims is None:
-            clims = [np.nanmin(img[img>0]), np.nanmax(img)]
+            clims = get_clims(img, 5, 95)
 
         if img_raw is None:
             raise ValueError("img_raw is not loaded")
@@ -178,7 +171,7 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
         xlim = fill_limits(xlim, x)
         ylim = fill_limits(ylim, y)
 
-        fig = plt.figure()
+        fig = plt.figure(constrained_layout=True)
         ax = plt.gca()
 
         img[img < 0] = clims[0]
@@ -191,8 +184,6 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
 
         ax.set_xlabel(r'$y$ [px]')
         ax.set_ylabel(r'$z$ [px]')
-        # ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
-        # ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=False, prune=None, nbins=4))
         ax.tick_params(axis='both')
 
         divider = make_axes_locatable(ax)
@@ -214,17 +205,13 @@ def plot_img_raw(img_raw, x, y, return_result=False, frame_num=None, plot_result
                 raise ValueError("path_to_save_fig is not defined.")
             if not plot_result:
                 plt.close()
-                del fig, ax
 
         if plot_result:
             plt.show()
         else:
             plt.close()
-
-
-
-        if return_result:
-            return x, y, img
+        if return_fig:
+            return fig, ax
 
 
 def _plot_single_image(
@@ -240,7 +227,7 @@ def _plot_single_image(
             aspect,
             plot_result,
             save_fig,
-            path_to_save_fig
+            path_to_save_fig,
     ):
         """
         Plots a single 2D image (e.g., reciprocal-space map) in logarithmic scale.
@@ -279,7 +266,7 @@ def _plot_single_image(
         Negative and NaN pixels are set to the minimum displayable intensity.
         """
         if clims is None:
-            clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
+            clims = get_clims(img, 5, 95)
 
         with plot_context:
             fig = plt.figure(constrained_layout=True)
@@ -315,21 +302,55 @@ def _plot_single_image(
                 logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
-            if not plot_result:
-                plt.close()
-                del fig, ax
-
         if plot_result:
             plt.show()
+        return fig, ax
 
+def get_clims(img, lower_percentile=5, upper_percentile=95):
+    """
+    Estimate color limits for an image.
 
+    Positive values are used if available. The limits are taken from the
+    specified percentiles. If the percentile range collapses (vmin >= vmax),
+    the full data range is used instead.
+
+    Parameters
+    ----------
+    img : ndarray
+        Input image.
+    lower_percentile : float, default=5
+        Lower percentile used to estimate the minimum color limit.
+    upper_percentile : float, default=95
+        Upper percentile used to estimate the maximum color limit.
+
+    Returns
+    -------
+    tuple of float
+        (vmin, vmax)
+    """
+    positive = img[img > 0]
+
+    if positive.size > 0:
+        vmin, vmax = np.nanpercentile(
+            positive,
+            [lower_percentile, upper_percentile]
+        )
+
+        if vmin >= vmax:
+            vmin = np.nanmin(positive)
+            vmax = np.nanmax(positive)
+    else:
+        vmin = np.nanmin(img)
+        vmax = np.nanmax(img)
+
+    return vmin, vmax
 
 def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, path_to_save,
-                    xlim, ylim, plot_result):
+                    xlim, ylim, plot_result, save_fig):
 
 
     if clims is None:
-        clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
+        clims = get_clims(img, 5, 95)
     with plot_context:
         fig = plt.figure(constrained_layout=True)
         ax = plt.gca()
@@ -369,10 +390,13 @@ def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, p
     if save_result:
         plt.savefig(path_to_save)
         logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
+    if save_fig:
+        return fig, ax
     if plot_result:
         plt.show()
     else:
         plt.close()
+    return fig, ax
 
 def add_single_simul_data(
         crystal,
@@ -394,8 +418,11 @@ def add_single_simul_data(
                 Metadata (e.g., model index, fit ID).
         ax : matplotlib.axes.Axes
             Axis object on which to plot the data.
-        cmap : matplotlib.colors.Colormap
-            Colormap used for mapping intensities to colors.
+        cmap : str
+            Colormap name or a single matplotlib-compatible color.
+            If a color is provided, all simulated reflections are plotted
+            with the same color. Otherwise, intensity values are mapped
+            using the selected colormap.
         vmin : float
             Minimum intensity value for logarithmic normalization.
         vmax : float or None
@@ -409,10 +436,6 @@ def add_single_simul_data(
         plot_mi : bool
             Whether to annotate the plot with metadata labels (`mi` values).
 
-        Returns
-        -------
-        norm : matplotlib.colors.LogNorm
-            Logarithmic normalization object used for color mapping.
 
         Notes
         -----
@@ -423,9 +446,16 @@ def add_single_simul_data(
     q, intensity, mi = crystal['q'], crystal['intensity'], crystal['mi']
     vmin, vmax = crystal.get('vmin', intensity.min()), crystal.get('vmax', intensity.max())
     plot_mi = crystal.get('plot_mi', False)
-    cmap = plt.get_cmap(crystal.get('cmap', 'winter'))
+    # cmap = plt.get_cmap(crystal.get('cmap', 'winter'))
+    cmap_value = crystal.get('cmap', 'winter')
     norm = LogNorm(vmin=vmin, vmax=vmax)
-    colors = cmap(norm(intensity))
+    if is_color_like(cmap_value):
+        single_color = to_rgba(cmap_value)
+        colors = np.tile(single_color, (len(intensity), 1))
+        cmap = None
+    else:
+        cmap = plt.get_cmap(cmap_value)
+        colors = cmap(norm(intensity))
 
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
@@ -437,7 +467,7 @@ def add_single_simul_data(
         x, y = q[0], q[1]
 
         marker = crystal.get('marker', 'o')
-        sc = ax.scatter(
+        ax.scatter(
             x, y,
             # c=colors,
             s=crystal.get('marker_size', 50),
@@ -469,8 +499,7 @@ def add_single_simul_data(
         size = len(intensity)
         num = 1
         texts = []
-        for rad, i, text in zip(q, intensity, mi):
-            color = cmap(norm(i))
+        for rad, i, text, color in zip(q, intensity, mi, colors):
             circle = plt.Circle((0, 0), rad, color=color, fill=False,
                                 linestyle=crystal.get('line_style', 'dashed'), linewidth=crystal.get('line_width', 0.5))
             ax.add_patch(circle)
@@ -487,11 +516,10 @@ def add_single_simul_data(
                 texts.append(txt)
                 num += 1
 
-            if plot_mi and texts:
-                adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
+        if plot_mi and texts:
+            adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle='-', color='gray', lw=1))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    return norm
 
 
 
@@ -510,7 +538,7 @@ def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cma
 
 
     if clims is None:
-        clims = [np.nanmin(img[img > 0]), np.nanmax(img)]
+        clims = get_clims(img, 5, 95)
     with plot_context:
         fig = plt.figure(constrained_layout=True)
         ax = plt.gca()
@@ -544,7 +572,7 @@ def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cma
 
         for i, dataset in enumerate(simulated_data):
             cmap_i = cmap[i]
-            norm = add_single_simul_data_old(dataset, ax, cmap_i, vmin, vmax,
+            add_single_simul_data_old(dataset, ax, cmap_i, vmin, vmax,
                                           linewidth, radius, text_color, plot_mi,
                                           )
 
@@ -717,13 +745,9 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
                 logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
             else:
                 raise ValueError("path_to_save_fig is not defined.")
-            if plot_result:
-                plt.show()
-            else:
-                plt.close()
-                del fig, ax
         if plot_result:
             plt.show()
+        return fig, ax
 
 
 def make_numbered_filename(base_filename, frame_num):
