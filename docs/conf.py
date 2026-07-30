@@ -16,7 +16,7 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
 
 tutorial_dir = os.path.join(os.path.dirname(__file__), 'tutorials')
