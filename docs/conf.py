@@ -9,7 +9,7 @@ release = '0.2.4'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
-    'nbsphinx',
+    # 'nbsphinx',
     'myst_nb',
 ]
 
@@ -18,6 +18,12 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 html_theme = 'pydata_sphinx_theme'
 html_static_path = ['_static']
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
+}
 
 tutorial_dir = os.path.join(os.path.dirname(__file__), 'tutorials')
 tutorials = sorted(f for f in os.listdir(tutorial_dir) if f.endswith('.ipynb'))
