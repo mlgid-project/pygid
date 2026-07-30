@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygid"
-version = "0.2.13"
+version = "0.2.14"
 description = "Fast Preprocessing of Grazing Incidence Diffraction Data"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -13,6 +13,7 @@ authors = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0,<3.0",
+    "scipy>=1.8.0,<3.0",
     "h5py>=3.12.1,<4.0",
     "fabio>=2024.9.0,<2027.0.0",
     "tifffile>=2023.7.18,<2024.0",

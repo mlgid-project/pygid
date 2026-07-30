@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import fabio
 import warnings
 import logging
+from scipy.spatial.transform import Rotation as R
 from . import pixel_dict
 
 
@@ -308,3 +309,74 @@ class ExpParams:
             self.rot1 = -self.rot1
             self.rot3 = -self.rot3
 
+    def calc_center_after_rots(self):
+        from .coordmaps import rotation_matrix
+
+        centerZ = self.SDD / self.px_size
+
+        Rx = rotation_matrix(self.rot3, 'x')
+        Ry = rotation_matrix(-self.rot2, 'y')
+        Rz = rotation_matrix(-self.rot1, 'z')
+
+        T0 = np.array([centerZ, -self.centerX, -self.centerY])
+        P_world = np.array([centerZ, 0.0, 0.0])
+        R = Rz @ Ry @ Rx
+
+        T = R @ T0
+
+        P_local = R.T @ (P_world - T)
+
+        self.centerX = P_local[1]
+        self.centerY = P_local[2]
+
+
+
+def apply_rotation(
+    axes: str,
+    angles,
+    degrees: bool = True,
+) -> R:
+    assert len(axes) == len(angles)
+
+    r = R.identity()
+
+    for ax, ang in zip(axes, angles):
+        assert ax in "xyz"
+        r *= R.from_euler(ax, ang, degrees=degrees)
+    return r
+
+def calc_rots(
+    axes: str,
+    angles,
+    degrees: bool = True,
+    transp: bool = False,
+    flipud: bool = False,
+    fliplr: bool = False,
+):
+    r = apply_rotation(
+        axes=axes,
+        angles=angles,
+    )
+    yaw, pitch, roll = r.as_euler("zyx", degrees=degrees)
+
+    rot1 = -yaw
+    rot2 = pitch
+    rot3 = roll
+
+    rot1, rot2, rot3 = _cal_rot_(rot1, rot2, rot3, transp, flipud, fliplr)
+    if degrees:
+        rot1, rot2, rot3 = np.deg2rad(rot1), np.deg2rad(rot2), np.deg2rad(rot3)
+    return rot1, rot2, rot3
+
+
+def _cal_rot_(rot1, rot2, rot3, transp, flipud, fliplr):
+
+    if transp:
+        rot1, rot2 = -rot2, -rot1
+    if flipud:
+        rot2 = -rot2
+        rot3 = -rot3
+    if fliplr:
+        rot1 = -rot1
+        rot3 = -rot3
+    return rot1, rot2, rot3

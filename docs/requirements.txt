@@ -4,4 +4,4 @@ nbsphinx
 myst-nb
 ipykernel
 nbconvert
-pygid>=0.2.8
+pygid>=0.2.14
