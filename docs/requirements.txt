@@ -1,5 +1,6 @@
 sphinx>=7.0
 sphinx-rtd-theme
+pydata-sphinx-theme
 nbsphinx
 myst-nb
 ipykernel
