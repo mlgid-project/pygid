@@ -357,6 +357,47 @@ class NexusFile:
             else:
                 raise TypeError(f"entry {entry} is not a string")
 
+    def set_techniques_info(self, techniques_info:list, entry=None):
+        """
+        Parameters
+        ----------
+        techniques_info : list[dict]
+            List of dictionaries of the techniques information. Can include:
+                - name
+                - pid
+
+        entry : str or None (all entries)
+            NXentry group to add the user information to.
+        """
+        if not isinstance(techniques_info, list):
+            raise TypeError(f"techniques_info should be a list")
+        if not all(isinstance(d, dict) for d in techniques_info):
+            raise TypeError("Each technique must be a dictionary.")
+        with h5py.File(self.path, "r+") as root:
+            if entry is None:
+                for e in self.entry_dict:
+                    if 'techniques' in root[f"{e}/instrument"]:
+                        del root[f"{e}/instrument/techniques"]
+                    h5subgrp = root[f"{e}/instrument"].create_group('techniques')
+                    h5subgrp.attrs.update({'NX_class': 'NXnote', 'EX_required': 'true'})
+                    _set_techniques_info_single_entry(root[f"{e}/instrument/techniques"], techniques_info)
+            elif isinstance(entry, str):
+                if 'techniques' in root[f"{entry}/instrument"]:
+                    del root[f"{entry}/instrument/techniques"]
+                h5subgrp = root[f"{entry}/instrument"].create_group('techniques')
+                h5subgrp.attrs.update({'NX_class': 'NXnote', 'EX_required': 'true'})
+                _set_techniques_info_single_entry(root[f"{entry}/instrument/techniques"], techniques_info)
+            else:
+                raise TypeError(f"entry {entry} is not a string")
+
+def _set_techniques_info_single_entry(h5grp, information_list, overwrite = False):
+        for i, info_dict in enumerate(information_list):
+            # if f"technique_{i}" in h5grp:
+            #     continue
+            h5subgrp = h5grp.create_group(f"technique_{i}")
+            h5subgrp.attrs.update({'NX_class': 'NXnote', 'EX_required': 'true'})
+            for key, value in info_dict.items():
+                h5subgrp.create_dataset(key, data = value).attrs.update({'type': 'NX_CHAR'})
 
 def _set_beamtime_information_single_entry(h5grp, information_dict):
     """Saves the beamtime information."""
@@ -588,3 +629,4 @@ def get_h5_value(root, path, default=None):
         return root[path][()]
     except:
         return default
+

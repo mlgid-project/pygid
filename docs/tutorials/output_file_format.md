@@ -44,3 +44,8 @@ Below is an example of the file structure generated after conversion:
 - `sample` subgroup containing sample metadata describing thin-film layered structure
 
 <p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/sample.png" width="400" alt="pygid"> </p>
+
+
+- `users` subgroup containing information about the users
+
+<p align="center"> <img src="https://raw.githubusercontent.com/mlgid-project/pygid/main/docs/images/output_file/users.png" width="400" alt="pygid"> </p>

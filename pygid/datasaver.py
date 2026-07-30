@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 import warnings
 import logging
+
 # logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 # from silx.io.h5py_utils import open_item
 
@@ -352,6 +353,19 @@ class DataSaver:
             # Save matrix and associated analysis results
             save_matrix(root, self.h5_group, self.matrix, name)
             fill_process_group(root, self.h5_group, self.matrix)
+            information_list = [{'name': 'x-ray diffraction',
+                                 'pid': 'http://purl.org/pan-science/PaNET/PaNET01216'}]
+            #save techniques
+            if not "technique_0" in root[f"{self.h5_group}/instrument/techniques"]:
+                if 'gid' in name:
+                    information_list.append({'name': 'grazing incidence wide angle x-ray scattering',
+                                         'pid': 'http://purl.org/pan-science/PaNET/PaNET01316'})
+                from .nexus_reader import _set_techniques_info_single_entry
+                _set_techniques_info_single_entry(
+                    h5grp=root[f"{self.h5_group}/instrument/techniques"],
+                    information_list=information_list
+                    )
+
             fill_analysis_group(root, self.h5_group, len(data), self.img_container_detect, self.img_container_fit,
                                 self.container_matched, self.unit_cell_data)
             self.logger.info(f"Saved in {Path(self.path_to_save).resolve()} in group {self.h5_group}")
@@ -661,6 +675,7 @@ def _make_groups_(root, h5_group="entry"):
                         {'NX_class': 'NXdata', 'EX_required': 'true', 'signal': 'img_gid_q'})
     ensure_group_exists(root, f'/{h5_group}/process', {'NX_class': 'NXprocess', 'EX_required': 'true'})
     ensure_group_exists(root, f'/{h5_group}/process/pygid', {'NX_class': 'NXprocess', 'EX_required': 'true'})
+    ensure_group_exists(root, f'/{h5_group}/instrument/techniques', {'NX_class': 'NXnote', 'EX_required': 'true'})
 
 
 def save_single_data(root, dataset_name, data, extend_list=False, attrs=None):
@@ -762,7 +777,6 @@ def save_single_metadata(root, metadata, dataset_name, data_name, nx_type="NX_CH
                     else:
                         old_data.append(data)
                     data = old_data
-
             root.create_dataset(
                 name=dataset_name, data=data, maxshape=None,
             ).attrs.update({'EX_required': 'true'})
@@ -803,7 +817,7 @@ def save_exp_metadata(root, exp_metadata=None, h5_group="entry"):
     # metadata that shold be extended
     save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'filename', 'filename', required=False,
                          extend_list=True)
-    save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'frame_num', 'frame_num', required=True,
+    save_single_metadata(root[f"/{h5_group}/data"], exp_metadata, 'frame_num', 'frame_num', required=False,
                          extend_list=True)
 
     saved_attr = ['extend_fields','instrument_name', 'source_type', 'source_probe', 'source_name', 'wavelength_spread',
