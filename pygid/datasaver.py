@@ -356,6 +356,9 @@ class DataSaver:
             information_list = [{'name': 'x-ray diffraction',
                                  'pid': 'http://purl.org/pan-science/PaNET/PaNET01216'}]
             #save techniques
+            ensure_group_exists(root, f'/{self.h5_group}/instrument/techniques',
+                               {'NX_class': 'NXnote', 'EX_required': 'true'})
+
             if not "technique_0" in root[f"{self.h5_group}/instrument/techniques"]:
                 if 'gid' in name:
                     information_list.append({'name': 'grazing incidence wide angle x-ray scattering',
