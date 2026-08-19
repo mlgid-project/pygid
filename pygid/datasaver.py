@@ -863,6 +863,7 @@ def save_smpl_metadata(root, smpl_metadata=None, h5_group="entry"):
             if isinstance(value, dict):
                 # Create a subgroup for nested dictionaries
                 subgrp = h5grp.require_group(key)
+                subgrp.attrs.update({'NX_class': 'NXsample', 'EX_required': 'true'})
                 write_dict_to_group(subgrp, value)
             else:
                 # Remove existing dataset if it exists
