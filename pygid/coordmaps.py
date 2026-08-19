@@ -338,7 +338,7 @@ class CoordMaps:
             np.ndarray
                 3D array of q-vectors in the laboratory frame.
         """
-
+        self.calc_type = calc_type
         # Define detector coordinates in meters relative to beam center (poni)
         # d1 — horizontal axis, d2 — vertical axis
         SDD = self.params.SDD
@@ -870,11 +870,13 @@ class CoordMaps:
                 Maximum absolute scattering vector magnitude (Å⁻¹).
         """
         q_max = np.max(np.linalg.norm(q, axis=-1))
-        if len(q) >= 8:
+        q_min = np.min(np.linalg.norm(q, axis=-1))
+        if (((0<=self.params.centerX) and
+            (self.params.centerX<self.params.img_dim[1]))
+                and ((0<=self.params.centerY)
+                     and (self.params.centerY<self.params.img_dim[0]))):
             q_min = 0
-        else:
-            q_min = np.min(np.linalg.norm(q, axis=-1))
-        return q_min, np.max(np.linalg.norm(q, axis=-1))
+        return q_min, q_max
 
     def _find_ranges_q_giwaxs_(self, q_xy_giwaxs, q_z_giwaxs):
         """

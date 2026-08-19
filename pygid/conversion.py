@@ -71,7 +71,7 @@ class Conversion:
         """
     matrix: CoordMaps
     path: str = None
-    dataset: str = 'measurement/eiger4m'
+    dataset: str = None
     frame_num: float = None
     img_raw: Optional[Any] = None
     average_all: bool = False
@@ -160,9 +160,9 @@ class Conversion:
         If number_to_combine is set, ensures batch_size is a multiple of it
         to avoid processing incomplete groups.
         """
-        if self.number_to_combine>self.batch_size:
-            raise ValueError("number_to_combine cannot be greater than batch size")
         if self.number_to_combine is not None:
+            if self.number_to_combine > self.batch_size:
+                raise ValueError("number_to_combine cannot be greater than batch size")
             rest = self.batch_size % self.number_to_combine
             if rest != 0:
                 self.batch_size -= rest
