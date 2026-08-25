@@ -285,8 +285,6 @@ class ExpParams:
         """
         if self.transp:
             self.poni1, self.poni2 = self.poni2, self.poni1
-            if self.rot3 != 0:
-                logging.info(f"rot3! = 0 and transp = True should not be used simultaneously. Choose one key.")
         if self.flipud:
             self.poni1 = (self.img_dim[0]-1)* self.px_size - self.poni1
         if self.fliplr:
@@ -300,7 +298,13 @@ class ExpParams:
         Calculates detector rotation angles based on the flipping keys.
         """
         if self.transp:
-            self.rot1, self.rot2 = -self.rot2, -self.rot1
+            # self.rot1, self.rot2 = -self.rot2, -self.rot1
+            if self.rot3 != 0:
+                logging.info(f"rot3 != 0 and transp = True should not be used simultaneously. Choose one key.")
+            self.rot1, self.rot2, self.rot3 = calc_rots(axes="yzx", angles=[-self.rot1, self.rot2, -self.rot3], degrees=False,
+                                               transp=False,
+                                               flipud=False,
+                                               fliplr=False)
             # self.rot3 = np.pi+self.rot3
         if self.flipud:
             self.rot2 = -self.rot2
@@ -334,13 +338,13 @@ class ExpParams:
 def apply_rotation(
     axes: str,
     angles,
-    degrees: bool = True,
+    degrees: bool = False,
 ) -> R:
     assert len(axes) == len(angles)
 
     r = R.identity()
 
-    for ax, ang in zip(axes, angles):
+    for ax, ang in zip(axes[::-1], angles[::-1]):
         assert ax in "xyz"
         r *= R.from_euler(ax, ang, degrees=degrees)
     return r
@@ -348,14 +352,29 @@ def apply_rotation(
 def calc_rots(
     axes: str,
     angles,
-    degrees: bool = True,
+    degrees: bool = False,
     transp: bool = False,
     flipud: bool = False,
     fliplr: bool = False,
 ):
+    """
+    Function to calculate the rotation angles based on the provided list of axes and angles.
+
+    Parameters:
+        axes (str): A string representing the axes of rotation (e.g., "xzyz").
+        angles (list): A list of angles corresponding to the specified axes.
+        degrees (bool): If True, the angles are interpreted as degrees; otherwise, they are in radians.
+        transp (bool): If True, transpose the geometry.
+        flipud (bool): If True, flip the geometry upside down.
+        fliplr (bool): If True, flip the geometry left-right.
+
+    Returns:
+        rot1, rot2, rot3: The calculated rotation angles after applying the rotations (always in radians).
+    """
     r = apply_rotation(
         axes=axes,
         angles=angles,
+        degrees=degrees
     )
     yaw, pitch, roll = r.as_euler("zyx", degrees=degrees)
 
@@ -372,7 +391,12 @@ def calc_rots(
 def _cal_rot_(rot1, rot2, rot3, transp, flipud, fliplr):
 
     if transp:
-        rot1, rot2 = -rot2, -rot1
+        # rot1, rot2 = -rot2, -rot1
+        rot1, rot2, rot3 = calc_rots(axes="yzx", angles=[-rot1, rot2, -rot3],
+                                                    degrees=False,
+                                                    transp=False,
+                                                    flipud=False,
+                                                    fliplr=False)
     if flipud:
         rot2 = -rot2
         rot3 = -rot3
