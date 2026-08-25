@@ -315,7 +315,7 @@ class CoordMaps:
         tuple
             (min_phi, max_phi) in degrees
         """
-        q = self.q
+        q = self._q_smpl_to_q_lab_(self.q, ai=-self.ai)
         # Calculate azimuthal angle φ relative to qy axis, converted to degrees
         phi = 180 - np.arctan2(q[..., 2], np.sqrt(q[..., 1] ** 2 + q[..., 0] ** 2) * np.sign(q[..., 1])) / np.pi * 180
         self.phi = phi
@@ -367,8 +367,6 @@ class CoordMaps:
             if np.min(d2) * np.max(d2) < 0:
                 P = np.append(P, [[SDD, Py[0, 0], 0]], axis=0)
                 P = np.append(P, [[SDD, Py[0, -1], 0]], axis=0)
-
-            self.P = P
         elif calc_type == "frame":
             # Use detector edge (frame) to get angular range
             Px = SDD * np.ones_like(Pz)
@@ -396,7 +394,7 @@ class CoordMaps:
             # Use the full detector area for correction matrices
             Px = SDD * np.ones_like(Pz)
             P = np.stack([Px, Py, Pz], axis=-1)
-
+        self.P = P
         # Apply detector rotation according to experiment geometry
         R3 = rotation_matrix(-self.params.rot1, axis='z')
         R2 = rotation_matrix(self.params.rot2, axis='y')
