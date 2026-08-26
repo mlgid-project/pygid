@@ -274,35 +274,25 @@ class DataLoader:
 
     def _find_and_set_dataset(self, root, dataset, path):
         """
-        If dataset is None, recursively search the opened HDF5 file object `root`
-        for the first 3D dataset and return its path string. If none found,
-        raise FileNotFoundError. Logs an INFO message when selecting a dataset.
-        If `dataset` is already provided (and is a non-empty string), return it unchanged.
+        Find the first 3D dataset in an HDF5/NeXus file.
+
+        If dataset is provided, return it unchanged.
+        Otherwise search both regular datasets and soft/external links.
         """
-        # If caller provided a dataset name, just return it (don't call "in" on root if it's None)
         if dataset is not None:
-            if not isinstance(dataset, str) or dataset == "":
-                raise ValueError("dataset must be a non-empty string or None")
-            return dataset
+            return _validate_dataset(dataset)
 
-        # dataset is None -> search for first 3D dataset
-        found = None
-
-        def visitor(name, obj):
-            nonlocal found
-            if found is not None:
-                return
-            if isinstance(obj, h5py.Dataset):
-                shape = getattr(obj, "shape", None)
-                if shape is not None and len(shape) == 3:
-                    found = name
-
-        root.visititems(visitor)
+        found = _find_3d_dataset(root)
 
         if found is None:
-            raise FileNotFoundError(f"No 3D dataset found in file: {path}")
+            raise FileNotFoundError(
+                f"No 3D dataset found in file: {path}"
+            )
 
-        self.logger.info(f"Dataset not specified; using first 3D dataset found: '{found}'")
+        self.logger.info(
+            f"Dataset not specified; using first 3D dataset found: '{found}'"
+        )
+
         return found
 
     def _reconstruct_lmbd_(self):
@@ -350,9 +340,6 @@ class DataLoader:
         del translation, data, flatfield, mask
         return lmbd_img
 
-
-
-
 def check_file_exists(filepath):
     """
     Checks if a file exists at the specified file path. If the file is not found, raises a `FileNotFoundError`.
@@ -364,3 +351,35 @@ def check_file_exists(filepath):
     """
     if not os.path.isfile(filepath):
         raise FileNotFoundError(f"The file '{filepath}' does not exist.")
+
+def _validate_dataset(dataset):
+    """Validate and return an explicitly provided dataset path."""
+    if not isinstance(dataset, str) or dataset == "":
+        raise ValueError("dataset must be a non-empty string or None")
+
+    return dataset
+
+
+def _find_3d_dataset(root):
+    """Find the first 3D dataset, including linked datasets."""
+
+    def search(group, prefix=""):
+        for name in group:
+            path = f"{prefix}/{name}"
+
+            try:
+                obj = root[path]
+            except (KeyError, OSError):
+                continue
+
+            if isinstance(obj, h5py.Dataset) and obj.ndim == 3:
+                return path.lstrip("/")
+
+            if isinstance(obj, h5py.Group):
+                found = search(obj, path)
+                if found is not None:
+                    return found
+
+        return None
+
+    return search(root)
