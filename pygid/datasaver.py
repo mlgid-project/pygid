@@ -19,40 +19,55 @@ if TYPE_CHECKING:
     from . import Conversion
 
 
+from numbers import Number
+
+
 class ExpMetadata:
     """
     Container class for storing sample and experimental metadata.
-
-    This class is designed to hold arbitrary experimental parameters, such as
-    sample name, substrate type, growth conditions, and instrument settings.
-    All stored attributes are intended to be saved in the `sample` group of
-    an HDF5 file for later retrieval or data analysis.
-
-    Examples
-    --------
-    meta = pygid.ExpMetadata(sample_name="CuPc", substrate="SiO2", temperature=300)
-    print(meta)
-    ExpMetadata({'sample_name': 'CuPc', 'substrate': 'SiO2', 'temperature': 300})
-
-    Attributes
-    ----------
-    **kwargs : dict
-        Arbitrary keyword arguments defining the metadata fields.
-        Each key–value pair becomes an attribute of the instance.
     """
 
     def __init__(self, **kwargs):
-        # Dynamically assign all provided keyword arguments as attributes
         for key, value in kwargs.items():
+            self._validate_field(key, value)
             setattr(self, key, value)
-        if not hasattr(self, 'extend_fields'):
+
+        if not hasattr(self, "extend_fields"):
             self.extend_fields = []
 
+    @classmethod
+    def _validate_field(cls, name, value):
+        if not isinstance(name, str):
+            raise TypeError(
+                f"Metadata field name must be str, got {type(name).__name__}"
+            )
+
+        cls._validate_value(name, value)
+
+    @classmethod
+    def _validate_value(cls, name, value):
+        # Basic supported types
+        if isinstance(value, (str, Number, bool)):
+            return
+
+        # Lists / tuples
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                cls._validate_value(name, item)
+            return
+
+        raise TypeError(
+            f"Metadata field {name!r} contains unsupported type: "
+            f"{type(value).__name__}"
+        )
+
     def __setattr__(self, name, value):
+        if name != "extend_fields":
+            self._validate_field(name, value)
+
         self.__dict__[name] = value
 
     def __repr__(self):
-        # Compact string representation for easy inspection
         return f"{self.__class__.__name__}({self.__dict__})"
 
 
@@ -109,59 +124,150 @@ class SampleMetadata:
             "experimental_conditions": "standard conditions, on air"
         }
         smpl_metadata = pygid.SampleMetadata(path_to_save="sample.yaml", data=data)
+
+
+        Metadata keys are automatically sanitized:
+
+        - spaces/hyphens -> "_"
+        - brackets (), [], {} -> removed
+        - other invalid characters -> "_"
+        - multiple "_" -> single "_"
+        - leading/trailing "_" -> removed
+
         """
 
     def __init__(self, *, path_to_save=None, path_to_load=None, data=None):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.INFO)
+
         self.path_to_save = path_to_save
         self.path_to_load = path_to_load
-        self.data = data or {}
+        self.data = {}
+
+        if data is not None:
+            self.data = self._sanitize_data(data)
 
         if self.path_to_load:
             self.load(self.path_to_load)
+
         if self.path_to_save:
             self.save(self.path_to_save)
 
     def __repr__(self):
         return f"{self.__class__.__name__}(data={self.data})"
 
+    def _sanitize_key(self, key):
+        if not isinstance(key, str):
+            key = str(key)
+
+        original_key = key
+
+        # Remove brackets
+        key = re.sub(r"[\[\]\(\)\{\}]", "", key)
+
+        # Spaces and hyphens -> "_"
+        key = re.sub(r"[\s\-]+", "_", key)
+
+        # Everything else invalid -> "_"
+        key = re.sub(r"[^A-Za-z0-9_]", "_", key)
+
+        # Collapse multiple underscores
+        key = re.sub(r"_+", "_", key)
+
+        # Remove leading/trailing underscores
+        key = key.strip("_")
+
+        if key != original_key:
+            self.logger.info(
+                "Changed metadata field name from %r to %r",
+                original_key,
+                key,
+            )
+
+        return key
+
+    def _sanitize_data(self, data):
+        if isinstance(data, dict):
+            sanitized = {}
+
+            for key, value in data.items():
+                new_key = self._sanitize_key(key)
+
+                if new_key in sanitized:
+                    raise ValueError(
+                        f"Metadata key collision: "
+                        f"{key!r} becomes {new_key!r}, "
+                        f"but {new_key!r} already exists."
+                    )
+
+                sanitized[new_key] = self._sanitize_data(value)
+
+            return sanitized
+
+        if isinstance(data, list):
+            return [self._sanitize_data(value) for value in data]
+
+        if isinstance(data, tuple):
+            return tuple(self._sanitize_data(value) for value in data)
+
+        return data
+
     def save(self, filepath=None):
         filepath = filepath or self.path_to_save
+
         if filepath is None:
             raise ValueError("Filepath is not defined for saving.")
+
+        self.data = self._sanitize_data(self.data)
 
         ext = os.path.splitext(filepath)[1].lower()
 
         if ext in [".yaml", ".yml"]:
-            with open(filepath, 'w') as f:
-                yaml.dump({"data": self.data}, f, sort_keys=False, default_flow_style=False)
+            with open(filepath, "w") as f:
+                yaml.dump(
+                    {"data": self.data},
+                    f,
+                    sort_keys=False,
+                    default_flow_style=False,
+                )
         else:
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 for key, value in self.data.items():
                     f.write(f"{key}={value}\n")
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(logging.INFO)
-        self.logger.info(f"Saved sample metadata to {Path(filepath).resolve()}")
+
+        self.logger.info(
+            "Saved sample metadata to %s",
+            Path(filepath).resolve(),
+        )
 
     def load(self, filepath=None):
         filepath = filepath or self.path_to_load
+
         if filepath is None:
             raise ValueError("File path is not defined for loading.")
 
         ext = os.path.splitext(filepath)[1].lower()
 
         if ext in [".yaml", ".yml"]:
-            with open(filepath, 'r') as f:
-                content = yaml.safe_load(f)
-                self.data = content.get("data", {})
+            with open(filepath, "r") as f:
+                content = yaml.safe_load(f) or {}
+
+            self.data = self._sanitize_data(
+                content.get("data", {})
+            )
+
         else:
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 self.data = {}
+
                 for line in f:
-                    if '=' in line:
-                        key, value = line.strip().split('=', 1)
+                    if "=" in line:
+                        key, value = line.strip().split("=", 1)
+                        key = self._sanitize_key(key)
                         self.data[key] = self._parse_value(value)
 
-    def _parse_value(self, value):
+    @staticmethod
+    def _parse_value(value):
         try:
             return eval(value, {"__builtins__": {}})
         except Exception:

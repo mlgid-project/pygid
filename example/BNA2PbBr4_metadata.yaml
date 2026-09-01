@@ -10,7 +10,7 @@ data:
   structure:
     stack: nitrogen | (BNA)2PbBr4 | ITO | glass
     materials:
-      (BNA)2PbBr4:
+      BNA2PbBr4:
         name: Benzylammonium lead bromide n = 1
         CIF: (BNA)2PbBr4.cif
         precursor:
@@ -23,7 +23,7 @@ data:
           additive: null
         preparation:
           deposition_method:
-            spin-coating_type: one-step
+            spin_coating_type: one-step
             antisolvent: null
             gas: null
             spinning_start_time: 35
