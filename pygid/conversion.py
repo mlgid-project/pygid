@@ -2449,7 +2449,7 @@ class Conversion:
             shift=1,
             xlim=(None, None),
             ylim=(None, None),
-            dang=0.5,
+            dang=None,
             dq=None,
             path_to_save='result.h5',
             h5_group=None,
@@ -2490,7 +2490,7 @@ class Conversion:
         ylim : tuple or None, optional
             Y-axis limits as (min, max). If None, limits are auto-scaled.
         dang : float, optional
-            Angular resolution in degrees for binning (default: 0.5).
+            Angular resolution in degrees for binning (default: None).
         dq : float or None, optional
             Radial bin width in Å⁻¹. If None, uses default binning.
         path_to_save : str, optional
@@ -2572,7 +2572,7 @@ class Conversion:
             shift=1,
             xlim=(None, None),
             ylim=(None, None),
-            dang=0.5,
+            dang=None,
             dq=None,
             path_to_save='result.h5',
             h5_group=None,
@@ -2826,7 +2826,7 @@ class Conversion:
             xlim=(None, None),
             ylim=(None, None),
             path_to_save='result.h5',
-            dang=0.5,
+            dang=None,
             dq=None,
             h5_group=None,
             overwrite_file=True,
@@ -2950,7 +2950,7 @@ class Conversion:
             xlim=(None, None),
             ylim=(None, None),
             path_to_save='result.h5',
-            dang=0.5,
+            dang=None,
             dq=None,
             h5_group=None,
             overwrite_file=True,
@@ -3223,8 +3223,8 @@ class Conversion:
     def horiz_profile_gid(
             self,
             frame_num=None,
-            q_xy_range=[0, 4],
-            q_z_range=[0, 0.2],
+            q_xy_range=None,
+            q_z_range=None,
             dq=None,
             multiprocessing=None,
             return_result=False,
@@ -3254,9 +3254,9 @@ class Conversion:
         frame_num : int, list, or None, optional
             Frame index or list of indices to analyze. If None, the first or current frame is used.
         q_xy_range : list or tuple, optional
-            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 4].
+            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is None (full range).
         q_z_range : list or tuple, optional
-            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 0.2].
+            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is None (full range).
         dq : float or None, optional
             Reciprocal-space step size (Δq). If None, existing resolution is used.
         multiprocessing : bool or None, optional
@@ -3356,8 +3356,8 @@ class Conversion:
     def vert_profile_gid(
             self,
             frame_num=None,
-            q_xy_range=[0, 0.2],
-            q_z_range=[0, 4],
+            q_xy_range=None,
+            q_z_range=None,
             dq=None,
             multiprocessing=None,
             return_result=False,
@@ -3387,9 +3387,9 @@ class Conversion:
         frame_num : int, list, or None, optional
             Frame index or list of indices to analyze. If None, the first or current frame is used.
         q_xy_range : list or tuple, optional
-            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 4].
+            In-plane momentum transfer range (Å⁻¹) as [min, max]. Default is None (full range).
         q_z_range : list or tuple, optional
-            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is [0, 0.2].
+            Out-of-plane momentum transfer range (Å⁻¹) as [min, max]. Default is None (full range).
         dq : float or None, optional
             Reciprocal-space step size (Δq). If None, existing resolution is used.
         multiprocessing : bool or None, optional
