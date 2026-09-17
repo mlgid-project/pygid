@@ -178,10 +178,12 @@ def plot_img_raw(img_raw, x, y, frame_num=None, plot_result=True,
 
         p = ax.imshow(np.clip(img, clims[0], clims[1]),
                       norm=LogNorm(vmin=clims[0], vmax=clims[1]),
-                      extent=[xlim[0], xlim[1], ylim[0], ylim[1]],
+                      extent=[np.nanmin(x), np.nanmax(x), np.nanmin(y), np.nanmax(y)],
                       aspect='equal',
                       origin='lower')
 
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
         ax.set_xlabel(r'$y$ [px]')
         ax.set_ylabel(r'$z$ [px]')
         ax.tick_params(axis='both')
@@ -296,14 +298,16 @@ def _plot_single_image(
             ax.set_xlim(xlim)
             ax.set_ylim(ylim)
 
-        if save_fig:
-            if path_to_save_fig is not None:
-                plt.savefig(path_to_save_fig) #,  pad_inches=0.5
-                logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
+            if save_fig:
+                if path_to_save_fig is not None:
+                    plt.savefig(path_to_save_fig) #,  pad_inches=0.5
+                    logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
+                else:
+                    raise ValueError("path_to_save_fig is not defined.")
+            if plot_result:
+                plt.show()
             else:
-                raise ValueError("path_to_save_fig is not defined.")
-        if plot_result:
-            plt.show()
+                plt.close()
         return fig, ax
 
 def get_clims(img, lower_percentile=5, upper_percentile=95):
@@ -387,15 +391,15 @@ def plot_simul_data(plot_context, img, q_xy, q_z, crystal, clims, save_result, p
         for i, cr in enumerate(crystal):
             add_single_simul_data(cr, ax)
 
-    if save_result:
-        plt.savefig(path_to_save)
-        logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
-    if save_fig:
-        return fig, ax
-    if plot_result:
-        plt.show()
-    else:
-        plt.close()
+        if save_result:
+            plt.savefig(path_to_save)
+            logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
+        if save_fig:
+            return fig, ax
+        if plot_result:
+            plt.show()
+        else:
+            plt.close()
     return fig, ax
 
 def add_single_simul_data(
@@ -467,15 +471,20 @@ def add_single_simul_data(
         x, y = q[0], q[1]
 
         marker = crystal.get('marker', 'o')
+        unfillable_markers = ['x', '+', '1', '2', '3', '4', '|', '_']  # confirm this list
+
+        fill = crystal.get('fill', False)
+        is_unfillable = marker in unfillable_markers
+
         ax.scatter(
             x, y,
-            # c=colors,
             s=crystal.get('marker_size', 50),
             marker=marker,
             linewidths=crystal.get('line_width', 0.5),
-            facecolors='none',
-            edgecolors=colors
+            facecolors=colors if (is_unfillable or fill) else 'none',
+            edgecolors='none' if is_unfillable else colors,
         )
+
         if plot_mi:
             for xi, yi, text in zip(x, y, mi):
                 txt = ax.text(
@@ -576,10 +585,10 @@ def plot_simul_data_old(plot_context, img, q_xy, q_z, clims, simulated_data, cma
                                           linewidth, radius, text_color, plot_mi,
                                           )
 
-    if save_result:
-        plt.savefig(path_to_save)
-        logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
-    plt.show()
+        if save_result:
+            plt.savefig(path_to_save)
+            logging.info(f"Saved figure in {Path(path_to_save).resolve()}")
+        plt.show()
 
 def add_single_simul_data_old(
         dataset,
@@ -738,15 +747,15 @@ def _plot_profile(plot_context, x_values, profiles, xlabel, shift, xlim, ylim, p
             if None not in (ylim[0], ylim[1]):
                 ax.set_ylim(ylim)
 
-        if save_fig:
-            if path_to_save_fig is not None:
-                fig.canvas.draw()
-                fig.savefig(path_to_save_fig)
-                logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
-            else:
-                raise ValueError("path_to_save_fig is not defined.")
-        if plot_result:
-            plt.show()
+            if save_fig:
+                if path_to_save_fig is not None:
+                    fig.canvas.draw()
+                    fig.savefig(path_to_save_fig)
+                    logging.info(f"Saved figure in {Path(path_to_save_fig).resolve()}")
+                else:
+                    raise ValueError("path_to_save_fig is not defined.")
+            if plot_result:
+                plt.show()
         return fig, ax
 
 

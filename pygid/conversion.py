@@ -1047,11 +1047,11 @@ class Conversion:
             y = getattr(self.matrix[0], y_key)
             fig_list = []
             for i in frame_num:
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    x_label,
                                    y_label, aspect, plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append((image))
             if return_fig:
                 if len(fig_list) == 1:
                     return fig_list[0]
@@ -1566,11 +1566,11 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
                                    r'$q_{z}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append(image)
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
@@ -1723,11 +1723,11 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r'$q_{x}$ [$\mathrm{\AA}^{-1}$]',
                                    r'$q_{y}$ [$\mathrm{\AA}^{-1}$]', 'equal', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append(image)
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
@@ -1886,10 +1886,10 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append((image))
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
@@ -2048,10 +2048,10 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$\chi$ [$\degree$]", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append((image))
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
@@ -2218,10 +2218,10 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append((image))
 
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
@@ -2390,10 +2390,10 @@ class Conversion:
         if plot_result or save_fig or return_fig:
             fig_list = []
             for i in range(len(img)):
-                fig, ax = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
+                image = _plot_single_image(get_plot_context(type(self).plot_params), img[i], x, y, clims, xlim, ylim,
                                    r"$|q|\ \mathrm{[\AA^{-1}]}$", r"$q_{\phi}\ \mathrm{[\AA^{-1}]}$", 'auto', plot_result,
                                    save_fig, add_frame_number(path_to_save_fig, i))
-                fig_list.append((fig, ax))
+                fig_list.append((image))
 
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
@@ -2780,7 +2780,7 @@ class Conversion:
 
         # Plot the radial profile if requested
         if plot_result or save_fig or return_fig:
-            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+            image = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_abs_values,
                           profiles = radial_profile,
                           xlabel = r"$q_{abs}\ [\AA^{-1}]$",
@@ -2806,7 +2806,7 @@ class Conversion:
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
-            return fig, ax
+            return image
         if return_result:
             return (q_abs_values, radial_profile[0]) if radial_profile.shape[0] == 1 else (
                 q_abs_values, radial_profile)
@@ -3166,7 +3166,7 @@ class Conversion:
 
         # Plot profile if requested
         if plot_result or save_fig or return_fig:
-            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+            image = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = phi_abs_values,
                           profiles = azim_profile,
                           xlabel = r"$\chi\ [\degree]$",
@@ -3193,7 +3193,7 @@ class Conversion:
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
-            return fig, ax
+            return image
         if return_result:
             return (phi_abs_values, azim_profile[0]) if azim_profile.shape[0] == 1 else (
                 phi_abs_values, azim_profile)
@@ -3322,7 +3322,7 @@ class Conversion:
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         horiz_profile = np.nanmean(img_q, axis=1)
         if plot_result or save_fig or return_fig:
-            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+            image = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_hor_values,
                           profiles = horiz_profile,
                           xlabel = r'$q_{xy}$ [$\mathrm{\AA}^{-1}$]',
@@ -3345,7 +3345,7 @@ class Conversion:
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
-            return fig, ax
+            return image
         if return_result:
             return (q_hor_values, horiz_profile[0]) if horiz_profile.shape[0] == 1 else (
                 q_hor_values, horiz_profile)
@@ -3455,7 +3455,7 @@ class Conversion:
         img_q = np.expand_dims(img_q, axis=0) if img_q.ndim == 2 else img_q
         vert_profile = np.nanmean(img_q, axis=2)
         if plot_result or save_fig or return_fig:
-            fig, ax = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
+            image = _plot_profile(plot_context = get_plot_context(type(self).plot_params),
                           x_values = q_vert_values,
                           profiles = vert_profile,
                           xlabel = r'$q_{z}$ [$\mathrm{\AA}^{-1}$]',
@@ -3478,7 +3478,7 @@ class Conversion:
         if return_result and return_fig:
             raise ValueError("Cannot set both return_result and return_fig to True. Please choose one.")
         if return_fig:
-            return fig, ax
+            return image
         if return_result:
             return (q_vert_values, vert_profile[0]) if vert_profile.shape[0] == 1 else (
                 q_vert_values, vert_profile)
