@@ -1453,6 +1453,38 @@ def get_results_fit_array(img_container):
     return results_array
 
 
+def _save_tracked_peaks_data(root, h5_group, tracked_peaks, metadata=None):
+    """
+    Save a peak-tracking results table (one row per track, scan-wide) to an
+    HDF5 group, overwriting any existing one.
+
+    Parameters
+    ----------
+    root : h5py.File or h5py.Group
+        The root HDF5 object containing the target entry.
+    h5_group : str
+        Name of the entry group (e.g. "entry") under which to store the table.
+    tracked_peaks : np.ndarray or None
+        Structured array with the tracking results. If None, nothing is saved.
+    metadata : dict or None
+        Process metadata (e.g. program, version, date, threshold, length),
+        saved under /{h5_group}/process/peak_tracking.
+    """
+    if tracked_peaks is None:
+        return
+    analysis_path = f"/{h5_group}/data/analysis"
+    ensure_group_exists(root, analysis_path, {'NX_class': 'NXparameters', 'EX_required': 'true'})
+    group_name = f"{analysis_path}/general"
+    ensure_group_exists(root, group_name, {'NX_class': 'NXparameters', 'EX_required': 'true'})
+    group = root[group_name]
+
+    if 'tracked_peaks' in group:
+        del group['tracked_peaks']
+    group.create_dataset('tracked_peaks', data=tracked_peaks, dtype=tracked_peaks.dtype)
+
+    _save_metadata_dict(metadata, root, h5_group, 'peak_tracking')
+
+
 def get_results_fit_err_array(img_container):
     """
         Convert fitted image container error data into a structured NumPy array.
