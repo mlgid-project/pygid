@@ -1276,9 +1276,11 @@ def _save_matched_data(root, group_name, container_matched):
     if container_matched is None:
         return
     grp = root[group_name]
-    field_example = container_matched.field_names[0]
-    filed_type = f"{field_example.split('_')[0]}_{field_example.split('_')[1]}"
-    keys_to_delete = [key for key in grp.keys() if key.startswith(filed_type)]
+    # One container can hold several peaks_types merged together (e.g. both
+    # "rings" and "segments" for the same frame) -- clean up stale keys for
+    # every type present, not just whichever happens to be field_names[0].
+    field_types = {f"{name.split('_')[0]}_{name.split('_')[1]}" for name in container_matched.field_names}
+    keys_to_delete = [key for key in grp.keys() if any(key.startswith(t) for t in field_types)]
     for key in keys_to_delete:
         del grp[key]
     for i in range(len(container_matched.field_names)):
