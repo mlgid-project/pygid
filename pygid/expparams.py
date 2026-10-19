@@ -1,6 +1,7 @@
 from typing import Any
 import numpy as np
 import os
+import json
 import collections
 from dataclasses import dataclass
 import fabio
@@ -219,8 +220,14 @@ class ExpParams:
             self.wavelength = float(config["wavelength"]) * 1e10
         if self.px_size is None:
             if "pixel1" in config:
-                self.px_size = int(config["pixel1"])
-            else:
+                self.px_size = float(config["pixel1"])
+            elif "detector_config" in config:
+                try:
+                    detector_config = json.loads(config["detector_config"])
+                    self.px_size = float(detector_config["pixel1"])
+                except (ValueError, KeyError, TypeError):
+                    pass
+            if self.px_size is None:
                 if "Detector" in config:
                     self.Detector = str(config["Detector"])
                     self.px_size = pixel_dict.pixel_dict["Detector"]
