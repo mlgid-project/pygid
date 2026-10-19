@@ -51,7 +51,7 @@ class ExpMetadata:
             return
 
         # Lists / tuples
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, (list, tuple, np.ndarray)):
             for item in value:
                 cls._validate_value(name, item)
             return
